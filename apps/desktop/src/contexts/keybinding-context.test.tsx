@@ -165,6 +165,9 @@ describe('KeybindingProvider (vim)', () => {
             settings: {
                 ...state.settings,
                 keybindingStyle: 'vim',
+                // Windows intentionally defaults the global shortcut to disabled;
+                // this suite exercises the explicitly enabled shortcut behavior.
+                globalQuickAddShortcut: 'Control+Alt+M',
             },
         }));
     });

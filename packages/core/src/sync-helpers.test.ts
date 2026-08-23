@@ -25,6 +25,14 @@ const GTD_SYNCED_FIELD_SAMPLE_VALUES: Record<GtdSyncedFieldKey, GtdSettings[GtdS
     focusGroupBy: 'project',
     defaultProjectFlowMode: 'sequential',
     naturalLanguageDates: false,
+    attentionFrames: [{
+        id: 'frame-1',
+        name: 'Deep work',
+        startTime: '09:00',
+        endTime: '11:00',
+        days: [1, 2, 3, 4, 5],
+        matchTokens: ['@desk'],
+    }],
 };
 
 const now = '2026-02-19T00:00:00.000Z';

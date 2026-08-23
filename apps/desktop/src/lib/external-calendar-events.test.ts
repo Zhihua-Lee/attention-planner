@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { gzipSync, strToU8 } from 'fflate';
+import { __externalCalendarEventsTestUtils } from './external-calendar-events';
 
 const getCalendarsMock = vi.hoisted(() => vi.fn());
 const fetchSystemCalendarEventsMock = vi.hoisted(() => vi.fn());
@@ -49,9 +50,8 @@ const yearlyHolidayIcs = [
 ].join('\n');
 
 describe('external calendar events', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
         vi.clearAllMocks();
-        const { __externalCalendarEventsTestUtils } = await import('./external-calendar-events');
         __externalCalendarEventsTestUtils.clearCache();
         isTauriRuntimeMock.mockReturnValue(false);
         readTextFileMock.mockReset();

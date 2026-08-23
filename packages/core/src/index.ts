@@ -62,6 +62,7 @@ export * from './recurrence-constants';
 export * from './review-utils';
 export * from './project-utils';
 export * from './focus-utils';
+export * from './attention-frames';
 export * from './undo-task-completion';
 export * from './uuid';
 export * from './date';

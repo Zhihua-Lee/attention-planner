@@ -184,6 +184,7 @@ export const GTD_SYNCED_FIELD_KEYS = [
     'focusGroupBy',
     'defaultProjectFlowMode',
     'naturalLanguageDates',
+    'attentionFrames',
 ] as const satisfies readonly (keyof GtdSettings)[];
 
 export type GtdSyncedFieldKey = (typeof GTD_SYNCED_FIELD_KEYS)[number];

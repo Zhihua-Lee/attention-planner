@@ -25,6 +25,7 @@ import { normalizeSavedFilters } from './saved-filters';
 import { chooseDeterministicWinner } from './sync-signatures';
 import { DELETE_VS_LIVE_AMBIGUOUS_WINDOW_MS } from './sync-types';
 import { normalizeExternalCalendarColor } from './external-calendar-colors';
+import { normalizeAttentionFrames } from './attention-frames';
 
 const parseSyncTimestamp = (value?: string): number => {
     if (!value) return NaN;
@@ -395,6 +396,12 @@ export const sanitizeMergedSettingsForSync = (
     if (next.gtd !== undefined && !isObjectRecord(next.gtd)) {
         next.gtd = localSettings.gtd ? cloneSettingValue(localSettings.gtd) : undefined;
     } else if (next.gtd) {
+        if (next.gtd.attentionFrames !== undefined) {
+            next.gtd = {
+                ...next.gtd,
+                attentionFrames: normalizeAttentionFrames(next.gtd.attentionFrames),
+            };
+        }
         if (next.gtd.focusTaskLimit !== undefined) {
             const rawLimit = next.gtd.focusTaskLimit;
             if (typeof rawLimit !== 'number' || !Number.isFinite(rawLimit) || rawLimit < MIN_FOCUS_TASK_LIMIT || rawLimit > MAX_FOCUS_TASK_LIMIT) {

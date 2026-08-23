@@ -148,7 +148,9 @@ const parseTaskInterfaceFields = (source: string): ParsedTaskField[] => {
     if (!match) throw new Error('Could not find Task interface.');
     return match[1]
         .split('\n')
-        .map((line) => line.replace(/\/\/.*$/, '').trim())
+        // Strip a CR left by split('\n') before matching end-anchored inline comments.
+        // Without this, Windows CRLF checkouts silently drop every documented field.
+        .map((line) => line.trimEnd().replace(/\/\/.*$/, '').trim())
         .map((line) => line.match(/^([A-Za-z][A-Za-z0-9]*)(\?)?:\s*([^;]+);$/))
         .filter((entry): entry is RegExpMatchArray => entry !== null)
         .map((entry) => ({

@@ -4,6 +4,7 @@ import type { SystemCalendarPermissionStatus, SystemCalendarPushTarget } from '.
 import { SettingsCalendarPage } from './SettingsCalendarPage';
 import { SettingsEmailCaptureSection } from './SettingsEmailCaptureSection';
 import { SettingsObsidianSection } from './SettingsObsidianSection';
+import { SettingsOutlookCalendarSection } from './SettingsOutlookCalendarSection';
 
 type Labels = {
     calendar: string;
@@ -215,6 +216,11 @@ export function SettingsIntegrationsPage({
                 onCalendarPushTargetChange={onCalendarPushTargetChange}
                 onRefreshCalendarPushTargets={onRefreshCalendarPushTargets}
                 maskCalendarUrl={maskCalendarUrl}
+            />
+
+            <SettingsOutlookCalendarSection
+                isTauri={isTauri}
+                showSaved={showSaved}
             />
 
             <SettingsObsidianSection

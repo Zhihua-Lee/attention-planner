@@ -70,3 +70,41 @@ describe('mergeSettingsForSync > gtd.naturalLanguageDates', () => {
         expect(merged.gtd?.naturalLanguageDates).toBeUndefined();
     });
 });
+
+describe('mergeSettingsForSync > gtd.attentionFrames', () => {
+    it('keeps valid frames and drops malformed remote frames', () => {
+        const local: Settings = { gtd: {} };
+        const incoming: Settings = {
+            gtd: {
+                attentionFrames: [
+                    {
+                        id: 'frame-1',
+                        name: 'Deep work',
+                        startTime: '09:00',
+                        endTime: '11:00',
+                        days: [1, 2, 3, 4, 5],
+                        matchTokens: ['@Desk', '@desk'],
+                    },
+                    {
+                        id: '',
+                        name: 'Invalid',
+                        startTime: 'noon',
+                        endTime: '13:00',
+                        days: [],
+                    },
+                ],
+            },
+        };
+
+        const merged = mergeSettingsForSync(local, incoming);
+
+        expect(merged.gtd?.attentionFrames).toEqual([{
+            id: 'frame-1',
+            name: 'Deep work',
+            startTime: '09:00',
+            endTime: '11:00',
+            days: [1, 2, 3, 4, 5],
+            matchTokens: ['@desk'],
+        }]);
+    });
+});

@@ -1,4 +1,5 @@
 import type { ExternalCalendarSubscription } from './ics';
+import type { AttentionFrame } from './attention-frames';
 
 export type TaskStatus = 'inbox' | 'next' | 'waiting' | 'someday' | 'reference' | 'done' | 'archived';
 
@@ -336,6 +337,8 @@ export interface GtdSettings {
     // language values like "/due:next week") always keeps working. Default
     // (unset) preserves current detection behavior. See #742 (2026-07-16).
     naturalLanguageDates?: boolean;
+    /** Broad time windows that constrain NOW without scheduling every task. */
+    attentionFrames?: AttentionFrame[];
     inboxProcessing?: {
         defaultMode?: InboxProcessingMode;
         twoMinuteEnabled?: boolean;

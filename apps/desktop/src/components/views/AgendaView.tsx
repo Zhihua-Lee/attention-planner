@@ -14,8 +14,8 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { shallow, useTaskStore, TaskPriority, TimeEstimate, applyFilter, buildAdvancedFilterCriteriaChips, compareProjectsByOrder, criteriaFromSelections, removeAdvancedFilterCriteriaChip, selectionsFromCriteria, formatFocusTaskLimitText,
-    getFocusStarBlockedText, formatTimeEstimateLabel, generateUUID, getUsedTaskTokens, getFocusSequentialFirstTaskIds, getProjectDeadlineBoosts, getProjectDeadlineBoostLabel, getTaskMetadataFilterVisibility, hasActiveFilterCriteria, markSavedFilterDeleted, normalizeFocusTaskLimit, safeParseDate, safeParseDueDate, isDueForReview, isTaskInActiveProject, SAVED_FILTER_NO_PROJECT_ID, shouldShowTaskForStart, sortFocusNextActions, sortTasksByFocusOrder, sortTasksBySavedPreference, translateWithFallback } from '@mindwtr/core';
-import type { FilterCriteria, MultiValueFilterMatchMode, ProjectDeadlineBoost, SavedFilter, SortField, Task, TaskEnergyLevel } from '@mindwtr/core';
+    getFocusStarBlockedText, formatTimeEstimateLabel, generateUUID, getUsedTaskTokens, getFocusSequentialFirstTaskIds, getProjectDeadlineBoosts, getProjectDeadlineBoostLabel, getTaskMetadataFilterVisibility, hasActiveFilterCriteria, markSavedFilterDeleted, normalizeAttentionFrames, normalizeFocusTaskLimit, resolveActiveAttentionFrame, safeParseDate, safeParseDueDate, selectNow, isDueForReview, isTaskInActiveProject, SAVED_FILTER_NO_PROJECT_ID, shouldShowTaskForStart, sortFocusNextActions, sortTasksByFocusOrder, sortTasksBySavedPreference, translateWithFallback } from '@mindwtr/core';
+import type { AttentionFrame, ExternalCalendarEvent, FilterCriteria, MultiValueFilterMatchMode, ProjectDeadlineBoost, SavedFilter, SortField, Task, TaskEnergyLevel } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { cn } from '../../lib/utils';
 import { useUiStore } from '../../store/ui-store';
@@ -27,6 +27,7 @@ import { usePersistedViewState } from '../../hooks/usePersistedViewState';
 import { PomodoroPanel } from './PomodoroPanel';
 import { AgendaFiltersPanel, type AgendaActiveFilterChip, type AgendaProjectFilterOption } from './agenda/AgendaFiltersPanel';
 import { AgendaHeader } from './agenda/AgendaHeader';
+import { NowCard } from './agenda/NowCard';
 import { AgendaCollapsibleSection, AgendaProjectSection } from './agenda/AgendaSections';
 import { SortableFocusRow } from './agenda/SortableFocusRow';
 import { StoreTaskItem } from './list/StoreTaskItem';
@@ -45,6 +46,7 @@ import { ConfirmModal } from '../ConfirmModal';
 import { dispatchNavigateEvent } from '../../lib/navigation-events';
 import { FocusStarIcon } from '../FocusStarIcon';
 import { useLocalDayKey } from '../../hooks/useLocalDayKey';
+import { fetchExternalCalendarEvents } from '../../lib/external-calendar-events';
 
 const AGENDA_VIRTUALIZATION_THRESHOLD = 25;
 const NO_PROJECT_FILTER_ID = SAVED_FILTER_NO_PROJECT_ID;
@@ -236,10 +238,11 @@ function AgendaTaskList({
 
 export function AgendaView() {
     const perf = usePerformanceMonitor('AgendaView');
-    const { projects, areas, updateTask, updateSettings, reorderFocusedTasks, settings, error, highlightTaskId, setHighlightTask, taskChangeToken, hasAnyTasks } = useTaskStore(
+    const { projects, areas, moveTask, updateTask, updateSettings, reorderFocusedTasks, settings, error, highlightTaskId, setHighlightTask, taskChangeToken, hasAnyTasks } = useTaskStore(
         (state) => ({
             projects: state.projects,
             areas: state.areas,
+            moveTask: state.moveTask,
             updateTask: state.updateTask,
             updateSettings: state.updateSettings,
             reorderFocusedTasks: state.reorderFocusedTasks,
@@ -256,6 +259,10 @@ export function AgendaView() {
     const { activeTasksByStatus, projectMap, sequentialProjectIds, sequentialWithinSectionProjectIds, tasksById } = getDerivedState();
     const { t } = useLanguage();
     const localDayKey = useLocalDayKey();
+    const [now, setNow] = useState(() => new Date());
+    const [externalEvents, setExternalEvents] = useState<ExternalCalendarEvent[]>([]);
+    const [excludedNowTaskIds, setExcludedNowTaskIds] = useState<Set<string>>(() => new Set());
+    const excludedNowDayRef = useRef(localDayKey);
     const { showListDetails, nextGroupBy, top3Only, setListOptions, collapseAllTaskDetails, setProjectView, showToast } = useUiStore((state) => ({
         showListDetails: state.listOptions.showDetails,
         nextGroupBy: state.listOptions.nextGroupBy,
@@ -293,6 +300,62 @@ export function AgendaView() {
     const focusTaskLimit = normalizeFocusTaskLimit(settings?.gtd?.focusTaskLimit);
     const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
     const resolvedAreaFilter = resolveAreaFilter(settings?.filters?.areaId, areas);
+    const attentionFrames = useMemo(
+        () => normalizeAttentionFrames(settings?.gtd?.attentionFrames),
+        [settings?.gtd?.attentionFrames],
+    );
+    const activeAttentionFrame = useMemo(
+        () => resolveActiveAttentionFrame(attentionFrames, now),
+        [attentionFrames, now],
+    );
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(new Date()), 30_000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        if (excludedNowDayRef.current === localDayKey) return;
+        excludedNowDayRef.current = localDayKey;
+        setExcludedNowTaskIds(new Set());
+    }, [localDayKey]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const refresh = async () => {
+            const current = new Date();
+            const rangeStart = new Date(current.getFullYear(), current.getMonth(), current.getDate() - 1);
+            const rangeEnd = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 2);
+            try {
+                const result = await fetchExternalCalendarEvents(rangeStart, rangeEnd);
+                if (!cancelled) {
+                    setExternalEvents((currentEvents) => {
+                        if (
+                            currentEvents.length === result.events.length
+                            && currentEvents.every((event, index) => {
+                                const next = result.events[index];
+                                return event.id === next?.id
+                                    && event.title === next.title
+                                    && event.start === next.start
+                                    && event.end === next.end;
+                            })
+                        ) {
+                            return currentEvents;
+                        }
+                        return result.events;
+                    });
+                }
+            } catch {
+                if (!cancelled) setExternalEvents((currentEvents) => currentEvents.length > 0 ? [] : currentEvents);
+            }
+        };
+        void refresh();
+        const timer = window.setInterval(() => void refresh(), 5 * 60_000);
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+        };
+    }, [settings?.externalCalendars]);
 
     useEffect(() => {
         if (!perf.enabled) return;
@@ -323,6 +386,36 @@ export function AgendaView() {
             allTokens: getUsedTaskTokens(active, (task) => [...(task.contexts || []), ...(task.tags || [])]),
         };
     }, [baseActiveTasks, localDayKey]);
+    const nowSelection = useMemo(() => selectNow({
+        events: externalEvents,
+        excludedTaskIds: excludedNowTaskIds,
+        frames: attentionFrames,
+        now,
+        tasks: baseActiveTasks,
+        timeEstimatesEnabled,
+    }), [attentionFrames, baseActiveTasks, excludedNowTaskIds, externalEvents, now, timeEstimatesEnabled]);
+    const inboxCount = useMemo(
+        () => baseActiveTasks.filter((task) => task.status === 'inbox').length,
+        [baseActiveTasks],
+    );
+    const handleCompleteNowTask = useCallback((taskId: string) => {
+        void moveTask(taskId, 'done').catch(() => undefined);
+    }, [moveTask]);
+    const handleSnoozeNowTask = useCallback((taskId: string) => {
+        const snoozedUntil = new Date(Date.now() + 30 * 60_000).toISOString();
+        void updateTask(taskId, { startTime: snoozedUntil }).catch(() => undefined);
+    }, [updateTask]);
+    const handleSkipNowTask = useCallback((taskId: string) => {
+        setExcludedNowTaskIds((current) => new Set([...current, taskId]));
+    }, []);
+    const handleAttentionFramesChange = useCallback((frames: AttentionFrame[]) => {
+        void updateSettings({
+            gtd: {
+                ...(settings?.gtd ?? {}),
+                attentionFrames: normalizeAttentionFrames(frames),
+            },
+        }).catch(() => undefined);
+    }, [settings?.gtd, updateSettings]);
     const priorityOptions: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
     const energyLevelOptions: TaskEnergyLevel[] = ['low', 'medium', 'high'];
     const timeEstimateOptions: TimeEstimate[] = ['5min', '10min', '15min', '30min', '1hr', '2hr', '3hr', '4hr', '4hr+'];
@@ -1087,6 +1180,19 @@ export function AgendaView() {
                 showListDetails={showListDetails}
                 t={t}
                 top3Only={top3Only}
+            />
+
+            <NowCard
+                activeFrame={activeAttentionFrame}
+                frames={attentionFrames}
+                inboxCount={inboxCount}
+                now={now}
+                onCompleteTask={handleCompleteNowTask}
+                onFramesChange={handleAttentionFramesChange}
+                onSkipTask={handleSkipNowTask}
+                onSnoozeTask={handleSnoozeNowTask}
+                resolveText={resolveText}
+                selection={nowSelection}
             />
 
             {savedFocusFilters.length > 0 && (
