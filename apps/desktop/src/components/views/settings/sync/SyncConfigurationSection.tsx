@@ -41,6 +41,13 @@ type SyncConfigurationSectionProps = Pick<
     | 'dropboxAuthInProgress'
     | 'dropboxRedirectUri'
     | 'dropboxTestState'
+    | 'oneDriveAccountName'
+    | 'oneDriveBusy'
+    | 'oneDriveClientId'
+    | 'oneDriveConnected'
+    | 'oneDriveRedirectUri'
+    | 'oneDriveTenantId'
+    | 'oneDriveTestState'
     | 'onCloudUrlChange'
     | 'onCloudTokenChange'
     | 'onCloudRememberTokenChange'
@@ -50,9 +57,15 @@ type SyncConfigurationSectionProps = Pick<
     | 'onConnectDropbox'
     | 'onDisconnectDropbox'
     | 'onTestDropboxConnection'
+    | 'onOneDriveClientIdChange'
+    | 'onOneDriveTenantIdChange'
+    | 'onSaveOneDrive'
+    | 'onConnectOneDrive'
+    | 'onDisconnectOneDrive'
+    | 'onTestOneDriveConnection'
 >;
 
-type BackendButtonOption = 'off' | 'file' | 'dropbox' | 'webdav' | 'selfhosted' | 'cloudkit';
+type BackendButtonOption = 'off' | 'file' | 'dropbox' | 'onedrive' | 'webdav' | 'selfhosted' | 'cloudkit';
 type BackendButtonGroup = {
     description: string;
     options: BackendButtonOption[];
@@ -195,6 +208,100 @@ const renderDropboxPanel = ({
                 state={dropboxTestState}
                 successLabel={t.dropboxTestReachable}
                 errorLabel={t.dropboxTestFailed}
+            />
+        </div>
+    </div>
+);
+
+const renderOneDrivePanel = ({
+    oneDriveAccountName,
+    oneDriveBusy,
+    oneDriveClientId,
+    oneDriveConnected,
+    oneDriveRedirectUri,
+    oneDriveTenantId,
+    oneDriveTestState,
+    onConnectOneDrive,
+    onDisconnectOneDrive,
+    onOneDriveClientIdChange,
+    onOneDriveTenantIdChange,
+    onSaveOneDrive,
+    onTestOneDriveConnection,
+}: Pick<
+    SyncConfigurationSectionProps,
+    | 'oneDriveAccountName'
+    | 'oneDriveBusy'
+    | 'oneDriveClientId'
+    | 'oneDriveConnected'
+    | 'oneDriveRedirectUri'
+    | 'oneDriveTenantId'
+    | 'oneDriveTestState'
+    | 'onConnectOneDrive'
+    | 'onDisconnectOneDrive'
+    | 'onOneDriveClientIdChange'
+    | 'onOneDriveTenantIdChange'
+    | 'onSaveOneDrive'
+    | 'onTestOneDriveConnection'
+>) => (
+    <div className="space-y-3">
+        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            任务数据只写入个人 OneDrive 的应用专用目录 <span className="font-mono">Apps/Attention Planner</span>。
+            此连接与学校 Outlook 日历账号相互独立。
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Microsoft Entra Client ID</label>
+                <input
+                    type="text"
+                    value={oneDriveClientId}
+                    onChange={(event) => onOneDriveClientIdChange(event.target.value)}
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                    className="bg-muted p-2 rounded text-sm font-mono border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+            <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Tenant / Authority</label>
+                <input
+                    type="text"
+                    value={oneDriveTenantId}
+                    onChange={(event) => onOneDriveTenantIdChange(event.target.value)}
+                    placeholder="common"
+                    className="bg-muted p-2 rounded text-sm font-mono border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+            SPA 回调地址：<span className="font-mono break-all">{oneDriveRedirectUri}</span>
+        </p>
+        <p className="text-xs text-muted-foreground">
+            状态：{oneDriveConnected ? `已连接 ${oneDriveAccountName || '个人 OneDrive'}` : '未连接'}
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+            <button
+                onClick={onSaveOneDrive}
+                disabled={oneDriveBusy || !oneDriveClientId.trim()}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                保存配置
+            </button>
+            <button
+                onClick={oneDriveConnected ? onDisconnectOneDrive : onConnectOneDrive}
+                disabled={oneDriveBusy || !oneDriveClientId.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+            >
+                {oneDriveConnected ? '断开 OneDrive' : '连接个人 OneDrive'}
+            </button>
+            <button
+                onClick={onTestOneDriveConnection}
+                disabled={oneDriveBusy || !oneDriveConnected}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                {oneDriveBusy ? '处理中…' : '测试连接'}
+            </button>
+            <ConnectionBadge
+                state={oneDriveTestState}
+                successLabel="OneDrive 可访问"
+                errorLabel="OneDrive 连接失败"
             />
         </div>
     </div>
@@ -414,6 +521,13 @@ export function SyncConfigurationSection({
     dropboxConnected,
     dropboxRedirectUri,
     dropboxTestState,
+    oneDriveAccountName,
+    oneDriveBusy,
+    oneDriveClientId,
+    oneDriveConnected,
+    oneDriveRedirectUri,
+    oneDriveTenantId,
+    oneDriveTestState,
     isMacOS,
     isSavingWebDav,
     isTauri,
@@ -432,6 +546,12 @@ export function SyncConfigurationSection({
     onSetSyncBackend,
     onSyncPathChange,
     onTestDropboxConnection,
+    onOneDriveClientIdChange,
+    onOneDriveTenantIdChange,
+    onSaveOneDrive,
+    onConnectOneDrive,
+    onDisconnectOneDrive,
+    onTestOneDriveConnection,
     onTestWebDavConnection,
     onWebdavAllowInsecureHttpChange,
     onWebdavPasswordChange,
@@ -450,11 +570,12 @@ export function SyncConfigurationSection({
 }: SyncConfigurationSectionProps) {
     const isSelfHostedSelected = syncBackend === 'cloud' && cloudProvider === 'selfhosted';
     const isDropboxSelected = syncBackend === 'cloud' && cloudProvider === 'dropbox';
+    const isOneDriveSelected = syncBackend === 'cloud' && cloudProvider === 'onedrive';
     const backendGroups: BackendButtonGroup[] = [
         {
             title: t.syncBackendGroupCloud,
             description: t.syncBackendGroupCloudDesc,
-            options: ['dropbox', ...(isMacOS ? (['cloudkit'] as const) : [])],
+            options: [...(!isTauri ? (['onedrive'] as const) : []), 'dropbox', ...(isMacOS ? (['cloudkit'] as const) : [])],
         },
         {
             title: t.syncBackendGroupFile,
@@ -479,6 +600,8 @@ export function SyncConfigurationSection({
                 return t.syncBackendFile;
             case 'dropbox':
                 return t.cloudProviderDropbox;
+            case 'onedrive':
+                return 'OneDrive';
             case 'webdav':
                 return t.syncBackendWebdav;
             case 'selfhosted':
@@ -495,6 +618,8 @@ export function SyncConfigurationSection({
                 return syncBackend === option;
             case 'dropbox':
                 return isDropboxSelected;
+            case 'onedrive':
+                return isOneDriveSelected;
             case 'selfhosted':
                 return isSelfHostedSelected;
             case 'cloudkit':
@@ -508,6 +633,10 @@ export function SyncConfigurationSection({
         switch (option) {
             case 'dropbox':
                 onCloudProviderChange('dropbox');
+                if (syncBackend !== 'cloud') onSetSyncBackend('cloud');
+                return;
+            case 'onedrive':
+                onCloudProviderChange('onedrive');
                 if (syncBackend !== 'cloud') onSetSyncBackend('cloud');
                 return;
             case 'selfhosted':
@@ -650,6 +779,22 @@ export function SyncConfigurationSection({
                     onDisconnectDropbox,
                     onTestDropboxConnection,
                     t,
+                })}
+
+                {isOneDriveSelected && renderOneDrivePanel({
+                    oneDriveAccountName,
+                    oneDriveBusy,
+                    oneDriveClientId,
+                    oneDriveConnected,
+                    oneDriveRedirectUri,
+                    oneDriveTenantId,
+                    oneDriveTestState,
+                    onConnectOneDrive,
+                    onDisconnectOneDrive,
+                    onOneDriveClientIdChange,
+                    onOneDriveTenantIdChange,
+                    onSaveOneDrive,
+                    onTestOneDriveConnection,
                 })}
             </div>
         </section>

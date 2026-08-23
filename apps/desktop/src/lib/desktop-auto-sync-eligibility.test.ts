@@ -9,6 +9,8 @@ const createSyncService = (overrides: Partial<Parameters<typeof canDesktopAutoSy
     getCloudProvider: vi.fn(async () => 'selfhosted' as const),
     getDropboxAppKey: vi.fn(async () => ''),
     isDropboxConnected: vi.fn(async () => false),
+    getOneDriveConfig: vi.fn(() => ({ clientId: '' })),
+    getOneDriveConnection: vi.fn(async () => ({ connected: false })),
     ...overrides,
 });
 
@@ -68,5 +70,18 @@ describe('canDesktopAutoSync', () => {
         await expect(canDesktopAutoSync(missingKeyService)).resolves.toBe(false);
         await expect(canDesktopAutoSync(disconnectedService)).resolves.toBe(false);
         expect(disconnectedService.isDropboxConnected).toHaveBeenCalledWith('dropbox-app-key');
+    });
+
+    it('allows OneDrive autosync only when a client ID is configured and the personal account is connected', async () => {
+        const connectedService = createSyncService({
+            getSyncBackend: vi.fn(async () => 'cloud' as const),
+            getCloudProvider: vi.fn(async () => 'onedrive' as const),
+            getOneDriveConfig: vi.fn(() => ({ clientId: 'microsoft-client-id' })),
+            getOneDriveConnection: vi.fn(async () => ({ connected: true })),
+        });
+
+        await expect(canDesktopAutoSync(connectedService)).resolves.toBe(true);
+        expect(connectedService.getCloudConfig).not.toHaveBeenCalled();
+        expect(connectedService.getOneDriveConnection).toHaveBeenCalledTimes(1);
     });
 });

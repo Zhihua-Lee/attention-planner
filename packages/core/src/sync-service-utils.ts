@@ -1,7 +1,7 @@
 import { isWebdavRateLimitedError } from './sync-runtime-utils';
 
 export type SyncBackend = 'off' | 'file' | 'webdav' | 'cloud' | 'cloudkit';
-export type SyncCloudProvider = 'dropbox' | 'selfhosted';
+export type SyncCloudProvider = 'dropbox' | 'onedrive' | 'selfhosted';
 export type AutoSyncConfig = {
     backend: SyncBackend;
     filePath?: string;
@@ -10,6 +10,8 @@ export type AutoSyncConfig = {
     cloudUrl?: string;
     dropboxAppKey?: string;
     isDropboxConnected?: boolean;
+    oneDriveClientId?: string;
+    isOneDriveConnected?: boolean;
 };
 
 export const SYNC_FILE_NAME = 'data.json';
@@ -78,6 +80,9 @@ export const canAutoSync = (config: AutoSyncConfig): boolean => {
     if (config.backend === 'cloud') {
         if (config.cloudProvider === 'dropbox') {
             return Boolean(config.dropboxAppKey?.trim()) && config.isDropboxConnected === true;
+        }
+        if (config.cloudProvider === 'onedrive') {
+            return Boolean(config.oneDriveClientId?.trim()) && config.isOneDriveConnected === true;
         }
         return Boolean(config.cloudUrl?.trim());
     }

@@ -41,6 +41,7 @@ import type {
 
 export type { SyncBackend };
 export type DropboxTestState = 'idle' | 'success' | 'error';
+export type OneDriveTestState = 'idle' | 'success' | 'error';
 export type WebDavTestState = 'idle' | 'success' | 'error';
 
 const formatClockSkew = (ms: number): string => {
@@ -93,6 +94,13 @@ export const useSyncSettings = ({
     const [dropboxAuthInProgress, setDropboxAuthInProgress] = useState(false);
     const [dropboxRedirectUri, setDropboxRedirectUri] = useState('http://127.0.0.1:53682/oauth/dropbox/callback');
     const [dropboxTestState, setDropboxTestState] = useState<DropboxTestState>('idle');
+    const [oneDriveClientId, setOneDriveClientId] = useState('');
+    const [oneDriveTenantId, setOneDriveTenantId] = useState('common');
+    const [oneDriveConnected, setOneDriveConnected] = useState(false);
+    const [oneDriveAccountName, setOneDriveAccountName] = useState<string | null>(null);
+    const [oneDriveBusy, setOneDriveBusy] = useState(false);
+    const [oneDriveTestState, setOneDriveTestState] = useState<OneDriveTestState>('idle');
+    const [oneDriveRedirectUri] = useState(() => SyncService.getOneDriveRedirectUri());
     const [snapshots, setSnapshots] = useState<string[]>([]);
     const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
     const [isRestoringSnapshot, setIsRestoringSnapshot] = useState(false);
@@ -233,6 +241,9 @@ export const useSyncSettings = ({
                 setSyncError('Failed to load cloud provider.');
                 void logError(error, { scope: 'sync', step: 'loadCloudProvider' });
             });
+        const oneDriveConfig = SyncService.getOneDriveConfig();
+        setOneDriveClientId(oneDriveConfig.clientId);
+        setOneDriveTenantId(oneDriveConfig.tenantId);
         measureSettingsOpenStep('sync-load-dropbox-app-key', () => SyncService.getDropboxAppKey())
             .then((value) => {
                 const trimmed = value.trim();
@@ -287,6 +298,31 @@ export const useSyncSettings = ({
             cancelled = true;
         };
     }, [dropboxAppKey]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadOneDriveConnection = async () => {
+            try {
+                const connection = await SyncService.getOneDriveConnection();
+                if (!cancelled) {
+                    setOneDriveConnected(connection.connected);
+                    setOneDriveAccountName(connection.accountName);
+                    if (!connection.connected) setOneDriveTestState('idle');
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setOneDriveConnected(false);
+                    setOneDriveAccountName(null);
+                    setOneDriveTestState('idle');
+                }
+                void logError(error, { scope: 'sync', step: 'loadOneDriveConnected' });
+            }
+        };
+        void loadOneDriveConnection();
+        return () => {
+            cancelled = true;
+        };
+    }, [oneDriveClientId, oneDriveTenantId]);
 
     useEffect(() => {
         setWebdavTestState('idle');
@@ -422,6 +458,9 @@ export const useSyncSettings = ({
             setDropboxTestState('idle');
             setDropboxAuthInProgress(false);
         }
+        if (provider !== 'onedrive') {
+            setOneDriveTestState('idle');
+        }
         await SyncService.setCloudProvider(provider);
         showSaved();
     }, [showSaved]);
@@ -505,6 +544,87 @@ export const useSyncSettings = ({
         }
     }, [dropboxAppKey, showToast, toErrorMessage]);
 
+    const saveOneDriveConfig = useCallback(() => {
+        const config = SyncService.setOneDriveConfig({
+            clientId: oneDriveClientId.trim(),
+            tenantId: oneDriveTenantId.trim() || 'common',
+        });
+        setOneDriveClientId(config.clientId);
+        setOneDriveTenantId(config.tenantId);
+        return config;
+    }, [oneDriveClientId, oneDriveTenantId]);
+
+    const handleSaveOneDrive = useCallback(async () => {
+        saveOneDriveConfig();
+        setOneDriveConnected(false);
+        setOneDriveAccountName(null);
+        setOneDriveTestState('idle');
+        showSaved();
+    }, [saveOneDriveConfig, showSaved]);
+
+    const handleConnectOneDrive = useCallback(async () => {
+        const config = saveOneDriveConfig();
+        if (!config.clientId) {
+            showToast('Enter the Microsoft Entra application client ID first.', 'error');
+            return;
+        }
+        setOneDriveBusy(true);
+        try {
+            const connection = await SyncService.connectOneDrive();
+            setOneDriveConnected(connection.connected);
+            setOneDriveAccountName(connection.accountName);
+            setOneDriveTestState('idle');
+            setSyncError(null);
+            showToast('Connected to personal OneDrive.', 'success');
+        } catch (error) {
+            const message = toErrorMessage(error, 'Failed to connect OneDrive.');
+            setOneDriveConnected(false);
+            setOneDriveAccountName(null);
+            setOneDriveTestState('error');
+            setSyncError(message);
+            showToast(message, 'error');
+        } finally {
+            setOneDriveBusy(false);
+        }
+    }, [saveOneDriveConfig, showToast, toErrorMessage]);
+
+    const handleDisconnectOneDrive = useCallback(async () => {
+        setOneDriveBusy(true);
+        try {
+            await SyncService.disconnectOneDrive();
+            setOneDriveConnected(false);
+            setOneDriveAccountName(null);
+            setOneDriveTestState('idle');
+            showToast('Disconnected from OneDrive.', 'success');
+        } catch (error) {
+            const message = toErrorMessage(error, 'Failed to disconnect OneDrive.');
+            setSyncError(message);
+            showToast(message, 'error');
+        } finally {
+            setOneDriveBusy(false);
+        }
+    }, [showToast, toErrorMessage]);
+
+    const handleTestOneDriveConnection = useCallback(async () => {
+        setOneDriveBusy(true);
+        try {
+            await SyncService.testOneDriveConnection();
+            const connection = await SyncService.getOneDriveConnection();
+            setOneDriveConnected(connection.connected);
+            setOneDriveAccountName(connection.accountName);
+            setOneDriveTestState('success');
+            setSyncError(null);
+            showToast('OneDrive app folder is reachable.', 'success');
+        } catch (error) {
+            const message = toErrorMessage(error, 'OneDrive connection failed.');
+            setOneDriveTestState('error');
+            setSyncError(message);
+            showToast(message, 'error');
+        } finally {
+            setOneDriveBusy(false);
+        }
+    }, [showToast, toErrorMessage]);
+
     const handleSync = useCallback(async () => {
         addBreadcrumb('sync:manual');
         try {
@@ -521,7 +641,7 @@ export const useSyncSettings = ({
                 if (cloudProvider === 'selfhosted') {
                     if (!cloudUrl.trim()) return;
                     await handleSaveCloud();
-                } else {
+                } else if (cloudProvider === 'dropbox') {
                     const appKey = dropboxAppKey.trim();
                     if (!appKey) {
                         const message = 'Dropbox app key is not configured in this build.';
@@ -538,6 +658,18 @@ export const useSyncSettings = ({
                         return;
                     }
                     setDropboxConnected(true);
+                } else {
+                    saveOneDriveConfig();
+                    const connection = await SyncService.getOneDriveConnection();
+                    if (!connection.connected) {
+                        const message = 'Connect the personal OneDrive account first.';
+                        setSyncError(message);
+                        showToast(message, 'error');
+                        setOneDriveConnected(false);
+                        return;
+                    }
+                    setOneDriveConnected(true);
+                    setOneDriveAccountName(connection.accountName);
                 }
             }
             if (syncBackend === 'file') {
@@ -602,6 +734,7 @@ export const useSyncSettings = ({
         handleSaveCloud,
         handleSaveWebDav,
         isTauri,
+        saveOneDriveConfig,
         showToast,
         syncBackend,
         syncPath,
@@ -965,7 +1098,9 @@ export const useSyncSettings = ({
                     : syncBackend === 'cloud'
                         ? (cloudProvider === 'selfhosted'
                             ? !!cloudUrl.trim() && !cloudUrlError && cloudConnectionAllowed
-                            : dropboxConfigured && !!dropboxAppKey.trim() && dropboxConnected)
+                            : cloudProvider === 'dropbox'
+                                ? dropboxConfigured && !!dropboxAppKey.trim() && dropboxConnected
+                                : !!oneDriveClientId.trim() && oneDriveConnected)
                         : false;
 
     return {
@@ -1005,6 +1140,13 @@ export const useSyncSettings = ({
             dropboxAuthInProgress,
             dropboxRedirectUri,
             dropboxTestState,
+            oneDriveAccountName,
+            oneDriveBusy,
+            oneDriveClientId,
+            oneDriveConnected,
+            oneDriveRedirectUri,
+            oneDriveTenantId,
+            oneDriveTestState,
             onCloudUrlChange: setCloudUrl,
             onCloudTokenChange: setCloudToken,
             onCloudRememberTokenChange: setCloudRememberToken,
@@ -1014,6 +1156,12 @@ export const useSyncSettings = ({
             onConnectDropbox: handleConnectDropbox,
             onDisconnectDropbox: handleDisconnectDropbox,
             onTestDropboxConnection: handleTestDropboxConnection,
+            onOneDriveClientIdChange: setOneDriveClientId,
+            onOneDriveTenantIdChange: setOneDriveTenantId,
+            onSaveOneDrive: handleSaveOneDrive,
+            onConnectOneDrive: handleConnectOneDrive,
+            onDisconnectOneDrive: handleDisconnectOneDrive,
+            onTestOneDriveConnection: handleTestOneDriveConnection,
             isSyncTargetValid,
             syncPreferences,
             onUpdateSyncPreferences: handleUpdateSyncPreferences,

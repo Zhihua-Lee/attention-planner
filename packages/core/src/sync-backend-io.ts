@@ -28,11 +28,14 @@ export type SyncBackendContext = {
     cloud?: { url: string } | null;
     filePath?: string;
     dropboxAppKey?: string;
+    oneDriveClientId?: string;
     /** Remote location of the last request this cycle made; mutated by the ladder. */
     syncUrl?: string;
     /** Cached Dropbox content-hash rev; mutated by the ladder after every
      *  Dropbox read/write/fingerprint call. */
     dropboxRev: string | null;
+    /** Cached OneDrive eTag observed during this cycle. */
+    oneDriveETag?: string | null;
 };
 
 /** One remote-write transport result (webdav/cloud PUT response shape). */
@@ -40,6 +43,8 @@ type RemoteWriteResult = Parameters<typeof normalizeRemoteWriteResult>[1];
 type RemoteHeadResult = { exists: boolean; fingerprint: string | null } | null | undefined;
 type DropboxRevResult = { rev: string | null };
 type DropboxDownloadResult = { data: AppData | null; rev: string | null };
+type OneDriveDownloadResult = { data: AppData | null; eTag: string | null };
+type OneDriveMetadataResult = { eTag: string | null };
 type AttachmentSyncResult = Promise<AppData | boolean | null | undefined>;
 
 /**
@@ -69,6 +74,9 @@ export type SyncTransport = {
     dropboxDownload(token: string): Promise<DropboxDownloadResult>;
     dropboxUpload(token: string, sanitized: AppData, expectedRev: string | null): Promise<DropboxRevResult>;
     dropboxMetadata(token: string): Promise<DropboxRevResult>;
+    oneDriveDownload?(): Promise<OneDriveDownloadResult>;
+    oneDriveUpload?(sanitized: AppData, expectedETag: string | null): Promise<OneDriveMetadataResult>;
+    oneDriveMetadata?(): Promise<OneDriveMetadataResult>;
     syncWebdavAttachments(data: AppData, helpers: SyncRunAttachmentHelpers): AttachmentSyncResult;
     syncCloudAttachments(data: AppData, helpers: SyncRunAttachmentHelpers): AttachmentSyncResult;
     syncDropboxAttachments(data: AppData, helpers: SyncRunAttachmentHelpers): AttachmentSyncResult;
@@ -77,9 +85,11 @@ export type SyncTransport = {
 };
 
 const DROPBOX_REV_FINGERPRINT_PREFIX = 'dropbox:v1:rev=';
+const ONEDRIVE_ETAG_FINGERPRINT_PREFIX = 'onedrive:v1:etag=';
 
 /** `dropbox:v1:rev=` cached-fingerprint wire format — one place, not four. */
 export const buildDropboxRevFingerprint = (rev: string): string => `${DROPBOX_REV_FINGERPRINT_PREFIX}${rev}`;
+export const buildOneDriveETagFingerprint = (eTag: string): string => `${ONEDRIVE_ETAG_FINGERPRINT_PREFIX}${eTag}`;
 
 export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTransport): SyncBackendIO {
     /** Dropbox token-retry policy: try with the current token; on an
@@ -107,7 +117,9 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
         getCachedRemoteFingerprint: () => (
             ctx.backend === 'cloud' && ctx.cloudProvider === 'dropbox' && ctx.dropboxRev
                 ? buildDropboxRevFingerprint(ctx.dropboxRev)
-                : null
+                : ctx.backend === 'cloud' && ctx.cloudProvider === 'onedrive' && ctx.oneDriveETag
+                    ? buildOneDriveETagFingerprint(ctx.oneDriveETag)
+                    : null
         ),
         readRemote: async () => {
             if (ctx.backend === 'cloudkit') {
@@ -127,6 +139,18 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                     }
                     ctx.syncUrl = normalizeCloudUrl(ctx.cloud.url);
                     return transport.cloudGet();
+                }
+                if (ctx.cloudProvider === 'onedrive') {
+                    if (!ctx.oneDriveClientId) {
+                        throw new Error('Microsoft Entra application client ID is not configured');
+                    }
+                    if (!transport.oneDriveDownload) {
+                        throw new Error('OneDrive sync is not available on this platform');
+                    }
+                    ctx.syncUrl = 'onedrive:///Apps/Attention Planner/data.json';
+                    const remote = await transport.oneDriveDownload();
+                    ctx.oneDriveETag = remote.eTag;
+                    return remote.data;
                 }
                 if (!ctx.dropboxAppKey) {
                     throw new Error('Dropbox app key is not configured');
@@ -157,6 +181,17 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                     }
                     const result = await transport.cloudPut(sanitized);
                     return normalizeRemoteWriteResult('cloud', result);
+                }
+                if (ctx.cloudProvider === 'onedrive') {
+                    if (!ctx.oneDriveClientId) {
+                        throw new Error('Microsoft Entra application client ID is not configured');
+                    }
+                    if (!transport.oneDriveUpload) {
+                        throw new Error('OneDrive sync is not available on this platform');
+                    }
+                    const uploaded = await transport.oneDriveUpload(sanitized, ctx.oneDriveETag ?? null);
+                    ctx.oneDriveETag = uploaded.eTag;
+                    return;
                 }
                 if (!ctx.dropboxAppKey) {
                     throw new Error('Dropbox app key is not configured');
@@ -195,6 +230,12 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                 const metadata = await runDropboxWithAuthRetry((token) => transport.dropboxMetadata(token));
                 ctx.dropboxRev = metadata.rev;
                 return metadata.rev ? buildDropboxRevFingerprint(metadata.rev) : null;
+            }
+            if (ctx.backend === 'cloud' && ctx.cloudProvider === 'onedrive') {
+                if (!transport.oneDriveMetadata) return null;
+                const metadata = await transport.oneDriveMetadata();
+                ctx.oneDriveETag = metadata.eTag;
+                return metadata.eTag ? buildOneDriveETagFingerprint(metadata.eTag) : null;
             }
             return null;
         },

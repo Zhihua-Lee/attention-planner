@@ -2,6 +2,7 @@ import type { AccountInfo, PublicClientApplication } from '@azure/msal-browser';
 import type { ExternalCalendarEvent, ExternalCalendarSubscription } from '@mindwtr/core';
 
 const CONFIG_STORAGE_KEY = 'attention-planner:outlook-calendar:config:v1';
+const ACCOUNT_HOME_ID_STORAGE_KEY = 'attention-planner:outlook-calendar:account-home-id:v1';
 const DELTA_CACHE_PREFIX = 'attention-planner:outlook-calendar:delta:v1:';
 const LAST_SYNC_STORAGE_KEY = 'attention-planner:outlook-calendar:last-sync:v1';
 export const OUTLOOK_CALENDAR_CHANGED_EVENT = 'attention-planner:outlook-calendar-changed';
@@ -9,6 +10,7 @@ export const OUTLOOK_CALENDAR_SOURCE_ID = 'outlook-graph';
 
 const OUTLOOK_SCOPES = ['Calendars.Read'];
 const DEFAULT_TENANT_ID = 'common';
+const DEFAULT_CLIENT_ID = String(import.meta.env.VITE_MICROSOFT_CLIENT_ID || '').trim();
 const GRAPH_CALENDAR_VIEW_DELTA_URL = 'https://graph.microsoft.com/v1.0/me/calendarView/delta';
 
 export type OutlookCalendarConfig = {
@@ -109,7 +111,7 @@ export function getOutlookRedirectUri(): string {
 
 export function getOutlookCalendarConfig(): OutlookCalendarConfig {
     const defaults: OutlookCalendarConfig = {
-        clientId: '',
+        clientId: DEFAULT_CLIENT_ID,
         enabled: false,
         tenantId: DEFAULT_TENANT_ID,
     };
@@ -119,7 +121,9 @@ export function getOutlookCalendarConfig(): OutlookCalendarConfig {
         const parsed = JSON.parse(storage.getItem(CONFIG_STORAGE_KEY) ?? 'null') as Partial<OutlookCalendarConfig> | null;
         if (!parsed || typeof parsed !== 'object') return defaults;
         return {
-            clientId: typeof parsed.clientId === 'string' ? parsed.clientId.trim() : '',
+            clientId: typeof parsed.clientId === 'string' && parsed.clientId.trim()
+                ? parsed.clientId.trim()
+                : DEFAULT_CLIENT_ID,
             enabled: parsed.enabled === true,
             tenantId: typeof parsed.tenantId === 'string' && parsed.tenantId.trim()
                 ? parsed.tenantId.trim()
@@ -152,6 +156,7 @@ export function setOutlookCalendarConfig(input: OutlookCalendarConfig): OutlookC
     if (clientState && clientState.fingerprint !== fingerprint) {
         clientState = null;
         clearDeltaCache();
+        browserLocalStorage()?.removeItem(ACCOUNT_HOME_ID_STORAGE_KEY);
     }
     notifyChanged();
     return config;
@@ -179,14 +184,27 @@ async function getClient(config: OutlookCalendarConfig): Promise<PublicClientApp
     });
     await client.initialize();
     const redirectResult = await client.handleRedirectPromise();
-    const account = redirectResult?.account ?? client.getAllAccounts()[0] ?? null;
+    if (redirectResult?.account) saveAccountHomeId(redirectResult.account);
+    const account = currentAccount(client);
     if (account) client.setActiveAccount(account);
     clientState = { fingerprint, client };
     return client;
 }
 
 function currentAccount(client: PublicClientApplication): AccountInfo | null {
-    return client.getActiveAccount() ?? client.getAllAccounts()[0] ?? null;
+    const homeAccountId = browserLocalStorage()?.getItem(ACCOUNT_HOME_ID_STORAGE_KEY)?.trim() || '';
+    if (!homeAccountId) return null;
+    return client.getAccount({ homeAccountId }) ?? null;
+}
+
+function saveAccountHomeId(account: AccountInfo | null): void {
+    const storage = browserLocalStorage();
+    if (!storage) return;
+    if (account?.homeAccountId) {
+        storage.setItem(ACCOUNT_HOME_ID_STORAGE_KEY, account.homeAccountId);
+    } else {
+        storage.removeItem(ACCOUNT_HOME_ID_STORAGE_KEY);
+    }
 }
 
 export async function getOutlookCalendarConnection(): Promise<OutlookCalendarConnection> {
@@ -227,7 +245,10 @@ export async function connectOutlookCalendar(): Promise<OutlookCalendarConnectio
         prompt: 'select_account',
         scopes: OUTLOOK_SCOPES,
     });
-    if (result.account) client.setActiveAccount(result.account);
+    if (result.account) {
+        saveAccountHomeId(result.account);
+        client.setActiveAccount(result.account);
+    }
     clearDeltaCache();
     notifyChanged();
     return getOutlookCalendarConnection();
@@ -240,6 +261,7 @@ export async function disconnectOutlookCalendar(): Promise<void> {
         const account = currentAccount(client);
         if (account) await client.clearCache({ account });
     }
+    saveAccountHomeId(null);
     clearDeltaCache();
     notifyChanged();
 }

@@ -9,6 +9,8 @@ type SyncServiceLike = {
     getCloudProvider: () => Promise<CloudProvider>;
     getDropboxAppKey: () => Promise<string>;
     isDropboxConnected: (clientId: string) => Promise<boolean>;
+    getOneDriveConfig?: () => { clientId: string };
+    getOneDriveConnection?: () => Promise<{ connected: boolean }>;
 };
 
 export async function canDesktopAutoSync(syncService: SyncServiceLike): Promise<boolean> {
@@ -23,7 +25,14 @@ export async function canDesktopAutoSync(syncService: SyncServiceLike): Promise<
         ? await syncService.isDropboxConnected(dropboxAppKey)
         : undefined;
     const cloudUrl = backend === 'cloud' && cloudProvider !== 'dropbox'
+        && cloudProvider !== 'onedrive'
         ? (await syncService.getCloudConfig()).url
+        : undefined;
+    const oneDriveClientId = backend === 'cloud' && cloudProvider === 'onedrive' && syncService.getOneDriveConfig
+        ? syncService.getOneDriveConfig().clientId.trim()
+        : undefined;
+    const isOneDriveConnected = backend === 'cloud' && cloudProvider === 'onedrive' && oneDriveClientId && syncService.getOneDriveConnection
+        ? (await syncService.getOneDriveConnection()).connected
         : undefined;
 
     return canAutoSync({
@@ -33,6 +42,8 @@ export async function canDesktopAutoSync(syncService: SyncServiceLike): Promise<
         cloudProvider,
         dropboxAppKey,
         isDropboxConnected,
+        oneDriveClientId,
+        isOneDriveConnected,
         cloudUrl,
     });
 }

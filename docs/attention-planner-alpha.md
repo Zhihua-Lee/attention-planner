@@ -11,6 +11,17 @@
 
 The repository, dependencies, caches, and build output stay on D:. The existing Codex Node runtime on C: is only used as an executable and does not hold project data.
 
+## Live PWA deployment
+
+- Production URL: `https://todo.onthat.top/`
+- Cloudflare Pages project: `attention-planner`
+- Fallback hostname: `https://attention-planner.pages.dev/`
+- Hosting model: static PWA shell only; task data is not stored in Cloudflare Pages.
+- Response hardening: CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, no-referrer, restricted browser permissions, and search-engine noindex headers.
+- `index.html` and the service worker are served with revalidation so a new deployment can replace the installed shell without changing the stable custom-domain browser storage origin.
+
+The custom domain and HTTPS certificate are active. A live HEAD request returned HTTP 200 with the expected security headers on 2026-08-23.
+
 ## Delivered vertical slice
 
 ### NOW
@@ -43,15 +54,31 @@ The Integrations page now includes a Microsoft Outlook section using MSAL browse
 - Outlook events appear in both the existing calendar surfaces and NOW selection.
 - A stale delta token (`410`) automatically falls back to a fresh initial sync.
 
+### OneDrive personal sync
+
+The Web/PWA Sync page now includes a OneDrive provider implemented with MSAL browser OAuth, PKCE, and delegated `Files.ReadWrite.AppFolder` only. The permission is scoped to the app's private OneDrive application folder and is supported for personal Microsoft accounts.
+
+- Remote data file: the app folder's `data.json`.
+- Cloudflare does not receive task data or Microsoft tokens; the browser communicates directly with Microsoft Graph over HTTPS.
+- Graph downloads use Microsoft's short-lived pre-authenticated download URL without forwarding the bearer token to that URL.
+- Writes use the remote eTag as an optimistic concurrency guard. A concurrent remote change becomes a normal sync conflict instead of silently overwriting another device.
+- The exact connected personal account ID is stored separately from the exact connected Outlook school account ID, so MSAL cannot silently swap the two accounts.
+- Local OAuth caches and non-secret client configuration remain isolated by the stable `todo.onthat.top` origin.
+- Binary attachment synchronization is not part of this OneDrive alpha; the main task/project/settings JSON is synchronized.
+
 ## Microsoft Entra setup
 
-1. Register an application in Microsoft Entra ID.
-2. Under **Authentication**, add a **Single-page application (SPA)** redirect URI matching the exact deployed PWA origin/path shown in Settings → Integrations → Microsoft Outlook.
-3. Under **API permissions**, add Microsoft Graph delegated `Calendars.Read`.
-4. Do not create or paste a client secret; a browser SPA must use authorization code + PKCE.
-5. Enter the application client ID and either the school tenant ID/domain or `common`, save, enable the integration, and choose **Connect Microsoft**.
+1. Register an application in a Microsoft Entra tenant where the user can create app registrations.
+2. Choose **Accounts in any organizational directory and personal Microsoft accounts** so the same public client can authorize personal OneDrive and the separate school Outlook account.
+3. Under **Authentication**, add the Single-page application (SPA) redirect URI `https://todo.onthat.top/`.
+4. Under **API permissions**, add Microsoft Graph delegated `Files.ReadWrite.AppFolder` and `Calendars.Read`.
+5. Keep public client/SPA authorization-code flow with PKCE; do not create or paste a client secret.
+6. In Settings → Sync, select OneDrive, enter the application client ID with tenant `common`, save, then connect the personal Microsoft account.
+7. In Settings → Integrations → Microsoft Outlook, enter the same application client ID with tenant `common`, save, enable the integration, then connect the school account.
 
 School policy may require administrator consent. That tenant-side decision cannot be bypassed by the app.
+
+Current external blocker: the University of Iowa tenant denies this user access to app registrations, while the personal Microsoft account has no Entra directory and Microsoft has deprecated directory-less app creation. A usable client ID therefore requires either an Azure/Entra tenant controlled by the user or a registration supplied/approved by the school administrator. Azure for Students is free and does not require a credit card, but signing up and accepting its account terms must be completed by the user.
 
 For the local production preview used during development, the redirect URI is `http://127.0.0.1:4174/`. A deployed HTTPS URL must be registered separately.
 
@@ -79,6 +106,7 @@ The production PWA can be served from `apps/desktop/dist` by any HTTPS static ho
 - Core typecheck: passed.
 - Desktop/PWA typecheck: passed.
 - Production PWA build: passed.
+- OneDrive transport, eTag conflict, account-isolation, auto-sync, and settings focused tests: 18 passed.
 - NOW/Agenda + Outlook focused Vitest: 52 passed.
 - Frame + settings sync tests: 49 passed.
 - Cross-platform schema guard: 8 passed.
@@ -88,7 +116,7 @@ The production PWA can be served from `apps/desktop/dist` by any HTTPS static ho
 
 ## Alpha boundaries
 
-- Live Outlook authorization still requires a real Entra client ID and any school-admin consent.
+- Live OneDrive and Outlook authorization still require a real Entra client ID and any school-admin consent.
 - OAuth login is enabled for Web/PWA. The Tauri desktop shell shows a deliberate Alpha notice instead of attempting an unreliable embedded popup flow.
 - Native Windows packaging was not attempted on this machine because the Rust/MSVC toolchain is not installed; the tested Windows delivery is the installable PWA.
 - The current PWA data adapter remains upstream Mindwtr local storage. Existing Mindwtr sync can carry data across devices, but a future storage hardening milestone should move the browser adapter to IndexedDB/OPFS before treating it as a high-volume long-term store.

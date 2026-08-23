@@ -1,7 +1,8 @@
 {
-  "name": "Mindwtr",
-  "short_name": "Mindwtr",
-  "description": "A complete Getting Things Done (GTD) productivity system.",
+  "name": "Attention Planner",
+  "short_name": "Planner",
+  "description": "A local-first calendar and task planner with private OneDrive sync.",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",

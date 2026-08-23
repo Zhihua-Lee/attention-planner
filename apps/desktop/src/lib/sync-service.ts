@@ -46,6 +46,7 @@ import {
     type RemoteJsonWriteResult,
     type SyncBackendContext,
     type SyncBackendIO,
+    SyncRemoteWriteConflict,
     type SyncPayloadTraceEvent,
     type SyncRunCycleSetup,
     type SyncRunResult,
@@ -105,6 +106,21 @@ import {
     testDropboxAccess,
     uploadDropboxAppData,
 } from './dropbox-sync';
+import {
+    connectOneDrive,
+    disconnectOneDrive,
+    downloadOneDriveAppData,
+    getOneDriveAppDataMetadata,
+    getOneDriveConnection,
+    getOneDriveRedirectUri,
+    getOneDriveSyncConfig,
+    OneDriveConflictError,
+    setOneDriveSyncConfig,
+    testOneDriveConnection,
+    uploadOneDriveAppData,
+    type OneDriveConnection,
+    type OneDriveSyncConfig,
+} from './onedrive-sync';
 import {
     CLOUD_REMEMBER_TOKEN_KEY,
     CLOUD_TOKEN_KEY,
@@ -566,6 +582,7 @@ type DesktopSyncCycleContext = {
     cloudConfig: CloudConfig | null;
     dropboxAppKey: string;
     cachedDropboxAccessToken: string | null;
+    oneDriveClientId: string;
     syncPath: string;
     fileBaseDir: string;
 };
@@ -580,6 +597,7 @@ const createDesktopSyncCycleContext = (): DesktopSyncCycleContext => ({
     cloudConfig: null,
     dropboxAppKey: '',
     cachedDropboxAccessToken: null,
+    oneDriveClientId: '',
     syncPath: '',
     fileBaseDir: '',
 });
@@ -1035,6 +1053,34 @@ export class SyncService {
         }
     }
 
+    static getOneDriveConfig(): OneDriveSyncConfig {
+        return getOneDriveSyncConfig();
+    }
+
+    static setOneDriveConfig(config: OneDriveSyncConfig): OneDriveSyncConfig {
+        return setOneDriveSyncConfig(config);
+    }
+
+    static getOneDriveRedirectUri(): string {
+        return getOneDriveRedirectUri();
+    }
+
+    static async getOneDriveConnection(): Promise<OneDriveConnection> {
+        return getOneDriveConnection();
+    }
+
+    static async connectOneDrive(): Promise<OneDriveConnection> {
+        return connectOneDrive();
+    }
+
+    static async disconnectOneDrive(): Promise<void> {
+        await disconnectOneDrive();
+    }
+
+    static async testOneDriveConnection(): Promise<void> {
+        await testOneDriveConnection();
+    }
+
     /**
      * Get the currently configured sync path from the backend
      */
@@ -1145,8 +1191,15 @@ export class SyncService {
         context.dropboxAppKey = context.backend === 'cloud' && context.cloudProvider === 'dropbox'
             ? (await SyncService.getDropboxAppKey()).trim()
             : '';
+        context.oneDriveClientId = context.backend === 'cloud' && context.cloudProvider === 'onedrive'
+            ? SyncService.getOneDriveConfig().clientId.trim()
+            : '';
         if (context.backend === 'cloud' && context.cloudProvider === 'dropbox' && !context.dropboxAppKey) {
             throw new Error('Dropbox app key is not configured');
+        }
+        if (context.backend === 'cloud' && context.cloudProvider === 'onedrive') {
+            if (isTauriRuntimeEnv()) throw new Error('OneDrive Graph sync is available in the PWA only.');
+            if (!context.oneDriveClientId) throw new Error('Microsoft Entra application client ID is not configured');
         }
         context.syncPath = context.backend === 'file' ? await SyncService.getSyncPath() : '';
         context.fileBaseDir = context.backend === 'file'
@@ -1183,6 +1236,8 @@ export class SyncService {
             filePath: context.fileBaseDir,
             dropboxAppKey: context.dropboxAppKey,
             dropboxRev: null,
+            oneDriveClientId: context.oneDriveClientId,
+            oneDriveETag: null,
         };
     }
 
@@ -1316,6 +1371,16 @@ export class SyncService {
                 const fetcher = await createFetchWithAbortForContext(context);
                 return SyncService.runDropboxTransientRetry(() => getDropboxAppDataMetadata(token, fetcher));
             },
+            oneDriveDownload: () => downloadOneDriveAppData(),
+            oneDriveUpload: async (sanitized, expectedETag) => {
+                try {
+                    return await uploadOneDriveAppData(sanitized, expectedETag);
+                } catch (error) {
+                    if (error instanceof OneDriveConflictError) throw new SyncRemoteWriteConflict();
+                    throw error;
+                }
+            },
+            oneDriveMetadata: () => getOneDriveAppDataMetadata(),
             syncWebdavAttachments: async (data) => {
                 const baseUrl = getBaseSyncUrl(context.webdavConfig!.url);
                 return syncAttachments(data, context.webdavConfig!, baseUrl, attachmentBackendDeps);
