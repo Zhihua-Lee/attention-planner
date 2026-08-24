@@ -39,6 +39,8 @@ Google Drive 同步与 Outlook 日历是两套相互独立的连接，可以分�
 
 PWA 在打开 Calendar、回到前台或手动刷新时从 Google Drive 直接读取该文件。Cloudflare Worker 只负责 Google OAuth 与短时令牌，不接收日历文件。Power Automate 的 Google Drive 连接由 Microsoft 管理，权限范围比 PWA 的 `drive.file` 更宽，因此该连接只应保留在受信任的个人账号并定期检查。
 
+完整、可复现的 Power Automate 字段映射、验证步骤、安全边界和故障排查见 [`docs/outlook-google-drive-export.md`](./docs/outlook-google-drive-export.md)。
+
 另有一个直接 Microsoft Graph 只读适配器：
 
 当前已实现的是 **Microsoft Graph 只读同步**：使用最小的 delegated `Calendars.Read` 权限读取 Outlook 事件，通过 `calendarView/delta` 增量更新，并把会议显示在 Calendar 与 NOW 中。它目前不会把任务写入 Outlook，也不是双向同步。

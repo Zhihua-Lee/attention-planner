@@ -61,7 +61,7 @@ The Web/PWA Sync page includes a Google Drive provider using a single-account se
 - Writes compare Google Drive file versions and use the remote ETag when available so concurrent changes become sync conflicts rather than silent overwrites.
 - Binary attachment synchronization is not part of this alpha; the main task/project/settings JSON is synchronized.
 
-The production Google OAuth web client authorizes only `https://todo.onthat.top`, is in testing mode, and has one explicitly listed test user. Two consecutive live syncs completed successfully on 2026-08-23 with zero conflicts, confirming initial creation and subsequent read/update of the remote `data.json`.
+The production Google OAuth web client authorizes only `https://todo.onthat.top`, is in testing mode, and has one explicitly listed test user. Two consecutive live syncs completed successfully on 2026-08-23 with zero conflicts, confirming initial creation and subsequent read/update of the remote `data.json`. The long-lived broker flow and `drive.file` access were subsequently validated in production, including a Power Automate update of the PWA-created private `outlook-calendar.json`. See [the reproducible Outlook export runbook](./outlook-google-drive-export.md).
 
 ### OneDrive personal sync (experimental)
 
@@ -105,7 +105,7 @@ For the local production preview used during development, the redirect URI is `h
 
 ## Run and verify
 
-From `D:\code\attention-planner` with Bun available on `PATH`:
+From a temporary repository checkout with Bun available on `PATH`:
 
 ```powershell
 bun install --frozen-lockfile
@@ -132,6 +132,7 @@ The production PWA can be served from `apps/desktop/dist` by any HTTPS static ho
 - Google Drive transport, token-storage, settings, auto-sync, provider, and security focused tests: 42 passed.
 - Google Drive live connection test: passed; `appDataFolder` reachable.
 - Google Drive live round trip: two consecutive syncs passed with 0 conflicts.
+- Power Automate Outlook export: scheduled flow enabled; a manual production run updated the existing private Drive file and the PWA loaded event titles, times, locations, and all-day state.
 - Live Cloudflare response: HTTP 200 with GIS-compatible CSP, popup-compatible COOP, frame denial, nosniff, no-referrer, restricted permissions, and noindex.
 - OneDrive transport, eTag conflict, account-isolation, auto-sync, and settings focused tests: 18 passed.
 - NOW/Agenda + Outlook focused Vitest: 52 passed.
@@ -143,8 +144,8 @@ The production PWA can be served from `apps/desktop/dist` by any HTTPS static ho
 
 ## Alpha boundaries
 
-- Google Drive synchronization is the validated Web/PWA path. Its browser access token expires after roughly one hour, so the user may need to press **Connect Google Drive** again before later syncs.
-- OneDrive remains blocked by a live Microsoft Graph AppFolder `Access denied` response. Outlook still requires live validation with the school account and may require school-admin consent.
+- Google Drive synchronization is the validated Web/PWA path. Browser access tokens are short-lived, but the deployed single-account broker refreshes them after the initial long-lived authorization; routine hourly reconnection is not expected.
+- OneDrive remains blocked by a live Microsoft Graph AppFolder `Access denied` response. Direct Microsoft Graph Outlook access still depends on school-admin consent, while the Power Automate → private Google Drive → PWA read-only fallback is validated in production.
 - OAuth login is enabled for Web/PWA. The Tauri desktop shell shows a deliberate Alpha notice instead of attempting an unreliable embedded popup flow.
 - Native Windows packaging was not attempted on this machine because the Rust/MSVC toolchain is not installed; the tested Windows delivery is the installable PWA.
 - The current PWA data adapter remains upstream Mindwtr local storage. Existing Mindwtr sync can carry data across devices, but a future storage hardening milestone should move the browser adapter to IndexedDB/OPFS before treating it as a high-volume long-term store.
