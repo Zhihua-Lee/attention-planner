@@ -2,7 +2,7 @@
 
 This Cloudflare Worker provides two narrowly scoped services for the public PWA:
 
-1. A server-side Google OAuth code flow. The refresh token is encrypted with AES-256-GCM before it is stored in a per-user Durable Object. The browser receives only short-lived access tokens and calls Google Drive `appDataFolder` directly, so the Worker does not receive task JSON.
+1. A server-side Google OAuth code flow. The refresh token is encrypted with AES-256-GCM before it is stored in a per-user Durable Object. The browser receives only short-lived access tokens and calls Google Drive directly, so the Worker does not receive task or calendar JSON. `drive.appdata` is used for the hidden task file; `drive.file` is used only for the ordinary private Outlook export file created by the PWA.
 2. Per-device Web Push scheduling. A Durable Object stores the browser push subscription, opaque reminder IDs, and fire times. Titles, task IDs, descriptions, project names, and calendar data are never uploaded.
 
 The broker performs Google OAuth with PKCE and accepts only the exact `ALLOWED_EMAIL`. It stores an encrypted, HttpOnly, SameSite session cookie for 180 days, so Cloudflare Zero Trust and a billing profile are not required. State is one-time and short-lived; all modifying API calls also require a same-origin request.

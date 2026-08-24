@@ -1,5 +1,5 @@
 > [!NOTE]
-> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds attention frames and NOW selection, Google Drive `appDataFolder` synchronization, an experimental read-only Outlook calendar adapter, a single-account Google-authenticated long-lived OAuth broker, and privacy-preserving Web Push reminders. See the public [privacy policy](https://todo.onthat.top/privacy.html) and [`apps/sync-broker`](./apps/sync-broker) for the server design. Task JSON travels directly between the PWA and Google Drive; the broker stores no task titles or descriptions.
+> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds attention frames and NOW selection, Google Drive synchronization, read-only Outlook calendar adapters, a single-account Google-authenticated long-lived OAuth broker, and privacy-preserving Web Push reminders. See the public [privacy policy](https://todo.onthat.top/privacy.html) and [`apps/sync-broker`](./apps/sync-broker) for the server design. Task and exported calendar JSON travel directly between the PWA and Google Drive; the broker stores no task or calendar content.
 >
 > 本仓库是 **Attention Planner** 个人 PWA 分支。上游项目为 [dongdongbh/Mindwtr](https://github.com/dongdongbh/Mindwtr)，本分支继续采用 AGPL-3.0。
 
@@ -27,7 +27,19 @@ Google Drive 同步与 Outlook 日历是两套相互独立的连接，可以分�
 
 启用提醒：在主屏幕版本中进入「设置 → 通知」，先打开通知总开关，再启用“iPhone 后台推送”，允许系统通知，最后点击“发送测试通知”。每台设备都要单独启用一次。PWA 关闭后，服务器仍可发送可见提醒；iOS 不允许静默推送唤醒应用，也不保证像原生 App 一样执行任意后台任务。
 
-### Outlook 日历同步现状
+### Outlook 日历同步
+
+学校租户禁止 Microsoft Graph 应用授权时，正式方案使用 **Power Automate → 私人 Google Drive → PWA**，不需要 Premium：
+
+1. 在「设置 → 同步」连接 Google Drive。该连接使用 `drive.appdata` 保存隐藏的任务数据，并使用 `drive.file` 访问仅由本应用创建或由你明确打开的普通 Drive 文件；它不能浏览整个云端硬盘。
+2. 在「设置 → 集成 → Outlook → Google Drive」点击“准备私有导出文件”，创建普通“我的云端硬盘”中的私有 `outlook-calendar.json`。
+3. 在 Power Automate 创建定时云端流：Recurrence → Office 365 Outlook `Get calendar view of events (V3)` → Data Operations `Select` → Google Drive `Update file`。
+4. 查询建议为过去 30 天至未来 365 天，每 30 分钟运行一次。`Select` 只输出 `id`、`title`、`start`、`end`、`location`、`allDay`；开始/结束应使用带时区的输出。
+5. `Update file` 选择 `outlook-calendar.json`，内容选择 `Select` 的输出。不要创建共享链接，也不要导出正文、参会者、会议链接或组织者。
+
+PWA 在打开 Calendar、回到前台或手动刷新时从 Google Drive 直接读取该文件。Cloudflare Worker 只负责 Google OAuth 与短时令牌，不接收日历文件。Power Automate 的 Google Drive 连接由 Microsoft 管理，权限范围比 PWA 的 `drive.file` 更宽，因此该连接只应保留在受信任的个人账号并定期检查。
+
+另有一个直接 Microsoft Graph 只读适配器：
 
 当前已实现的是 **Microsoft Graph 只读同步**：使用最小的 delegated `Calendars.Read` 权限读取 Outlook 事件，通过 `calendarView/delta` 增量更新，并把会议显示在 Calendar 与 NOW 中。它目前不会把任务写入 Outlook，也不是双向同步。
 
@@ -39,12 +51,12 @@ Google Drive 同步与 Outlook 日历是两套相互独立的连接，可以分�
 4. 在 Attention Planner 中打开「设置 → 集成 → Microsoft Outlook（日历只读）」，填写应用程序（客户端）ID；学校单租户应用还应填写租户 ID 或学校域名。
 5. 保存配置、打开集成开关、点击“连接 Microsoft”，然后点击“立即同步”。
 
-学校 Microsoft 365 租户可能禁止用户自行授权第三方应用。如果出现 `Need admin approval`，需要学校管理员批准；在此之前可以使用学校提供的 ICS 订阅作为只读后备。计划中的“将任务时间块写入独立 Outlook 日历”和有限双向修改尚未实现。
+学校 Microsoft 365 租户可能禁止用户自行授权第三方应用。如果出现 `Need admin approval`，需要学校管理员批准；此时使用上面的 Power Automate 私有 Drive 导出方案。公开 ICS 可能把所有受保护事件显示成 `Private Appointment`，不适合作为正式来源。计划中的“将任务时间块写入独立 Outlook 日历”和有限双向修改尚未实现。
 
 ### 当前边界
 
 - Google Drive：已部署并在线验证长期授权与同步。
-- Outlook：代码已实现只读 Graph 适配器，但学校账号仍需完成实际授权验证；写入和双向同步未实现。
+- Outlook：支持直接 Graph 只读适配器，以及学校租户受限时的 Power Automate → 私人 Google Drive 只读导出；写入和双向同步未实现。
 - iPhone：可安装 PWA、离线使用和接收 Web Push；实际推送权限必须在 iPhone 上由用户授予并逐设备测试。
 - 源码与部署：GitHub 是版本真相；Cloudflare Pages 托管无数据的 PWA 静态壳，Worker 只处理登录、短时令牌和不含任务内容的提醒调度元数据。
 

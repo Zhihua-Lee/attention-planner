@@ -1,15 +1,10 @@
 # Attention Planner Alpha
 
-## Working location
+## Source of truth
 
-- Repository: `D:\code\attention-planner`
-- Branch: `codex/attention-planner-alpha`
+- Repository: `https://github.com/Zhihua-Lee/attention-planner`
 - Upstream baseline: Mindwtr `v1.1.5` (`2dcc77d28200d74190088cabdcd1615aa0c10528`)
-- Portable Bun: `D:\code\toolchains\bun-1.3.5\bun-windows-x64\bun.exe`
-- Bun cache: `D:\code\.cache\bun`
-- Production PWA output: `D:\code\attention-planner\apps\desktop\dist`
-
-The repository, dependencies, caches, and build output stay on D:. The existing Codex Node runtime on C: is only used as an executable and does not hold project data.
+- GitHub is the version and deployment source of truth. A permanent local project checkout is not required; temporary build checkouts should be removed after verification.
 
 ## Live PWA deployment
 
@@ -54,14 +49,15 @@ The Integrations page now includes a Microsoft Outlook section using MSAL browse
 - Outlook events appear in both the existing calendar surfaces and NOW selection.
 - A stale delta token (`410`) automatically falls back to a fresh initial sync.
 
-### Google Drive private app-data sync
+### Google Drive private sync and Outlook export bridge
 
-The Web/PWA Sync page now includes a Google Drive provider using Google Identity Services' browser token model and the single non-sensitive `drive.appdata` scope.
+The Web/PWA Sync page includes a Google Drive provider using a single-account server-side OAuth code flow with PKCE. It requests `drive.appdata` for hidden task data and `drive.file` for the one ordinary Outlook export file created by the PWA.
 
 - Remote data file: `appDataFolder/data.json`, a hidden area that only Attention Planner can access.
-- The app cannot list, read, or modify the user's ordinary Google Drive files.
-- Cloudflare does not receive task data or Google tokens; the browser communicates directly with Google Drive over HTTPS.
-- Access tokens are kept in browser session storage/in memory and expire after roughly one hour. Reconnecting is user-driven; there is no backend refresh token or client secret.
+- Ordinary export file: `My Drive/outlook-calendar.json`, private by default. With `drive.file`, the PWA can access files it created or the user explicitly opened, but cannot browse all of Drive.
+- Power Automate can update this file with the minimal fields `id`, `title`, `start`, `end`, `location`, and `allDay`. It intentionally omits body, attendees, meeting links, and organizer.
+- Cloudflare does not receive task/calendar data or short-lived access tokens; the browser communicates directly with Google Drive over HTTPS.
+- The refresh token is encrypted at the application layer in a per-user Cloudflare Durable Object. Browser access tokens remain in session storage/in memory and expire after roughly one hour.
 - Writes compare Google Drive file versions and use the remote ETag when available so concurrent changes become sync conflicts rather than silent overwrites.
 - Binary attachment synchronization is not part of this alpha; the main task/project/settings JSON is synchronized.
 
@@ -87,7 +83,7 @@ Live validation currently returns `OneDriveGraphError: Access denied` from Micro
 2. Configure Google Auth Platform for an external audience. Testing mode is sufficient for a personal deployment.
 3. Add the intended Google account as a test user.
 4. Create an OAuth client of type **Web application** with authorized JavaScript origin `https://todo.onthat.top`. No redirect URI or client secret is required for the GIS token model.
-5. Under **Data access**, select only `https://www.googleapis.com/auth/drive.appdata`.
+5. Under **Data access**, select `https://www.googleapis.com/auth/drive.appdata` and `https://www.googleapis.com/auth/drive.file`. The latter is limited to files created by the app or explicitly opened by the user; do not request full-drive scope for the PWA.
 6. Build with `VITE_GOOGLE_CLIENT_ID` set to the public OAuth client ID, or enter the client ID in Settings -> Sync -> Google Drive.
 7. Connect the listed test account, test the connection, and run the first sync.
 

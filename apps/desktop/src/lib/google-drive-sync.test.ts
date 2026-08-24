@@ -56,6 +56,10 @@ describe('Google Drive appDataFolder sync transport', () => {
         });
         expect(window.localStorage.getItem('attention-planner:google-drive-sync:token:v1')).toBeNull();
         expect(window.sessionStorage.getItem('attention-planner:google-drive-sync:token:v1')).toContain('google-access-token');
+        const oauth2 = (window as any).google.accounts.oauth2;
+        expect(oauth2.initTokenClient).toHaveBeenCalledWith(expect.objectContaining({
+            scope: expect.stringContaining('https://www.googleapis.com/auth/drive.file'),
+        }));
     });
 
     it('lists only appDataFolder and downloads the hidden data file', async () => {

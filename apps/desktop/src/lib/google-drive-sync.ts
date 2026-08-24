@@ -9,7 +9,10 @@ const CONFIG_STORAGE_KEY = 'attention-planner:google-drive-sync:config:v1';
 const TOKEN_STORAGE_KEY = 'attention-planner:google-drive-sync:token:v1';
 const GOOGLE_IDENTITY_SCRIPT_ID = 'attention-planner-google-identity';
 const GOOGLE_IDENTITY_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
-const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GOOGLE_DRIVE_SCOPE = [
+    'https://www.googleapis.com/auth/drive.appdata',
+    'https://www.googleapis.com/auth/drive.file',
+].join(' ');
 const DRIVE_API_ROOT = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v3';
 const DATA_FILE_NAME = 'data.json';
@@ -312,7 +315,7 @@ async function parseGoogleApiError(response: Response, fallback: string): Promis
     return new GoogleDriveApiError(response.status, detail || fallback);
 }
 
-async function googleFetch(input: string, init: RequestInit = {}): Promise<Response> {
+export async function googleDriveFetch(input: string, init: RequestInit = {}): Promise<Response> {
     const headers = new Headers(init.headers);
     headers.set('Authorization', `Bearer ${await acquireAccessToken()}`);
     const response = await fetch(input, { ...init, cache: 'no-store', headers });
@@ -335,7 +338,7 @@ async function listDataFiles(): Promise<DriveFileMetadata[]> {
         q: `name = '${escapeDriveQueryString(DATA_FILE_NAME)}' and trashed = false`,
         spaces: 'appDataFolder',
     });
-    const response = await googleFetch(`${DRIVE_API_ROOT}/files?${params}`);
+    const response = await googleDriveFetch(`${DRIVE_API_ROOT}/files?${params}`);
     if (!response.ok) throw await parseGoogleApiError(response, `Google Drive file lookup failed (${response.status}).`);
     const payload = await response.json() as { files?: DriveFileMetadata[] };
     const files = Array.isArray(payload.files) ? payload.files.filter((file) => file.id) : [];
@@ -352,7 +355,7 @@ async function readMetadata(): Promise<DriveFileMetadata | null> {
 export async function downloadGoogleDriveAppData(): Promise<GoogleDriveDownloadResult> {
     const metadata = await readMetadata();
     if (!metadata?.id) return { data: null, revision: null };
-    const response = await googleFetch(`${DRIVE_API_ROOT}/files/${encodeURIComponent(metadata.id)}?alt=media`);
+    const response = await googleDriveFetch(`${DRIVE_API_ROOT}/files/${encodeURIComponent(metadata.id)}?alt=media`);
     if (!response.ok) throw await parseGoogleApiError(response, `Google Drive download failed (${response.status}).`);
     try {
         return { data: await response.json() as AppData, revision: metadata.version ?? null };
@@ -380,7 +383,7 @@ function createMultipartBody(data: AppData): { body: Blob; contentType: string }
 async function createDataFile(data: AppData): Promise<GoogleDriveMetadataResult> {
     if (await readMetadata()) throw new GoogleDriveConflictError();
     const multipart = createMultipartBody(data);
-    const response = await googleFetch(`${DRIVE_UPLOAD_ROOT}/files?uploadType=multipart&fields=id,version`, {
+    const response = await googleDriveFetch(`${DRIVE_UPLOAD_ROOT}/files?uploadType=multipart&fields=id,version`, {
         body: multipart.body,
         headers: { 'Content-Type': multipart.contentType },
         method: 'POST',
@@ -398,7 +401,7 @@ async function updateDataFile(
     const metadata = await readMetadata();
     if (!metadata?.id || metadata.version !== expectedRevision) throw new GoogleDriveConflictError();
 
-    const metadataResponse = await googleFetch(
+    const metadataResponse = await googleDriveFetch(
         `${DRIVE_API_ROOT}/files/${encodeURIComponent(metadata.id)}?fields=id,version`,
     );
     if (metadataResponse.status === 404) throw new GoogleDriveConflictError();
@@ -411,7 +414,7 @@ async function updateDataFile(
     const headers = new Headers({ 'Content-Type': 'application/json' });
     const eTag = metadataResponse.headers.get('etag');
     if (eTag) headers.set('If-Match', eTag);
-    const response = await googleFetch(
+    const response = await googleDriveFetch(
         `${DRIVE_UPLOAD_ROOT}/files/${encodeURIComponent(metadata.id)}?uploadType=media&fields=id,version`,
         { body: JSON.stringify(data), headers, method: 'PATCH' },
     );

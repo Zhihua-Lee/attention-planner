@@ -13,6 +13,7 @@ import { isTauriRuntime } from './runtime';
 import { fetchSystemCalendarEvents } from './system-calendar';
 import { getTauriHttpFetch } from './tauri-http';
 import { fetchOutlookCalendarEvents } from './outlook-calendar';
+import { fetchGoogleDriveCalendarEvents } from './google-drive-calendar';
 
 const ICS_MONTH_CACHE_TTL_MS = 5 * 60 * 1000;
 const ICS_MONTH_CACHE_MAX_ENTRIES = 120;
@@ -178,12 +179,15 @@ export async function fetchExternalCalendarEvents(
     const enabled = importableCalendars.filter((calendar) => calendar.enabled);
     const monthRanges = getVisibleMonthRanges(rangeStart, rangeEnd);
 
-    const [icsResults, systemResults, outlookResult] = await Promise.all([
+    const [icsResults, systemResults, outlookResult, googleDriveOutlookResult] = await Promise.all([
         Promise.allSettled(
             enabled.map((calendar) => loadCachedIcsEventsForCalendar(calendar, monthRanges, rangeStart, rangeEnd))
         ),
         fetchSystemCalendarEvents(rangeStart, rangeEnd),
         fetchOutlookCalendarEvents(rangeStart, rangeEnd)
+            .then((value) => ({ status: 'fulfilled' as const, value }))
+            .catch((reason: unknown) => ({ status: 'rejected' as const, reason })),
+        fetchGoogleDriveCalendarEvents(rangeStart, rangeEnd)
             .then((value) => ({ status: 'fulfilled' as const, value }))
             .catch((reason: unknown) => ({ status: 'rejected' as const, reason })),
     ]);
@@ -206,6 +210,17 @@ export async function fetchExternalCalendarEvents(
             ? outlookResult.reason.message
             : String(outlookResult.reason ?? 'Unknown error');
         warnings.push(`Failed to load Outlook: ${detail}`);
+    }
+    if (googleDriveOutlookResult.status === 'fulfilled' && googleDriveOutlookResult.value) {
+        sources.push({
+            calendars: [googleDriveOutlookResult.value.calendar],
+            events: googleDriveOutlookResult.value.events,
+        });
+    } else if (googleDriveOutlookResult.status === 'rejected') {
+        const detail = googleDriveOutlookResult.reason instanceof Error
+            ? googleDriveOutlookResult.reason.message
+            : String(googleDriveOutlookResult.reason ?? 'Unknown error');
+        warnings.push(`Failed to load Outlook from Google Drive: ${detail}`);
     }
     for (const [index, result] of icsResults.entries()) {
         if (result.status !== 'fulfilled') {

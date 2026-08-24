@@ -5,6 +5,7 @@ import { SettingsCalendarPage } from './SettingsCalendarPage';
 import { SettingsEmailCaptureSection } from './SettingsEmailCaptureSection';
 import { SettingsObsidianSection } from './SettingsObsidianSection';
 import { SettingsOutlookCalendarSection } from './SettingsOutlookCalendarSection';
+import { SettingsOutlookGoogleDriveSection } from './SettingsOutlookGoogleDriveSection';
 
 type Labels = {
     calendar: string;
@@ -222,6 +223,8 @@ export function SettingsIntegrationsPage({
                 isTauri={isTauri}
                 showSaved={showSaved}
             />
+
+            <SettingsOutlookGoogleDriveSection />
 
             <SettingsObsidianSection
                 t={t}

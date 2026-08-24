@@ -20,36 +20,37 @@
 <body>
 <main>
   <h1>Attention Planner 隐私政策</h1>
-  <p class="muted">Privacy Policy · 生效日期 / Effective: 2026-08-23</p>
+  <p class="muted">Privacy Policy · 生效日期 / Effective: 2026-08-24</p>
 
   <div class="card">
-    <strong>简要说明：</strong>任务和日历内容优先保存在你的设备。选择 Google Drive 同步时，任务 JSON 由浏览器直接写入 Google Drive 隐藏的 <code>appDataFolder</code>；Cloudflare OAuth/推送服务不接收任务标题、正文或日历内容。
+    <strong>简要说明：</strong>任务和日历内容优先保存在你的设备。选择 Google Drive 同步时，任务 JSON 位于隐藏的 <code>appDataFolder</code>；如启用 Outlook 导出，最小字段日历 JSON 位于你的普通私人 Drive 文件中。两类文件均由浏览器直连 Google Drive，Cloudflare OAuth/推送服务不接收任务标题、正文或日历内容。
   </div>
 
   <h2>我们处理的信息</h2>
   <ul>
     <li><strong>本地应用数据：</strong>任务、项目、设置和缓存保存在浏览器为 <code>todo.onthat.top</code> 隔离的本地存储中。</li>
-    <li><strong>Google Drive 同步：</strong>经你授权后，PWA 仅使用 <code>drive.appdata</code> 权限访问本应用自己的隐藏文件，不能读取或修改普通 Drive 文件。短时访问令牌交给浏览器用于直连 Google Drive。</li>
+    <li><strong>Google Drive 同步：</strong>经你授权后，PWA 使用 <code>drive.appdata</code> 访问本应用自己的隐藏任务文件，并使用 <code>drive.file</code> 访问仅由本应用创建或由你明确打开的普通 Drive 文件；它不能浏览整个云端硬盘。短时访问令牌交给浏览器用于直连 Google Drive。</li>
+    <li><strong>Outlook 日历导出：</strong>如你主动配置 Power Automate，学校 Outlook 会把事件 ID、标题、开始/结束、地点和全天状态写入私人 <code>outlook-calendar.json</code>。不包含正文、参会者、会议链接或组织者。Power Automate 的 Google Drive 连接由 Microsoft 管理，并可能拥有比 PWA 更宽的 Drive 权限。</li>
     <li><strong>长期授权：</strong>Google 刷新令牌先用应用密钥进行 AES-256-GCM 加密，再保存在仅允许指定 Google 账号登录的 Durable Object 中。</li>
     <li><strong>后台推送：</strong>启用后保存浏览器推送端点、不可逆提醒 ID 和提醒时间。推送正文固定为通用提醒，不上传任务标题、描述、项目名或日历内容。</li>
     <li><strong>身份与运行日志：</strong>Google 登录使用获准电子邮件识别唯一用户；会话保存在加密、HttpOnly、SameSite Cookie 中。Cloudflare、Google 及浏览器推送提供商可能按其服务规则处理 IP 地址、User-Agent、安全日志和必要的请求元数据。</li>
   </ul>
 
   <h2>用途、共享与出售</h2>
-  <p>这些信息仅用于同步授权、安全访问、发送你主动启用的提醒、故障排查和防止滥用。必要信息会由 Cloudflare、Google 以及 Apple/浏览器推送服务处理。我们不出售个人信息，不投放行为广告，也不把任务数据用于训练模型。</p>
+  <p>这些信息仅用于同步授权、安全访问、显示你主动配置的 Outlook 日历、发送你主动启用的提醒、故障排查和防止滥用。必要信息会由 Cloudflare、Google、Microsoft Power Automate 以及 Apple/浏览器推送服务处理。我们不出售个人信息，不投放行为广告，也不把任务或日历数据用于训练模型。</p>
 
   <h2>保留、控制与删除</h2>
-  <p>在「设置 → 同步」断开 Google Drive 会撤销授权并删除服务端刷新令牌；在「设置 → 通知」关闭此设备推送会删除该设备的推送端点和提醒计划。你也可以清除站点数据或删除 Google Drive 中的应用数据。Cloudflare 和 Google 的安全日志保留期由各自服务政策决定。</p>
+  <p>在「设置 → 同步」断开 Google Drive 会撤销授权并删除服务端刷新令牌；在「设置 → 通知」关闭此设备推送会删除该设备的推送端点和提醒计划。你也可以关闭 Power Automate 流、删除其 Google Drive 连接、清除站点数据，或删除 Google Drive 中的应用数据和 <code>outlook-calendar.json</code>。Cloudflare、Google 和 Microsoft 的安全日志保留期由各自服务政策决定。</p>
 
   <h2>安全与限制</h2>
-  <p>服务采用 HTTPS、Google PKCE 登录、单账号白名单、最小 Google 权限、令牌加密和通用推送内容。任何联网服务都不能承诺绝对安全；iOS 也可能因网络、省电或系统维护延迟推送。</p>
+  <p>服务采用 HTTPS、Google PKCE 登录、单账号白名单、受限 Google 权限、令牌加密和通用推送内容。任何联网服务都不能承诺绝对安全；iOS 也可能因网络、省电或系统维护延迟推送。</p>
 
   <h2>开源、联系与变更</h2>
   <p>源代码按 AGPL-3.0 发布于 <a href="https://github.com/Zhihua-Lee/attention-planner">GitHub</a>，上游为 <a href="https://github.com/dongdongbh/Mindwtr">Mindwtr</a>。问题可通过 <a href="https://github.com/Zhihua-Lee/attention-planner/issues">仓库 Issues</a> 提交，请勿在公开 Issue 中粘贴令牌或私人任务内容。政策发生实质变更时会更新本页日期和源码历史。</p>
 
   <hr>
   <h1 lang="en">Privacy Policy (English summary)</h1>
-  <p lang="en">Attention Planner is local-first. When Google Drive sync is enabled, task JSON moves directly between the PWA and the app-specific hidden <code>appDataFolder</code>. The Cloudflare broker stores an application-encrypted Google refresh token. If Web Push is enabled, it stores only the push endpoint, opaque reminder IDs, and reminder times; notification text is generic. It does not receive task titles, descriptions, project names, or calendar content. Data is used only for authentication, sync authorization, user-requested reminders, security, and troubleshooting; it is not sold or used for advertising or model training. Disconnect Google Drive or disable device push in Settings to delete the corresponding server-side credentials and schedules.</p>
+  <p lang="en">Attention Planner is local-first. Task JSON moves directly between the PWA and Google Drive's hidden <code>appDataFolder</code>. If you configure the Outlook bridge, Power Automate writes event ID, title, start/end, location, and all-day status to a private <code>outlook-calendar.json</code>; it omits body, attendees, meeting links, and organizer. The PWA uses <code>drive.file</code> only for files it created or you explicitly opened and cannot browse all of Drive. The Cloudflare broker stores an application-encrypted Google refresh token but receives no task or calendar content. Web Push stores only the endpoint, opaque reminder IDs, and reminder times. Data is not sold, used for advertising, or used for model training.</p>
 </main>
 </body>
 </html>
