@@ -5,6 +5,15 @@ import { __brokerTestUtils } from './index';
 const encryptionSecret = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 describe('sync broker security boundaries', () => {
+    it('requests only the hidden app-data and app-created file Drive scopes', () => {
+        expect(__brokerTestUtils.googleScope.split(' ')).toEqual([
+            'openid',
+            'email',
+            'https://www.googleapis.com/auth/drive.appdata',
+            'https://www.googleapis.com/auth/drive.file',
+        ]);
+    });
+
     it('round-trips refresh tokens without storing plaintext', async () => {
         const encrypted = await __brokerTestUtils.encryptText('refresh-token-value', encryptionSecret);
         expect(encrypted).not.toContain('refresh-token-value');

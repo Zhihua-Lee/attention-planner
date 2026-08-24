@@ -1,6 +1,11 @@
 import webpush, { type PushSubscription } from 'web-push';
 
-const GOOGLE_SCOPE = 'openid email https://www.googleapis.com/auth/drive.appdata';
+const GOOGLE_SCOPE = [
+    'openid',
+    'email',
+    'https://www.googleapis.com/auth/drive.appdata',
+    'https://www.googleapis.com/auth/drive.file',
+].join(' ');
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
@@ -661,6 +666,7 @@ export const __brokerTestUtils = {
     createSessionToken,
     decryptText,
     encryptText,
+    googleScope: GOOGLE_SCOPE,
     readSessionToken,
     sanitizeReturnTo,
     validateReminders,
