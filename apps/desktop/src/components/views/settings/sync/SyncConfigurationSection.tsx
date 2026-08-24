@@ -346,8 +346,8 @@ const renderGoogleDrivePanel = ({
 >) => (
     <div className="space-y-3">
         <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            任务数据只写入 Google Drive 隐藏的 <span className="font-mono">appDataFolder</span>。
-            此权限看不到、也不能修改你的普通 Drive 文件。
+            任务数据写入 Google Drive 隐藏的 <span className="font-mono">appDataFolder</span>。
+            Outlook 导出使用 <span className="font-mono">drive.file</span>，只允许访问本应用创建或你明确打开的普通 Drive 文件，不能浏览整个云端硬盘。
             {googleDriveManaged
                 ? ' 刷新令牌由仅允许指定 Google 账号登录的服务加密保存，PWA 只领取短时令牌并直接连接 Google Drive。'
                 : ' 浏览器访问令牌约一小时后到期，届时需要重新连接。'}
