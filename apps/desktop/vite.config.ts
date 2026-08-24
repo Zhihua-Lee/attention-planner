@@ -46,6 +46,10 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        redirect: path.resolve(__dirname, 'redirect.html'),
+      },
       output: {
         manualChunks(id) {
           if (id.includes('packages/core/src/i18n/i18n-translations')) {

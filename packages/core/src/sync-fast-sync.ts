@@ -16,6 +16,7 @@ export type FastSyncScopeContext = {
     dropboxAppKey?: string | null;
     dropboxClientId?: string | null;
     oneDriveClientId?: string | null;
+    googleDriveClientId?: string | null;
 };
 
 export const parseFastSyncState = (raw: string | null | undefined, scope: string): FastSyncState | null => {
@@ -68,6 +69,14 @@ export const buildFastSyncScope = (context: FastSyncScopeContext): string | null
             provider: 'onedrive',
             clientId: context.oneDriveClientId,
             path: '/Apps/Attention Planner/data.json',
+        });
+    }
+    if (context.backend === 'cloud' && context.cloudProvider === 'google-drive' && context.googleDriveClientId) {
+        return computeStableValueFingerprint({
+            backend: 'cloud',
+            provider: 'google-drive',
+            clientId: context.googleDriveClientId,
+            path: '/appDataFolder/data.json',
         });
     }
     return null;

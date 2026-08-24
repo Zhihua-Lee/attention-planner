@@ -95,6 +95,11 @@ const baseProps: Parameters<typeof SyncConfigurationSection>[0] = {
     oneDriveRedirectUri: 'https://todo.onthat.top/',
     oneDriveTenantId: 'common',
     oneDriveTestState: 'idle',
+    googleDriveBusy: false,
+    googleDriveClientId: '',
+    googleDriveConnected: false,
+    googleDriveOrigin: 'https://todo.onthat.top',
+    googleDriveTestState: 'idle',
     onCloudUrlChange: vi.fn(),
     onCloudTokenChange: vi.fn(),
     onCloudRememberTokenChange: vi.fn(),
@@ -110,12 +115,32 @@ const baseProps: Parameters<typeof SyncConfigurationSection>[0] = {
     onConnectOneDrive: vi.fn(),
     onDisconnectOneDrive: vi.fn(),
     onTestOneDriveConnection: vi.fn(),
+    onGoogleDriveClientIdChange: vi.fn(),
+    onSaveGoogleDrive: vi.fn(),
+    onConnectGoogleDrive: vi.fn(),
+    onDisconnectGoogleDrive: vi.fn(),
+    onTestGoogleDriveConnection: vi.fn(),
     isMacOS: false,
     webdavUrlError: false,
     cloudUrlError: false,
 };
 
 describe('SyncConfigurationSection', () => {
+    it('offers Google Drive as a first-level PWA backend with the app-data safety description', () => {
+        const { getByRole, getByText } = render(
+            <SyncConfigurationSection
+                {...baseProps}
+                isTauri={false}
+                cloudProvider="google-drive"
+                googleDriveClientId="google-client-id.apps.googleusercontent.com"
+            />
+        );
+
+        expect(getByRole('button', { name: /^Google Drive$/ })).toHaveAttribute('aria-pressed', 'true');
+        expect(getByText(/appDataFolder/)).toBeInTheDocument();
+        expect(getByText(baseProps.googleDriveOrigin)).toBeInTheDocument();
+    });
+
     it('shows Dropbox as a first-level sync backend without the nested cloud provider picker', () => {
         const { getByRole, queryByText } = render(<SyncConfigurationSection {...baseProps} />);
         const dropboxButton = getByRole('button', { name: /^Dropbox$/ });

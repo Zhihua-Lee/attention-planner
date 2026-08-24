@@ -48,6 +48,11 @@ type SyncConfigurationSectionProps = Pick<
     | 'oneDriveRedirectUri'
     | 'oneDriveTenantId'
     | 'oneDriveTestState'
+    | 'googleDriveBusy'
+    | 'googleDriveClientId'
+    | 'googleDriveConnected'
+    | 'googleDriveOrigin'
+    | 'googleDriveTestState'
     | 'onCloudUrlChange'
     | 'onCloudTokenChange'
     | 'onCloudRememberTokenChange'
@@ -63,9 +68,14 @@ type SyncConfigurationSectionProps = Pick<
     | 'onConnectOneDrive'
     | 'onDisconnectOneDrive'
     | 'onTestOneDriveConnection'
+    | 'onGoogleDriveClientIdChange'
+    | 'onSaveGoogleDrive'
+    | 'onConnectGoogleDrive'
+    | 'onDisconnectGoogleDrive'
+    | 'onTestGoogleDriveConnection'
 >;
 
-type BackendButtonOption = 'off' | 'file' | 'dropbox' | 'onedrive' | 'webdav' | 'selfhosted' | 'cloudkit';
+type BackendButtonOption = 'off' | 'file' | 'dropbox' | 'onedrive' | 'google-drive' | 'webdav' | 'selfhosted' | 'cloudkit';
 type BackendButtonGroup = {
     description: string;
     options: BackendButtonOption[];
@@ -307,6 +317,82 @@ const renderOneDrivePanel = ({
     </div>
 );
 
+const renderGoogleDrivePanel = ({
+    googleDriveBusy,
+    googleDriveClientId,
+    googleDriveConnected,
+    googleDriveOrigin,
+    googleDriveTestState,
+    onConnectGoogleDrive,
+    onDisconnectGoogleDrive,
+    onGoogleDriveClientIdChange,
+    onSaveGoogleDrive,
+    onTestGoogleDriveConnection,
+}: Pick<
+    SyncConfigurationSectionProps,
+    | 'googleDriveBusy'
+    | 'googleDriveClientId'
+    | 'googleDriveConnected'
+    | 'googleDriveOrigin'
+    | 'googleDriveTestState'
+    | 'onConnectGoogleDrive'
+    | 'onDisconnectGoogleDrive'
+    | 'onGoogleDriveClientIdChange'
+    | 'onSaveGoogleDrive'
+    | 'onTestGoogleDriveConnection'
+>) => (
+    <div className="space-y-3">
+        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            任务数据只写入 Google Drive 隐藏的 <span className="font-mono">appDataFolder</span>。
+            此权限看不到、也不能修改你的普通 Drive 文件。浏览器访问令牌约一小时后到期，届时需要重新连接。
+        </div>
+        <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">Google OAuth Web Client ID</label>
+            <input
+                type="text"
+                value={googleDriveClientId}
+                onChange={(event) => onGoogleDriveClientIdChange(event.target.value)}
+                placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com"
+                className="bg-muted p-2 rounded text-sm font-mono border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+        </div>
+        <p className="text-xs text-muted-foreground">
+            已获授权的 JavaScript 来源：<span className="font-mono break-all">{googleDriveOrigin}</span>
+        </p>
+        <p className="text-xs text-muted-foreground">
+            状态：{googleDriveConnected ? '本次浏览器会话已连接' : '未连接或会话已到期'}
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+            <button
+                onClick={onSaveGoogleDrive}
+                disabled={googleDriveBusy || !googleDriveClientId.trim()}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                保存配置
+            </button>
+            <button
+                onClick={googleDriveConnected ? onDisconnectGoogleDrive : onConnectGoogleDrive}
+                disabled={googleDriveBusy || !googleDriveClientId.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+            >
+                {googleDriveConnected ? '断开 Google Drive' : '连接 Google Drive'}
+            </button>
+            <button
+                onClick={onTestGoogleDriveConnection}
+                disabled={googleDriveBusy || !googleDriveConnected}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                {googleDriveBusy ? '处理中…' : '测试连接'}
+            </button>
+            <ConnectionBadge
+                state={googleDriveTestState}
+                successLabel="Google appDataFolder 可访问"
+                errorLabel="Google Drive 连接失败"
+            />
+        </div>
+    </div>
+);
+
 const renderSelfHostedCloudPanel = ({
     cloudAllowInsecureHttp,
     cloudRememberToken,
@@ -528,6 +614,11 @@ export function SyncConfigurationSection({
     oneDriveRedirectUri,
     oneDriveTenantId,
     oneDriveTestState,
+    googleDriveBusy,
+    googleDriveClientId,
+    googleDriveConnected,
+    googleDriveOrigin,
+    googleDriveTestState,
     isMacOS,
     isSavingWebDav,
     isTauri,
@@ -552,6 +643,11 @@ export function SyncConfigurationSection({
     onConnectOneDrive,
     onDisconnectOneDrive,
     onTestOneDriveConnection,
+    onGoogleDriveClientIdChange,
+    onSaveGoogleDrive,
+    onConnectGoogleDrive,
+    onDisconnectGoogleDrive,
+    onTestGoogleDriveConnection,
     onTestWebDavConnection,
     onWebdavAllowInsecureHttpChange,
     onWebdavPasswordChange,
@@ -571,11 +667,12 @@ export function SyncConfigurationSection({
     const isSelfHostedSelected = syncBackend === 'cloud' && cloudProvider === 'selfhosted';
     const isDropboxSelected = syncBackend === 'cloud' && cloudProvider === 'dropbox';
     const isOneDriveSelected = syncBackend === 'cloud' && cloudProvider === 'onedrive';
+    const isGoogleDriveSelected = syncBackend === 'cloud' && cloudProvider === 'google-drive';
     const backendGroups: BackendButtonGroup[] = [
         {
             title: t.syncBackendGroupCloud,
             description: t.syncBackendGroupCloudDesc,
-            options: [...(!isTauri ? (['onedrive'] as const) : []), 'dropbox', ...(isMacOS ? (['cloudkit'] as const) : [])],
+            options: [...(!isTauri ? (['google-drive', 'onedrive'] as const) : []), 'dropbox', ...(isMacOS ? (['cloudkit'] as const) : [])],
         },
         {
             title: t.syncBackendGroupFile,
@@ -602,6 +699,8 @@ export function SyncConfigurationSection({
                 return t.cloudProviderDropbox;
             case 'onedrive':
                 return 'OneDrive';
+            case 'google-drive':
+                return 'Google Drive';
             case 'webdav':
                 return t.syncBackendWebdav;
             case 'selfhosted':
@@ -620,6 +719,8 @@ export function SyncConfigurationSection({
                 return isDropboxSelected;
             case 'onedrive':
                 return isOneDriveSelected;
+            case 'google-drive':
+                return isGoogleDriveSelected;
             case 'selfhosted':
                 return isSelfHostedSelected;
             case 'cloudkit':
@@ -637,6 +738,10 @@ export function SyncConfigurationSection({
                 return;
             case 'onedrive':
                 onCloudProviderChange('onedrive');
+                if (syncBackend !== 'cloud') onSetSyncBackend('cloud');
+                return;
+            case 'google-drive':
+                onCloudProviderChange('google-drive');
                 if (syncBackend !== 'cloud') onSetSyncBackend('cloud');
                 return;
             case 'selfhosted':
@@ -795,6 +900,19 @@ export function SyncConfigurationSection({
                     onOneDriveTenantIdChange,
                     onSaveOneDrive,
                     onTestOneDriveConnection,
+                })}
+
+                {isGoogleDriveSelected && renderGoogleDrivePanel({
+                    googleDriveBusy,
+                    googleDriveClientId,
+                    googleDriveConnected,
+                    googleDriveOrigin,
+                    googleDriveTestState,
+                    onConnectGoogleDrive,
+                    onDisconnectGoogleDrive,
+                    onGoogleDriveClientIdChange,
+                    onSaveGoogleDrive,
+                    onTestGoogleDriveConnection,
                 })}
             </div>
         </section>

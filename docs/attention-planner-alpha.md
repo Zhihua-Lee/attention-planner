@@ -54,7 +54,20 @@ The Integrations page now includes a Microsoft Outlook section using MSAL browse
 - Outlook events appear in both the existing calendar surfaces and NOW selection.
 - A stale delta token (`410`) automatically falls back to a fresh initial sync.
 
-### OneDrive personal sync
+### Google Drive private app-data sync
+
+The Web/PWA Sync page now includes a Google Drive provider using Google Identity Services' browser token model and the single non-sensitive `drive.appdata` scope.
+
+- Remote data file: `appDataFolder/data.json`, a hidden area that only Attention Planner can access.
+- The app cannot list, read, or modify the user's ordinary Google Drive files.
+- Cloudflare does not receive task data or Google tokens; the browser communicates directly with Google Drive over HTTPS.
+- Access tokens are kept in browser session storage/in memory and expire after roughly one hour. Reconnecting is user-driven; there is no backend refresh token or client secret.
+- Writes compare Google Drive file versions and use the remote ETag when available so concurrent changes become sync conflicts rather than silent overwrites.
+- Binary attachment synchronization is not part of this alpha; the main task/project/settings JSON is synchronized.
+
+The production Google OAuth web client authorizes only `https://todo.onthat.top`, is in testing mode, and has one explicitly listed test user. Two consecutive live syncs completed successfully on 2026-08-23 with zero conflicts, confirming initial creation and subsequent read/update of the remote `data.json`.
+
+### OneDrive personal sync (experimental)
 
 The Web/PWA Sync page now includes a OneDrive provider implemented with MSAL browser OAuth, PKCE, and delegated `Files.ReadWrite.AppFolder` only. The permission is scoped to the app's private OneDrive application folder and is supported for personal Microsoft accounts.
 
@@ -65,6 +78,18 @@ The Web/PWA Sync page now includes a OneDrive provider implemented with MSAL bro
 - The exact connected personal account ID is stored separately from the exact connected Outlook school account ID, so MSAL cannot silently swap the two accounts.
 - Local OAuth caches and non-secret client configuration remain isolated by the stable `todo.onthat.top` origin.
 - Binary attachment synchronization is not part of this OneDrive alpha; the main task/project/settings JSON is synchronized.
+
+Live validation currently returns `OneDriveGraphError: Access denied` from Microsoft Graph for the personal account even though the Entra registration and delegated AppFolder permission are present. No OneDrive data was created or overwritten. Google Drive `appDataFolder` is therefore the working production sync path.
+
+## Google Cloud setup
+
+1. Enable the Google Drive API in a Google Cloud project.
+2. Configure Google Auth Platform for an external audience. Testing mode is sufficient for a personal deployment.
+3. Add the intended Google account as a test user.
+4. Create an OAuth client of type **Web application** with authorized JavaScript origin `https://todo.onthat.top`. No redirect URI or client secret is required for the GIS token model.
+5. Under **Data access**, select only `https://www.googleapis.com/auth/drive.appdata`.
+6. Build with `VITE_GOOGLE_CLIENT_ID` set to the public OAuth client ID, or enter the client ID in Settings -> Sync -> Google Drive.
+7. Connect the listed test account, test the connection, and run the first sync.
 
 ## Microsoft Entra setup
 
@@ -78,7 +103,7 @@ The Web/PWA Sync page now includes a OneDrive provider implemented with MSAL bro
 
 School policy may require administrator consent. That tenant-side decision cannot be bypassed by the app.
 
-Current external blocker: the University of Iowa tenant denies this user access to app registrations, while the personal Microsoft account has no Entra directory and Microsoft has deprecated directory-less app creation. A usable client ID therefore requires either an Azure/Entra tenant controlled by the user or a registration supplied/approved by the school administrator. Azure for Students is free and does not require a credit card, but signing up and accepting its account terms must be completed by the user.
+A personal Entra application registration is now available. The remaining Microsoft blockers are the personal OneDrive Graph AppFolder `Access denied` response and possible school-admin consent for the University of Iowa Outlook account.
 
 For the local production preview used during development, the redirect URI is `http://127.0.0.1:4174/`. A deployed HTTPS URL must be registered separately.
 
@@ -97,6 +122,8 @@ Useful focused checks:
 ```powershell
 bun test packages/core/src/attention-frames.test.ts packages/core/src/sync-helpers.test.ts packages/core/src/sync-merge-settings.test.ts
 bun test apps/desktop/src/lib/outlook-calendar.test.ts
+bun test packages/core/src/sync-backend-google-drive.test.ts packages/core/src/sync-client-helpers.test.ts packages/core/src/sync-service-utils.test.ts
+bun test apps/desktop/src/lib/google-drive-sync.test.ts apps/desktop/src/lib/desktop-auto-sync-eligibility.test.ts apps/desktop/src/components/views/settings/sync/SyncConfigurationSection.test.tsx apps/desktop/src/security-headers.test.ts
 ```
 
 The production PWA can be served from `apps/desktop/dist` by any HTTPS static host with SPA fallback to `index.html`.
@@ -106,6 +133,10 @@ The production PWA can be served from `apps/desktop/dist` by any HTTPS static ho
 - Core typecheck: passed.
 - Desktop/PWA typecheck: passed.
 - Production PWA build: passed.
+- Google Drive transport, token-storage, settings, auto-sync, provider, and security focused tests: 42 passed.
+- Google Drive live connection test: passed; `appDataFolder` reachable.
+- Google Drive live round trip: two consecutive syncs passed with 0 conflicts.
+- Live Cloudflare response: HTTP 200 with GIS-compatible CSP, popup-compatible COOP, frame denial, nosniff, no-referrer, restricted permissions, and noindex.
 - OneDrive transport, eTag conflict, account-isolation, auto-sync, and settings focused tests: 18 passed.
 - NOW/Agenda + Outlook focused Vitest: 52 passed.
 - Frame + settings sync tests: 49 passed.
@@ -116,7 +147,8 @@ The production PWA can be served from `apps/desktop/dist` by any HTTPS static ho
 
 ## Alpha boundaries
 
-- Live OneDrive and Outlook authorization still require a real Entra client ID and any school-admin consent.
+- Google Drive synchronization is the validated Web/PWA path. Its browser access token expires after roughly one hour, so the user may need to press **Connect Google Drive** again before later syncs.
+- OneDrive remains blocked by a live Microsoft Graph AppFolder `Access denied` response. Outlook still requires live validation with the school account and may require school-admin consent.
 - OAuth login is enabled for Web/PWA. The Tauri desktop shell shows a deliberate Alpha notice instead of attempting an unreliable embedded popup flow.
 - Native Windows packaging was not attempted on this machine because the Rust/MSVC toolchain is not installed; the tested Windows delivery is the installable PWA.
 - The current PWA data adapter remains upstream Mindwtr local storage. Existing Mindwtr sync can carry data across devices, but a future storage hardening milestone should move the browser adapter to IndexedDB/OPFS before treating it as a high-volume long-term store.

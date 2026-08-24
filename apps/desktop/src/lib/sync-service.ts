@@ -122,6 +122,20 @@ import {
     type OneDriveSyncConfig,
 } from './onedrive-sync';
 import {
+    connectGoogleDrive,
+    disconnectGoogleDrive,
+    downloadGoogleDriveAppData,
+    getGoogleDriveAppDataMetadata,
+    getGoogleDriveConnection,
+    getGoogleDriveSyncConfig,
+    GoogleDriveConflictError,
+    setGoogleDriveSyncConfig,
+    testGoogleDriveConnection,
+    uploadGoogleDriveAppData,
+    type GoogleDriveConnection,
+    type GoogleDriveSyncConfig,
+} from './google-drive-sync';
+import {
     CLOUD_REMEMBER_TOKEN_KEY,
     CLOUD_TOKEN_KEY,
     CLOUD_URL_KEY,
@@ -583,6 +597,7 @@ type DesktopSyncCycleContext = {
     dropboxAppKey: string;
     cachedDropboxAccessToken: string | null;
     oneDriveClientId: string;
+    googleDriveClientId: string;
     syncPath: string;
     fileBaseDir: string;
 };
@@ -598,6 +613,7 @@ const createDesktopSyncCycleContext = (): DesktopSyncCycleContext => ({
     dropboxAppKey: '',
     cachedDropboxAccessToken: null,
     oneDriveClientId: '',
+    googleDriveClientId: '',
     syncPath: '',
     fileBaseDir: '',
 });
@@ -1081,6 +1097,30 @@ export class SyncService {
         await testOneDriveConnection();
     }
 
+    static getGoogleDriveConfig(): GoogleDriveSyncConfig {
+        return getGoogleDriveSyncConfig();
+    }
+
+    static setGoogleDriveConfig(config: GoogleDriveSyncConfig): GoogleDriveSyncConfig {
+        return setGoogleDriveSyncConfig(config);
+    }
+
+    static async getGoogleDriveConnection(): Promise<GoogleDriveConnection> {
+        return getGoogleDriveConnection();
+    }
+
+    static async connectGoogleDrive(): Promise<GoogleDriveConnection> {
+        return connectGoogleDrive();
+    }
+
+    static async disconnectGoogleDrive(): Promise<void> {
+        await disconnectGoogleDrive();
+    }
+
+    static async testGoogleDriveConnection(): Promise<void> {
+        await testGoogleDriveConnection();
+    }
+
     /**
      * Get the currently configured sync path from the backend
      */
@@ -1194,12 +1234,19 @@ export class SyncService {
         context.oneDriveClientId = context.backend === 'cloud' && context.cloudProvider === 'onedrive'
             ? SyncService.getOneDriveConfig().clientId.trim()
             : '';
+        context.googleDriveClientId = context.backend === 'cloud' && context.cloudProvider === 'google-drive'
+            ? SyncService.getGoogleDriveConfig().clientId.trim()
+            : '';
         if (context.backend === 'cloud' && context.cloudProvider === 'dropbox' && !context.dropboxAppKey) {
             throw new Error('Dropbox app key is not configured');
         }
         if (context.backend === 'cloud' && context.cloudProvider === 'onedrive') {
             if (isTauriRuntimeEnv()) throw new Error('OneDrive Graph sync is available in the PWA only.');
             if (!context.oneDriveClientId) throw new Error('Microsoft Entra application client ID is not configured');
+        }
+        if (context.backend === 'cloud' && context.cloudProvider === 'google-drive') {
+            if (isTauriRuntimeEnv()) throw new Error('Google Drive app-data sync is available in the PWA only.');
+            if (!context.googleDriveClientId) throw new Error('Google OAuth web client ID is not configured');
         }
         context.syncPath = context.backend === 'file' ? await SyncService.getSyncPath() : '';
         context.fileBaseDir = context.backend === 'file'
@@ -1238,6 +1285,8 @@ export class SyncService {
             dropboxRev: null,
             oneDriveClientId: context.oneDriveClientId,
             oneDriveETag: null,
+            googleDriveClientId: context.googleDriveClientId,
+            googleDriveRevision: null,
         };
     }
 
@@ -1381,6 +1430,16 @@ export class SyncService {
                 }
             },
             oneDriveMetadata: () => getOneDriveAppDataMetadata(),
+            googleDriveDownload: () => downloadGoogleDriveAppData(),
+            googleDriveUpload: async (sanitized, expectedRevision) => {
+                try {
+                    return await uploadGoogleDriveAppData(sanitized, expectedRevision);
+                } catch (error) {
+                    if (error instanceof GoogleDriveConflictError) throw new SyncRemoteWriteConflict();
+                    throw error;
+                }
+            },
+            googleDriveMetadata: () => getGoogleDriveAppDataMetadata(),
             syncWebdavAttachments: async (data) => {
                 const baseUrl = getBaseSyncUrl(context.webdavConfig!.url);
                 return syncAttachments(data, context.webdavConfig!, baseUrl, attachmentBackendDeps);

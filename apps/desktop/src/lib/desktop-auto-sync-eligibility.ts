@@ -11,6 +11,8 @@ type SyncServiceLike = {
     isDropboxConnected: (clientId: string) => Promise<boolean>;
     getOneDriveConfig?: () => { clientId: string };
     getOneDriveConnection?: () => Promise<{ connected: boolean }>;
+    getGoogleDriveConfig?: () => { clientId: string };
+    getGoogleDriveConnection?: () => Promise<{ connected: boolean }>;
 };
 
 export async function canDesktopAutoSync(syncService: SyncServiceLike): Promise<boolean> {
@@ -26,6 +28,7 @@ export async function canDesktopAutoSync(syncService: SyncServiceLike): Promise<
         : undefined;
     const cloudUrl = backend === 'cloud' && cloudProvider !== 'dropbox'
         && cloudProvider !== 'onedrive'
+        && cloudProvider !== 'google-drive'
         ? (await syncService.getCloudConfig()).url
         : undefined;
     const oneDriveClientId = backend === 'cloud' && cloudProvider === 'onedrive' && syncService.getOneDriveConfig
@@ -33,6 +36,12 @@ export async function canDesktopAutoSync(syncService: SyncServiceLike): Promise<
         : undefined;
     const isOneDriveConnected = backend === 'cloud' && cloudProvider === 'onedrive' && oneDriveClientId && syncService.getOneDriveConnection
         ? (await syncService.getOneDriveConnection()).connected
+        : undefined;
+    const googleDriveClientId = backend === 'cloud' && cloudProvider === 'google-drive' && syncService.getGoogleDriveConfig
+        ? syncService.getGoogleDriveConfig().clientId.trim()
+        : undefined;
+    const isGoogleDriveConnected = backend === 'cloud' && cloudProvider === 'google-drive' && googleDriveClientId && syncService.getGoogleDriveConnection
+        ? (await syncService.getGoogleDriveConnection()).connected
         : undefined;
 
     return canAutoSync({
@@ -44,6 +53,8 @@ export async function canDesktopAutoSync(syncService: SyncServiceLike): Promise<
         isDropboxConnected,
         oneDriveClientId,
         isOneDriveConnected,
+        googleDriveClientId,
+        isGoogleDriveConnected,
         cloudUrl,
     });
 }

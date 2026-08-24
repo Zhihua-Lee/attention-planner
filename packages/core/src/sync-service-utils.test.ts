@@ -57,6 +57,8 @@ describe('sync-service-utils', () => {
         expect(canAutoSync({ backend: 'cloud', cloudProvider: 'selfhosted', cloudUrl: 'https://sync.example.com' })).toBe(true);
         expect(canAutoSync({ backend: 'cloud', cloudProvider: 'dropbox', dropboxAppKey: 'key', isDropboxConnected: false })).toBe(false);
         expect(canAutoSync({ backend: 'cloud', cloudProvider: 'dropbox', dropboxAppKey: 'key', isDropboxConnected: true })).toBe(true);
+        expect(canAutoSync({ backend: 'cloud', cloudProvider: 'google-drive', googleDriveClientId: 'client-id', isGoogleDriveConnected: false })).toBe(false);
+        expect(canAutoSync({ backend: 'cloud', cloudProvider: 'google-drive', googleDriveClientId: 'client-id', isGoogleDriveConnected: true })).toBe(true);
     });
 
     it('redacts credentials from sync error messages', () => {

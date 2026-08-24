@@ -29,6 +29,7 @@ export type SyncBackendContext = {
     filePath?: string;
     dropboxAppKey?: string;
     oneDriveClientId?: string;
+    googleDriveClientId?: string;
     /** Remote location of the last request this cycle made; mutated by the ladder. */
     syncUrl?: string;
     /** Cached Dropbox content-hash rev; mutated by the ladder after every
@@ -36,6 +37,8 @@ export type SyncBackendContext = {
     dropboxRev: string | null;
     /** Cached OneDrive eTag observed during this cycle. */
     oneDriveETag?: string | null;
+    /** Cached Google Drive file version observed during this cycle. */
+    googleDriveRevision?: string | null;
 };
 
 /** One remote-write transport result (webdav/cloud PUT response shape). */
@@ -45,6 +48,8 @@ type DropboxRevResult = { rev: string | null };
 type DropboxDownloadResult = { data: AppData | null; rev: string | null };
 type OneDriveDownloadResult = { data: AppData | null; eTag: string | null };
 type OneDriveMetadataResult = { eTag: string | null };
+type GoogleDriveDownloadResult = { data: AppData | null; revision: string | null };
+type GoogleDriveMetadataResult = { revision: string | null };
 type AttachmentSyncResult = Promise<AppData | boolean | null | undefined>;
 
 /**
@@ -77,6 +82,9 @@ export type SyncTransport = {
     oneDriveDownload?(): Promise<OneDriveDownloadResult>;
     oneDriveUpload?(sanitized: AppData, expectedETag: string | null): Promise<OneDriveMetadataResult>;
     oneDriveMetadata?(): Promise<OneDriveMetadataResult>;
+    googleDriveDownload?(): Promise<GoogleDriveDownloadResult>;
+    googleDriveUpload?(sanitized: AppData, expectedRevision: string | null): Promise<GoogleDriveMetadataResult>;
+    googleDriveMetadata?(): Promise<GoogleDriveMetadataResult>;
     syncWebdavAttachments(data: AppData, helpers: SyncRunAttachmentHelpers): AttachmentSyncResult;
     syncCloudAttachments(data: AppData, helpers: SyncRunAttachmentHelpers): AttachmentSyncResult;
     syncDropboxAttachments(data: AppData, helpers: SyncRunAttachmentHelpers): AttachmentSyncResult;
@@ -86,10 +94,12 @@ export type SyncTransport = {
 
 const DROPBOX_REV_FINGERPRINT_PREFIX = 'dropbox:v1:rev=';
 const ONEDRIVE_ETAG_FINGERPRINT_PREFIX = 'onedrive:v1:etag=';
+const GOOGLE_DRIVE_REVISION_FINGERPRINT_PREFIX = 'google-drive:v1:version=';
 
 /** `dropbox:v1:rev=` cached-fingerprint wire format — one place, not four. */
 export const buildDropboxRevFingerprint = (rev: string): string => `${DROPBOX_REV_FINGERPRINT_PREFIX}${rev}`;
 export const buildOneDriveETagFingerprint = (eTag: string): string => `${ONEDRIVE_ETAG_FINGERPRINT_PREFIX}${eTag}`;
+export const buildGoogleDriveRevisionFingerprint = (revision: string): string => `${GOOGLE_DRIVE_REVISION_FINGERPRINT_PREFIX}${revision}`;
 
 export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTransport): SyncBackendIO {
     /** Dropbox token-retry policy: try with the current token; on an
@@ -119,6 +129,8 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                 ? buildDropboxRevFingerprint(ctx.dropboxRev)
                 : ctx.backend === 'cloud' && ctx.cloudProvider === 'onedrive' && ctx.oneDriveETag
                     ? buildOneDriveETagFingerprint(ctx.oneDriveETag)
+                    : ctx.backend === 'cloud' && ctx.cloudProvider === 'google-drive' && ctx.googleDriveRevision
+                        ? buildGoogleDriveRevisionFingerprint(ctx.googleDriveRevision)
                     : null
         ),
         readRemote: async () => {
@@ -150,6 +162,18 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                     ctx.syncUrl = 'onedrive:///Apps/Attention Planner/data.json';
                     const remote = await transport.oneDriveDownload();
                     ctx.oneDriveETag = remote.eTag;
+                    return remote.data;
+                }
+                if (ctx.cloudProvider === 'google-drive') {
+                    if (!ctx.googleDriveClientId) {
+                        throw new Error('Google OAuth web client ID is not configured');
+                    }
+                    if (!transport.googleDriveDownload) {
+                        throw new Error('Google Drive sync is not available on this platform');
+                    }
+                    ctx.syncUrl = 'google-drive:///appDataFolder/data.json';
+                    const remote = await transport.googleDriveDownload();
+                    ctx.googleDriveRevision = remote.revision;
                     return remote.data;
                 }
                 if (!ctx.dropboxAppKey) {
@@ -191,6 +215,17 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                     }
                     const uploaded = await transport.oneDriveUpload(sanitized, ctx.oneDriveETag ?? null);
                     ctx.oneDriveETag = uploaded.eTag;
+                    return;
+                }
+                if (ctx.cloudProvider === 'google-drive') {
+                    if (!ctx.googleDriveClientId) {
+                        throw new Error('Google OAuth web client ID is not configured');
+                    }
+                    if (!transport.googleDriveUpload) {
+                        throw new Error('Google Drive sync is not available on this platform');
+                    }
+                    const uploaded = await transport.googleDriveUpload(sanitized, ctx.googleDriveRevision ?? null);
+                    ctx.googleDriveRevision = uploaded.revision;
                     return;
                 }
                 if (!ctx.dropboxAppKey) {
@@ -236,6 +271,12 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                 const metadata = await transport.oneDriveMetadata();
                 ctx.oneDriveETag = metadata.eTag;
                 return metadata.eTag ? buildOneDriveETagFingerprint(metadata.eTag) : null;
+            }
+            if (ctx.backend === 'cloud' && ctx.cloudProvider === 'google-drive') {
+                if (!transport.googleDriveMetadata) return null;
+                const metadata = await transport.googleDriveMetadata();
+                ctx.googleDriveRevision = metadata.revision;
+                return metadata.revision ? buildGoogleDriveRevisionFingerprint(metadata.revision) : null;
             }
             return null;
         },

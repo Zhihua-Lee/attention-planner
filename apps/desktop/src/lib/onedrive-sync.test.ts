@@ -36,7 +36,9 @@ import {
     connectOneDrive,
     downloadOneDriveAppData,
     OneDriveConflictError,
+    getOneDriveRedirectUri,
     setOneDriveSyncConfig,
+    testOneDriveConnection,
     uploadOneDriveAppData,
 } from './onedrive-sync';
 
@@ -56,6 +58,10 @@ describe('OneDrive Graph sync transport', () => {
         await connectOneDrive();
     });
 
+    it('uses the dedicated MSAL redirect bridge', () => {
+        expect(getOneDriveRedirectUri()).toBe(`${window.location.origin}/redirect`);
+    });
+
     it('downloads data through the preauthenticated URL without forwarding the bearer token', async () => {
         const appData = { tasks: [], projects: [], sections: [], areas: [], people: [], settings: {} };
         const fetcher = vi.fn<typeof fetch>()
@@ -70,6 +76,7 @@ describe('OneDrive Graph sync transport', () => {
         vi.stubGlobal('fetch', fetcher);
 
         await expect(downloadOneDriveAppData()).resolves.toEqual({ data: appData, eTag: 'etag-1' });
+        expect(fetcher.mock.calls[0]?.[0]).toBe('https://graph.microsoft.com/v1.0/me/special/approot');
         expect(fetcher).toHaveBeenNthCalledWith(
             3,
             'https://files.1drv.example/download',
@@ -77,6 +84,16 @@ describe('OneDrive Graph sync transport', () => {
         );
         const metadataHeaders = new Headers((fetcher.mock.calls[1]?.[1] as RequestInit).headers);
         expect(metadataHeaders.get('Authorization')).toBe('Bearer graph-token');
+    });
+
+    it.each([403, 404])('treats an unprovisioned app root response %s as an empty remote', async (status) => {
+        const fetcher = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({
+            error: { code: 'accessDenied', message: 'Access denied' },
+        }, status));
+        vi.stubGlobal('fetch', fetcher);
+
+        await expect(downloadOneDriveAppData()).resolves.toEqual({ data: null, eTag: null });
+        await expect(testOneDriveConnection()).resolves.toBeUndefined();
     });
 
     it('uses an eTag precondition and maps concurrent writes to a conflict error', async () => {

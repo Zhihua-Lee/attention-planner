@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, noarchive" />
+    <title>Signing in - Attention Planner</title>
+  </head>
+  <body>
+    <p>Processing Microsoft authentication…</p>
+    <script type="module">
+      import { broadcastResponseToMainFrame } from '@azure/msal-browser/redirect-bridge';
+
+      broadcastResponseToMainFrame().catch(() => {
+        document.body.textContent = 'Authentication could not be completed. Close this window and try again.';
+      });
+    </script>
+  </body>
+</html>

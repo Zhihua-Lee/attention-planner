@@ -6,8 +6,8 @@ const ACCOUNT_HOME_ID_STORAGE_KEY = 'attention-planner:onedrive-sync:account-hom
 const DEFAULT_TENANT_ID = 'common';
 const ONEDRIVE_SCOPES = ['Files.ReadWrite.AppFolder'];
 const GRAPH_ROOT_URL = 'https://graph.microsoft.com/v1.0';
-const APP_ROOT_URL = `${GRAPH_ROOT_URL}/me/drive/special/approot`;
-const DATA_ITEM_URL = `${APP_ROOT_URL}:/data.json`;
+const APP_ROOT_URL = `${GRAPH_ROOT_URL}/me/special/approot`;
+const DATA_ITEM_URL = `${GRAPH_ROOT_URL}/me/drive/special/approot:/data.json`;
 const DATA_CONTENT_URL = `${DATA_ITEM_URL}:/content`;
 const DEFAULT_CLIENT_ID = String(import.meta.env.VITE_MICROSOFT_CLIENT_ID || '').trim();
 
@@ -79,7 +79,7 @@ function normalizeConfig(input: Partial<OneDriveSyncConfig> | null | undefined):
 
 export function getOneDriveRedirectUri(): string {
     if (typeof window === 'undefined') return '';
-    return `${window.location.origin}${window.location.pathname}`;
+    return `${window.location.origin}/redirect`;
 }
 
 export function getOneDriveSyncConfig(): OneDriveSyncConfig {
@@ -222,13 +222,20 @@ async function graphFetch(input: string, init: RequestInit = {}): Promise<Respon
     throw new Error('OneDrive authorization failed.');
 }
 
-async function ensureAppRoot(): Promise<void> {
+async function ensureAppRoot(): Promise<boolean> {
+    // Use the dedicated app-folder alias for initial provisioning. Graph's
+    // broader drive route can return 403 before the personal app root exists.
     const response = await graphFetch(APP_ROOT_URL);
+    // OneDrive can return accessDenied until the app folder is created by the
+    // first simple PUT. Treat that first-read response as an empty remote; the
+    // upload path still uses If-None-Match so it cannot overwrite existing data.
+    if (response.status === 403 || response.status === 404) return false;
     if (!response.ok) throw await parseGraphError(response, `OneDrive app folder request failed (${response.status}).`);
+    return true;
 }
 
 async function readMetadata(): Promise<DriveItemMetadata | null> {
-    await ensureAppRoot();
+    if (!await ensureAppRoot()) return null;
     const url = `${DATA_ITEM_URL}?$select=id,name,eTag,@microsoft.graph.downloadUrl`;
     const response = await graphFetch(url);
     if (response.status === 404) return null;
@@ -273,7 +280,7 @@ export async function getOneDriveAppDataMetadata(): Promise<OneDriveMetadataResu
 }
 
 export async function testOneDriveConnection(): Promise<void> {
-    await ensureAppRoot();
+    await readMetadata();
 }
 
 export const __oneDriveSyncTestUtils = {

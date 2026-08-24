@@ -7,10 +7,12 @@ export const DEFAULT_ATTACHMENT_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const CLOUD_PROVIDER_SELF_HOSTED = 'selfhosted' as const;
 export const CLOUD_PROVIDER_DROPBOX = 'dropbox' as const;
 export const CLOUD_PROVIDER_ONEDRIVE = 'onedrive' as const;
+export const CLOUD_PROVIDER_GOOGLE_DRIVE = 'google-drive' as const;
 export type CloudProvider =
     | typeof CLOUD_PROVIDER_SELF_HOSTED
     | typeof CLOUD_PROVIDER_DROPBOX
-    | typeof CLOUD_PROVIDER_ONEDRIVE;
+    | typeof CLOUD_PROVIDER_ONEDRIVE
+    | typeof CLOUD_PROVIDER_GOOGLE_DRIVE;
 
 export class LocalSyncAbort extends Error {
     constructor() {
@@ -87,12 +89,14 @@ export const shouldRunAttachmentCleanup = (
 
 export const normalizeCloudProvider = (
     value: string | null | undefined,
-    options?: { allowDropbox?: boolean; allowOneDrive?: boolean }
+    options?: { allowDropbox?: boolean; allowOneDrive?: boolean; allowGoogleDrive?: boolean }
 ): CloudProvider => {
     const allowDropbox = options?.allowDropbox ?? true;
     const allowOneDrive = options?.allowOneDrive ?? true;
+    const allowGoogleDrive = options?.allowGoogleDrive ?? true;
     if (allowDropbox && value === CLOUD_PROVIDER_DROPBOX) return CLOUD_PROVIDER_DROPBOX;
     if (allowOneDrive && value === CLOUD_PROVIDER_ONEDRIVE) return CLOUD_PROVIDER_ONEDRIVE;
+    if (allowGoogleDrive && value === CLOUD_PROVIDER_GOOGLE_DRIVE) return CLOUD_PROVIDER_GOOGLE_DRIVE;
     return CLOUD_PROVIDER_SELF_HOSTED;
 };
 

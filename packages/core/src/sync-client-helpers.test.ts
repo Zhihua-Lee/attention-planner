@@ -126,6 +126,8 @@ describe('sync-client-helpers', () => {
 
     it('normalizes cloud provider values', () => {
         expect(normalizeCloudProvider('dropbox')).toBe(CLOUD_PROVIDER_DROPBOX);
+        expect(normalizeCloudProvider('google-drive')).toBe('google-drive');
+        expect(normalizeCloudProvider('google-drive', { allowGoogleDrive: false })).toBe(CLOUD_PROVIDER_SELF_HOSTED);
         expect(normalizeCloudProvider('dropbox', { allowDropbox: false })).toBe(CLOUD_PROVIDER_SELF_HOSTED);
         expect(normalizeCloudProvider('anything-else')).toBe(CLOUD_PROVIDER_SELF_HOSTED);
         expect(normalizeCloudProvider(null)).toBe(CLOUD_PROVIDER_SELF_HOSTED);

@@ -42,6 +42,7 @@ import type {
 export type { SyncBackend };
 export type DropboxTestState = 'idle' | 'success' | 'error';
 export type OneDriveTestState = 'idle' | 'success' | 'error';
+export type GoogleDriveTestState = 'idle' | 'success' | 'error';
 export type WebDavTestState = 'idle' | 'success' | 'error';
 
 const formatClockSkew = (ms: number): string => {
@@ -101,6 +102,11 @@ export const useSyncSettings = ({
     const [oneDriveBusy, setOneDriveBusy] = useState(false);
     const [oneDriveTestState, setOneDriveTestState] = useState<OneDriveTestState>('idle');
     const [oneDriveRedirectUri] = useState(() => SyncService.getOneDriveRedirectUri());
+    const [googleDriveClientId, setGoogleDriveClientId] = useState('');
+    const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
+    const [googleDriveBusy, setGoogleDriveBusy] = useState(false);
+    const [googleDriveTestState, setGoogleDriveTestState] = useState<GoogleDriveTestState>('idle');
+    const [googleDriveOrigin] = useState(() => typeof window === 'undefined' ? '' : window.location.origin);
     const [snapshots, setSnapshots] = useState<string[]>([]);
     const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
     const [isRestoringSnapshot, setIsRestoringSnapshot] = useState(false);
@@ -244,6 +250,8 @@ export const useSyncSettings = ({
         const oneDriveConfig = SyncService.getOneDriveConfig();
         setOneDriveClientId(oneDriveConfig.clientId);
         setOneDriveTenantId(oneDriveConfig.tenantId);
+        const googleDriveConfig = SyncService.getGoogleDriveConfig();
+        setGoogleDriveClientId(googleDriveConfig.clientId);
         measureSettingsOpenStep('sync-load-dropbox-app-key', () => SyncService.getDropboxAppKey())
             .then((value) => {
                 const trimmed = value.trim();
@@ -323,6 +331,29 @@ export const useSyncSettings = ({
             cancelled = true;
         };
     }, [oneDriveClientId, oneDriveTenantId]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadGoogleDriveConnection = async () => {
+            try {
+                const connection = await SyncService.getGoogleDriveConnection();
+                if (!cancelled) {
+                    setGoogleDriveConnected(connection.connected);
+                    if (!connection.connected) setGoogleDriveTestState('idle');
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setGoogleDriveConnected(false);
+                    setGoogleDriveTestState('idle');
+                }
+                void logError(error, { scope: 'sync', step: 'loadGoogleDriveConnected' });
+            }
+        };
+        void loadGoogleDriveConnection();
+        return () => {
+            cancelled = true;
+        };
+    }, [googleDriveClientId]);
 
     useEffect(() => {
         setWebdavTestState('idle');
@@ -460,6 +491,9 @@ export const useSyncSettings = ({
         }
         if (provider !== 'onedrive') {
             setOneDriveTestState('idle');
+        }
+        if (provider !== 'google-drive') {
+            setGoogleDriveTestState('idle');
         }
         await SyncService.setCloudProvider(provider);
         showSaved();
@@ -625,6 +659,81 @@ export const useSyncSettings = ({
         }
     }, [showToast, toErrorMessage]);
 
+    const saveGoogleDriveConfig = useCallback(() => {
+        const config = SyncService.setGoogleDriveConfig({
+            clientId: googleDriveClientId.trim(),
+        });
+        setGoogleDriveClientId(config.clientId);
+        return config;
+    }, [googleDriveClientId]);
+
+    const handleSaveGoogleDrive = useCallback(async () => {
+        saveGoogleDriveConfig();
+        const connection = await SyncService.getGoogleDriveConnection();
+        setGoogleDriveConnected(connection.connected);
+        setGoogleDriveTestState('idle');
+        showSaved();
+    }, [saveGoogleDriveConfig, showSaved]);
+
+    const handleConnectGoogleDrive = useCallback(async () => {
+        const config = saveGoogleDriveConfig();
+        if (!config.clientId) {
+            showToast('Enter the Google OAuth web client ID first.', 'error');
+            return;
+        }
+        setGoogleDriveBusy(true);
+        try {
+            const connection = await SyncService.connectGoogleDrive();
+            setGoogleDriveConnected(connection.connected);
+            setGoogleDriveTestState('idle');
+            setSyncError(null);
+            showToast('Connected to Google Drive app data.', 'success');
+        } catch (error) {
+            const message = toErrorMessage(error, 'Failed to connect Google Drive.');
+            setGoogleDriveConnected(false);
+            setGoogleDriveTestState('error');
+            setSyncError(message);
+            showToast(message, 'error');
+        } finally {
+            setGoogleDriveBusy(false);
+        }
+    }, [saveGoogleDriveConfig, showToast, toErrorMessage]);
+
+    const handleDisconnectGoogleDrive = useCallback(async () => {
+        setGoogleDriveBusy(true);
+        try {
+            await SyncService.disconnectGoogleDrive();
+            setGoogleDriveConnected(false);
+            setGoogleDriveTestState('idle');
+            showToast('Disconnected from Google Drive.', 'success');
+        } catch (error) {
+            const message = toErrorMessage(error, 'Failed to disconnect Google Drive.');
+            setSyncError(message);
+            showToast(message, 'error');
+        } finally {
+            setGoogleDriveBusy(false);
+        }
+    }, [showToast, toErrorMessage]);
+
+    const handleTestGoogleDriveConnection = useCallback(async () => {
+        setGoogleDriveBusy(true);
+        try {
+            await SyncService.testGoogleDriveConnection();
+            const connection = await SyncService.getGoogleDriveConnection();
+            setGoogleDriveConnected(connection.connected);
+            setGoogleDriveTestState('success');
+            setSyncError(null);
+            showToast('Google Drive app data is reachable.', 'success');
+        } catch (error) {
+            const message = toErrorMessage(error, 'Google Drive connection failed.');
+            setGoogleDriveTestState('error');
+            setSyncError(message);
+            showToast(message, 'error');
+        } finally {
+            setGoogleDriveBusy(false);
+        }
+    }, [showToast, toErrorMessage]);
+
     const handleSync = useCallback(async () => {
         addBreadcrumb('sync:manual');
         try {
@@ -658,7 +767,7 @@ export const useSyncSettings = ({
                         return;
                     }
                     setDropboxConnected(true);
-                } else {
+                } else if (cloudProvider === 'onedrive') {
                     saveOneDriveConfig();
                     const connection = await SyncService.getOneDriveConnection();
                     if (!connection.connected) {
@@ -670,6 +779,17 @@ export const useSyncSettings = ({
                     }
                     setOneDriveConnected(true);
                     setOneDriveAccountName(connection.accountName);
+                } else {
+                    saveGoogleDriveConfig();
+                    const connection = await SyncService.getGoogleDriveConnection();
+                    if (!connection.connected) {
+                        const message = 'Connect Google Drive first. Browser access tokens expire after about one hour.';
+                        setSyncError(message);
+                        showToast(message, 'error');
+                        setGoogleDriveConnected(false);
+                        return;
+                    }
+                    setGoogleDriveConnected(true);
                 }
             }
             if (syncBackend === 'file') {
@@ -735,6 +855,7 @@ export const useSyncSettings = ({
         handleSaveWebDav,
         isTauri,
         saveOneDriveConfig,
+        saveGoogleDriveConfig,
         showToast,
         syncBackend,
         syncPath,
@@ -1100,7 +1221,9 @@ export const useSyncSettings = ({
                             ? !!cloudUrl.trim() && !cloudUrlError && cloudConnectionAllowed
                             : cloudProvider === 'dropbox'
                                 ? dropboxConfigured && !!dropboxAppKey.trim() && dropboxConnected
-                                : !!oneDriveClientId.trim() && oneDriveConnected)
+                                : cloudProvider === 'onedrive'
+                                    ? !!oneDriveClientId.trim() && oneDriveConnected
+                                    : !!googleDriveClientId.trim() && googleDriveConnected)
                         : false;
 
     return {
@@ -1147,6 +1270,11 @@ export const useSyncSettings = ({
             oneDriveRedirectUri,
             oneDriveTenantId,
             oneDriveTestState,
+            googleDriveBusy,
+            googleDriveClientId,
+            googleDriveConnected,
+            googleDriveOrigin,
+            googleDriveTestState,
             onCloudUrlChange: setCloudUrl,
             onCloudTokenChange: setCloudToken,
             onCloudRememberTokenChange: setCloudRememberToken,
@@ -1162,6 +1290,11 @@ export const useSyncSettings = ({
             onConnectOneDrive: handleConnectOneDrive,
             onDisconnectOneDrive: handleDisconnectOneDrive,
             onTestOneDriveConnection: handleTestOneDriveConnection,
+            onGoogleDriveClientIdChange: setGoogleDriveClientId,
+            onSaveGoogleDrive: handleSaveGoogleDrive,
+            onConnectGoogleDrive: handleConnectGoogleDrive,
+            onDisconnectGoogleDrive: handleDisconnectGoogleDrive,
+            onTestGoogleDriveConnection: handleTestGoogleDriveConnection,
             isSyncTargetValid,
             syncPreferences,
             onUpdateSyncPreferences: handleUpdateSyncPreferences,

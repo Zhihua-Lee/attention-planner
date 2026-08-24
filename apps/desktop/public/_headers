@@ -1,13 +1,24 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; media-src 'self' data: blob: file:; font-src 'self' data:; connect-src 'self' https: http://localhost:* ws://localhost:*; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; media-src 'self' data: blob: file:; font-src 'self' data:; connect-src 'self' https: http://localhost:* ws://localhost:*; object-src 'none'; frame-src https://accounts.google.com/gsi/; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   X-Robots-Tag: noindex, noarchive
 
 /index.html
   Cache-Control: no-cache
+
+/redirect
+  Cache-Control: no-store
+  ! Content-Security-Policy
+  ! X-Frame-Options
+
+/redirect.html
+  Cache-Control: no-store
+  ! Content-Security-Policy
+  ! X-Frame-Options
 
 /sw.js
   Cache-Control: no-cache

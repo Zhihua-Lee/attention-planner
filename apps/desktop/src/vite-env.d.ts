@@ -7,6 +7,7 @@ interface ImportMetaEnv {
     readonly VITE_DISABLE_HEARTBEAT?: string;
     readonly VITE_DROPBOX_APP_KEY?: string;
     readonly VITE_MICROSOFT_CLIENT_ID?: string;
+    readonly VITE_GOOGLE_CLIENT_ID?: string;
     readonly VITE_FEEDBACK_ENDPOINT_URL?: string;
     readonly VITE_DONATION_PROMPT_ENABLED?: string;
 }

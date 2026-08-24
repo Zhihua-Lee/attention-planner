@@ -126,9 +126,10 @@ export type SettingsSyncLabels = {
     attachmentsCleanupRunning: string;
 };
 
-export type CloudProvider = 'selfhosted' | 'dropbox' | 'onedrive';
+export type CloudProvider = 'selfhosted' | 'dropbox' | 'onedrive' | 'google-drive';
 export type DropboxTestState = 'idle' | 'success' | 'error';
 export type OneDriveTestState = 'idle' | 'success' | 'error';
+export type GoogleDriveTestState = 'idle' | 'success' | 'error';
 export type SyncPreferences = SettingsSyncPreferences;
 
 /**
@@ -179,6 +180,11 @@ export type SyncConfigurationProps = {
     oneDriveRedirectUri: string;
     oneDriveTenantId: string;
     oneDriveTestState: OneDriveTestState;
+    googleDriveBusy: boolean;
+    googleDriveClientId: string;
+    googleDriveConnected: boolean;
+    googleDriveOrigin: string;
+    googleDriveTestState: GoogleDriveTestState;
     onCloudUrlChange: (value: string) => void;
     onCloudTokenChange: (value: string) => void;
     onCloudRememberTokenChange: (value: boolean) => void;
@@ -194,6 +200,11 @@ export type SyncConfigurationProps = {
     onConnectOneDrive: () => Promise<void> | void;
     onDisconnectOneDrive: () => Promise<void> | void;
     onTestOneDriveConnection: () => Promise<void> | void;
+    onGoogleDriveClientIdChange: (value: string) => void;
+    onSaveGoogleDrive: () => Promise<void> | void;
+    onConnectGoogleDrive: () => Promise<void> | void;
+    onDisconnectGoogleDrive: () => Promise<void> | void;
+    onTestGoogleDriveConnection: () => Promise<void> | void;
 };
 
 export type SyncStatusProps = {
