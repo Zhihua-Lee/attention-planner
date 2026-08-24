@@ -129,6 +129,7 @@ import {
     getGoogleDriveConnection,
     getGoogleDriveSyncConfig,
     GoogleDriveConflictError,
+    isGoogleDriveBrokerManaged,
     setGoogleDriveSyncConfig,
     testGoogleDriveConnection,
     uploadGoogleDriveAppData,
@@ -1103,6 +1104,10 @@ export class SyncService {
 
     static setGoogleDriveConfig(config: GoogleDriveSyncConfig): GoogleDriveSyncConfig {
         return setGoogleDriveSyncConfig(config);
+    }
+
+    static isGoogleDriveBrokerManaged(): boolean {
+        return isGoogleDriveBrokerManaged();
     }
 
     static async getGoogleDriveConnection(): Promise<GoogleDriveConnection> {

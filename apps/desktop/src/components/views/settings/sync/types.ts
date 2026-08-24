@@ -183,6 +183,7 @@ export type SyncConfigurationProps = {
     googleDriveBusy: boolean;
     googleDriveClientId: string;
     googleDriveConnected: boolean;
+    googleDriveManaged: boolean;
     googleDriveOrigin: string;
     googleDriveTestState: GoogleDriveTestState;
     onCloudUrlChange: (value: string) => void;

@@ -51,6 +51,7 @@ type SyncConfigurationSectionProps = Pick<
     | 'googleDriveBusy'
     | 'googleDriveClientId'
     | 'googleDriveConnected'
+    | 'googleDriveManaged'
     | 'googleDriveOrigin'
     | 'googleDriveTestState'
     | 'onCloudUrlChange'
@@ -321,6 +322,7 @@ const renderGoogleDrivePanel = ({
     googleDriveBusy,
     googleDriveClientId,
     googleDriveConnected,
+    googleDriveManaged,
     googleDriveOrigin,
     googleDriveTestState,
     onConnectGoogleDrive,
@@ -333,6 +335,7 @@ const renderGoogleDrivePanel = ({
     | 'googleDriveBusy'
     | 'googleDriveClientId'
     | 'googleDriveConnected'
+    | 'googleDriveManaged'
     | 'googleDriveOrigin'
     | 'googleDriveTestState'
     | 'onConnectGoogleDrive'
@@ -344,32 +347,43 @@ const renderGoogleDrivePanel = ({
     <div className="space-y-3">
         <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
             任务数据只写入 Google Drive 隐藏的 <span className="font-mono">appDataFolder</span>。
-            此权限看不到、也不能修改你的普通 Drive 文件。浏览器访问令牌约一小时后到期，届时需要重新连接。
+            此权限看不到、也不能修改你的普通 Drive 文件。
+            {googleDriveManaged
+                ? ' 刷新令牌由受 Cloudflare Access 保护的服务加密保存，PWA 只领取短时令牌并直接连接 Google Drive。'
+                : ' 浏览器访问令牌约一小时后到期，届时需要重新连接。'}
         </div>
-        <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium">Google OAuth Web Client ID</label>
-            <input
-                type="text"
-                value={googleDriveClientId}
-                onChange={(event) => onGoogleDriveClientIdChange(event.target.value)}
-                placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com"
-                className="bg-muted p-2 rounded text-sm font-mono border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-        </div>
+        {!googleDriveManaged && (
+            <>
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium">Google OAuth Web Client ID</label>
+                    <input
+                        type="text"
+                        value={googleDriveClientId}
+                        onChange={(event) => onGoogleDriveClientIdChange(event.target.value)}
+                        placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com"
+                        className="bg-muted p-2 rounded text-sm font-mono border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    已获授权的 JavaScript 来源：<span className="font-mono break-all">{googleDriveOrigin}</span>
+                </p>
+            </>
+        )}
         <p className="text-xs text-muted-foreground">
-            已获授权的 JavaScript 来源：<span className="font-mono break-all">{googleDriveOrigin}</span>
-        </p>
-        <p className="text-xs text-muted-foreground">
-            状态：{googleDriveConnected ? '本次浏览器会话已连接' : '未连接或会话已到期'}
+            状态：{googleDriveConnected
+                ? googleDriveManaged ? '已长期授权；短时令牌将自动刷新' : '本次浏览器会话已连接'
+                : '尚未连接'}
         </p>
         <div className="flex flex-wrap justify-end gap-2">
-            <button
-                onClick={onSaveGoogleDrive}
-                disabled={googleDriveBusy || !googleDriveClientId.trim()}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                保存配置
-            </button>
+            {!googleDriveManaged && (
+                <button
+                    onClick={onSaveGoogleDrive}
+                    disabled={googleDriveBusy || !googleDriveClientId.trim()}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    保存配置
+                </button>
+            )}
             <button
                 onClick={googleDriveConnected ? onDisconnectGoogleDrive : onConnectGoogleDrive}
                 disabled={googleDriveBusy || !googleDriveClientId.trim()}
@@ -617,6 +631,7 @@ export function SyncConfigurationSection({
     googleDriveBusy,
     googleDriveClientId,
     googleDriveConnected,
+    googleDriveManaged,
     googleDriveOrigin,
     googleDriveTestState,
     isMacOS,
@@ -906,6 +921,7 @@ export function SyncConfigurationSection({
                     googleDriveBusy,
                     googleDriveClientId,
                     googleDriveConnected,
+                    googleDriveManaged,
                     googleDriveOrigin,
                     googleDriveTestState,
                     onConnectGoogleDrive,

@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "attention-planner-broker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "todo.onthat.top/api/*",
+      "zone_name": "onthat.top"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "USER_VAULTS",
+        "class_name": "UserVault"
+      },
+      {
+        "name": "NOTIFICATION_DEVICES",
+        "class_name": "NotificationDevice"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["UserVault", "NotificationDevice"]
+    }
+  ],
+  "vars": {
+    "PUBLIC_ORIGIN": "https://todo.onthat.top",
+    "GOOGLE_REDIRECT_URI": "https://todo.onthat.top/api/google/callback",
+    "VAPID_SUBJECT": "https://todo.onthat.top/privacy.html"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

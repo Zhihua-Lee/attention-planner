@@ -106,6 +106,7 @@ export const useSyncSettings = ({
     const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
     const [googleDriveBusy, setGoogleDriveBusy] = useState(false);
     const [googleDriveTestState, setGoogleDriveTestState] = useState<GoogleDriveTestState>('idle');
+    const [googleDriveManaged] = useState(() => SyncService.isGoogleDriveBrokerManaged());
     const [googleDriveOrigin] = useState(() => typeof window === 'undefined' ? '' : window.location.origin);
     const [snapshots, setSnapshots] = useState<string[]>([]);
     const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
@@ -783,7 +784,9 @@ export const useSyncSettings = ({
                     saveGoogleDriveConfig();
                     const connection = await SyncService.getGoogleDriveConnection();
                     if (!connection.connected) {
-                        const message = 'Connect Google Drive first. Browser access tokens expire after about one hour.';
+                        const message = googleDriveManaged
+                            ? 'Connect Google Drive through the secure broker first.'
+                            : 'Connect Google Drive first. Browser access tokens expire after about one hour.';
                         setSyncError(message);
                         showToast(message, 'error');
                         setGoogleDriveConnected(false);
@@ -1273,6 +1276,7 @@ export const useSyncSettings = ({
             googleDriveBusy,
             googleDriveClientId,
             googleDriveConnected,
+            googleDriveManaged,
             googleDriveOrigin,
             googleDriveTestState,
             onCloudUrlChange: setCloudUrl,

@@ -1,0 +1,9 @@
+# Copy to .dev.vars for local testing. Never commit .dev.vars.
+GOOGLE_CLIENT_ID="replace-me.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="replace-me"
+ALLOWED_EMAIL="you@example.com"
+TOKEN_ENCRYPTION_KEY="base64url-encoded-32-byte-key"
+VAPID_PUBLIC_KEY="replace-me"
+VAPID_PRIVATE_KEY="replace-me"
+LOCAL_DEV_EMAIL="you@example.com"
+LOCAL_DEV_TOKEN="replace-with-a-random-local-token"

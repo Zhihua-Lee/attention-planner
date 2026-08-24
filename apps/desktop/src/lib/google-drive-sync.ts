@@ -1,4 +1,9 @@
 import type { AppData } from '@mindwtr/core';
+import {
+    isSyncBrokerConfigured,
+    navigateToSyncBroker,
+    syncBrokerJson,
+} from './sync-broker-client';
 
 const CONFIG_STORAGE_KEY = 'attention-planner:google-drive-sync:config:v1';
 const TOKEN_STORAGE_KEY = 'attention-planner:google-drive-sync:token:v1';
@@ -10,6 +15,7 @@ const DRIVE_UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v3';
 const DATA_FILE_NAME = 'data.json';
 const TOKEN_EXPIRY_SKEW_MS = 30_000;
 const DEFAULT_CLIENT_ID = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+const MANAGED_CLIENT_ID = 'managed-by-attention-planner-broker';
 
 export type GoogleDriveSyncConfig = {
     clientId: string;
@@ -19,6 +25,7 @@ export type GoogleDriveConnection = {
     configured: boolean;
     connected: boolean;
     expiresAt: number | null;
+    persistent: boolean;
 };
 
 export type GoogleDriveDownloadResult = {
@@ -102,8 +109,12 @@ function normalizeConfig(input: Partial<GoogleDriveSyncConfig> | null | undefine
     return {
         clientId: typeof input?.clientId === 'string' && input.clientId.trim()
             ? input.clientId.trim()
-            : DEFAULT_CLIENT_ID,
+            : DEFAULT_CLIENT_ID || (isSyncBrokerConfigured() ? MANAGED_CLIENT_ID : ''),
     };
+}
+
+export function isGoogleDriveBrokerManaged(): boolean {
+    return isSyncBrokerConfigured();
 }
 
 export function getGoogleDriveSyncConfig(): GoogleDriveSyncConfig {
@@ -210,15 +221,30 @@ async function loadGoogleIdentityServices(): Promise<GoogleOAuth2> {
 
 export async function getGoogleDriveConnection(): Promise<GoogleDriveConnection> {
     const config = getGoogleDriveSyncConfig();
+    if (isSyncBrokerConfigured()) {
+        const status = await syncBrokerJson<{ connected: boolean; persistent: boolean }>('/google/status');
+        const token = readStoredToken();
+        return {
+            configured: true,
+            connected: status.connected,
+            expiresAt: token?.expiresAt ?? null,
+            persistent: status.persistent === true,
+        };
+    }
     const token = readStoredToken();
     return {
         configured: Boolean(config.clientId),
         connected: Boolean(config.clientId && token),
         expiresAt: token?.expiresAt ?? null,
+        persistent: false,
     };
 }
 
 export async function connectGoogleDrive(): Promise<GoogleDriveConnection> {
+    if (isSyncBrokerConfigured()) {
+        navigateToSyncBroker('/google/connect', '/?view=settings');
+        return new Promise<GoogleDriveConnection>(() => undefined);
+    }
     const config = getGoogleDriveSyncConfig();
     if (!config.clientId) throw new Error('Google OAuth web client ID is required for Drive sync.');
     const oauth2 = await loadGoogleIdentityServices();
@@ -247,6 +273,11 @@ export async function connectGoogleDrive(): Promise<GoogleDriveConnection> {
 }
 
 export async function disconnectGoogleDrive(): Promise<void> {
+    if (isSyncBrokerConfigured()) {
+        clearStoredToken();
+        await syncBrokerJson('/google/disconnect', { method: 'POST' });
+        return;
+    }
     const token = readStoredToken();
     clearStoredToken();
     if (!token) return;
@@ -255,12 +286,19 @@ export async function disconnectGoogleDrive(): Promise<void> {
     await new Promise<void>((resolve) => oauth2.revoke(token.accessToken, resolve));
 }
 
-function acquireAccessToken(): string {
+async function acquireAccessToken(): Promise<string> {
     const token = readStoredToken();
-    if (!token) {
-        throw new Error('Google Drive session expired. Reconnect it in Settings → Sync.');
+    if (token) return token.accessToken;
+    if (isSyncBrokerConfigured()) {
+        const response = await syncBrokerJson<{ accessToken: string; expiresIn: number }>('/google/token', {
+            method: 'POST',
+        });
+        return storeToken({
+            access_token: response.accessToken,
+            expires_in: response.expiresIn,
+        }).accessToken;
     }
-    return token.accessToken;
+    throw new Error('Google Drive session expired. Reconnect it in Settings → Sync.');
 }
 
 async function parseGoogleApiError(response: Response, fallback: string): Promise<GoogleDriveApiError> {
@@ -276,7 +314,7 @@ async function parseGoogleApiError(response: Response, fallback: string): Promis
 
 async function googleFetch(input: string, init: RequestInit = {}): Promise<Response> {
     const headers = new Headers(init.headers);
-    headers.set('Authorization', `Bearer ${acquireAccessToken()}`);
+    headers.set('Authorization', `Bearer ${await acquireAccessToken()}`);
     const response = await fetch(input, { ...init, cache: 'no-store', headers });
     if (response.status === 401) {
         clearStoredToken();

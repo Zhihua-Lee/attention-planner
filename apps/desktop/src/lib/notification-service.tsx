@@ -13,6 +13,7 @@ import {
 } from '@mindwtr/core';
 import { useTaskStore } from '@mindwtr/core';
 import { isFlatpakRuntime, isTauriRuntime } from './runtime';
+import { startPrivateWebPushScheduleSync } from './private-web-push';
 
 const notifiedAtByTask = new Map<string, string>();
 const repeatNotifiedByTask = new Map<string, string>();
@@ -25,6 +26,7 @@ let started = false;
 let startPromise: Promise<void> | null = null;
 let checkDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let lastCheckAt = 0;
+let stopPrivateWebPushSync: (() => void) | null = null;
 
 type TauriNotificationApi = {
     sendNotification: (payload: { title: string; body?: string }) => void;
@@ -302,6 +304,8 @@ export async function startDesktopNotifications() {
                 checkDueAndNotify();
             }, 750);
         });
+        stopPrivateWebPushSync?.();
+        stopPrivateWebPushSync = startPrivateWebPushScheduleSync();
     })();
     try {
         await startPromise;
@@ -323,6 +327,8 @@ export function stopDesktopNotifications() {
 
     storeSubscription?.();
     storeSubscription = null;
+    stopPrivateWebPushSync?.();
+    stopPrivateWebPushSync = null;
 
     notifiedAtByTask.clear();
     repeatNotifiedByTask.clear();

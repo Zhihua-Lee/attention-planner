@@ -1,4 +1,4 @@
-const CACHE_NAME = 'attention-planner-pwa-v5';
+const CACHE_NAME = 'attention-planner-pwa-v6';
 const PRECACHE_URLS = ['/', '/index.html', '/manifest.webmanifest', '/icon.png', '/logo.png'];
 const STATIC_DESTINATIONS = new Set(['script', 'style', 'image', 'font', 'manifest', 'worker']);
 
@@ -76,6 +76,46 @@ self.addEventListener('fetch', (event) => {
         }
         return res;
       });
+    }),
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json() || {};
+  } catch {
+    payload = {};
+  }
+  const target = typeof payload?.data?.url === 'string' && payload.data.url.startsWith('/')
+    ? payload.data.url
+    : '/?view=now';
+  event.waitUntil(
+    self.registration.showNotification(payload.title || 'Attention Planner', {
+      badge: payload.badge || '/icon.png',
+      body: payload.body || '你有一个到期提醒',
+      data: { url: target },
+      icon: payload.icon || '/icon.png',
+      tag: payload.tag || 'attention-planner-reminder',
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const path = typeof event.notification.data?.url === 'string'
+    && event.notification.data.url.startsWith('/')
+    ? event.notification.data.url
+    : '/?view=now';
+  const target = new URL(path, self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then(async (clients) => {
+      const existing = clients.find((client) => client.url.startsWith(self.location.origin));
+      if (existing) {
+        if ('navigate' in existing) await existing.navigate(target);
+        return existing.focus();
+      }
+      return self.clients.openWindow(target);
     }),
   );
 });

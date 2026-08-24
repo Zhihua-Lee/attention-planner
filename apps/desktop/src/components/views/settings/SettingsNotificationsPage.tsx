@@ -1,7 +1,16 @@
+import { useEffect, useState } from 'react';
 import type { AppData } from '@mindwtr/core';
 
 import { reportError } from '../../../lib/report-error';
 import { requestDesktopNotificationPermission } from '../../../lib/notification-service';
+import {
+    disablePrivateWebPushNotifications,
+    enablePrivateWebPushNotifications,
+    getPrivateWebPushState,
+    openPrivateWebPushBrokerSession,
+    sendPrivateWebPushTest,
+    type PrivateWebPushState,
+} from '../../../lib/private-web-push';
 import { Switch } from '../../ui/Switch';
 
 type Labels = {
@@ -60,6 +69,49 @@ export function SettingsNotificationsPage({
     updateSettings,
     showSaved,
 }: SettingsNotificationsPageProps) {
+    const [webPushState, setWebPushState] = useState<PrivateWebPushState | null>(null);
+    const [webPushBusy, setWebPushBusy] = useState(false);
+    const [webPushError, setWebPushError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        void getPrivateWebPushState()
+            .then((state) => { if (!cancelled) setWebPushState(state); })
+            .catch((error) => reportError('Failed to inspect Web Push state', error));
+        return () => { cancelled = true; };
+    }, []);
+
+    const handleWebPushToggle = async () => {
+        setWebPushBusy(true);
+        setWebPushError(null);
+        try {
+            setWebPushState(webPushState?.subscribed
+                ? await disablePrivateWebPushNotifications()
+                : await enablePrivateWebPushNotifications());
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Web Push setup failed.';
+            setWebPushError(message);
+            reportError('Failed to update Web Push subscription', error);
+        } finally {
+            setWebPushBusy(false);
+        }
+    };
+
+    const handleWebPushTest = async () => {
+        setWebPushBusy(true);
+        setWebPushError(null);
+        try {
+            await sendPrivateWebPushTest();
+            showSaved();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Test notification failed.';
+            setWebPushError(message);
+            reportError('Failed to send Web Push test', error);
+        } finally {
+            setWebPushBusy(false);
+        }
+    };
+
     const handleUpdate = async (updates: Partial<AppData['settings']>) => {
         if (updates.notificationsEnabled === true) {
             try {
@@ -87,6 +139,54 @@ export function SettingsNotificationsPage({
                     aria-label={t.notificationsEnable}
                 />
             </div>
+
+            {webPushState?.configured && (
+                <div className="rounded-md border border-border bg-muted/30 p-4 space-y-3">
+                    <div>
+                        <p className="text-sm font-medium">iPhone 后台推送</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            关闭 PWA 或锁屏后仍可收到提醒。服务器只保存推送端点、提醒时间和不可逆 ID，不保存任务标题或正文。
+                        </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        状态：{webPushState.subscribed
+                            ? '此设备已启用'
+                            : webPushState.supported
+                                ? '此设备尚未启用'
+                                : '请先在 iPhone Safari 中“添加到主屏幕”，再从主屏幕打开应用'}
+                    </p>
+                    {webPushError && <p className="text-xs text-destructive">{webPushError}</p>}
+                    <div className="flex flex-wrap justify-end gap-2">
+                        {webPushError?.includes('Cloudflare Access') && (
+                            <button
+                                type="button"
+                                onClick={() => openPrivateWebPushBrokerSession()}
+                                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90"
+                            >
+                                安全登录
+                            </button>
+                        )}
+                        {webPushState.subscribed && (
+                            <button
+                                type="button"
+                                onClick={() => void handleWebPushTest()}
+                                disabled={webPushBusy}
+                                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                发送测试通知
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => void handleWebPushToggle()}
+                            disabled={webPushBusy || !notificationsEnabled || (!webPushState.supported && !webPushState.subscribed)}
+                            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {webPushBusy ? '处理中…' : webPushState.subscribed ? '关闭此设备推送' : '启用此设备推送'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="flex items-start justify-between gap-4">
                 <div>

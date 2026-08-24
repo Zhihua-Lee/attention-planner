@@ -817,8 +817,11 @@ function App() {
                 .catch((error) => reportError('Window listener failed', error));
         }
 
+        // Web Notifications need the same poll/schedule lifecycle as the native shell.
+        // In the PWA this also keeps the privacy-preserving Web Push schedule current.
+        startDesktopNotifications().catch((error) => reportError('Notifications failed', error));
+
         if (isTauriRuntime()) {
-            startDesktopNotifications().catch((error) => reportError('Notifications failed', error));
             SyncService.startFileWatcher().catch((error) => reportError('File watcher failed', error));
 
             // Watch local data.json and SQLite sidecar files for external changes (CLI/MCP/Local REST).

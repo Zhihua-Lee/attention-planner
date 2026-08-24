@@ -98,6 +98,7 @@ const baseProps: Parameters<typeof SyncConfigurationSection>[0] = {
     googleDriveBusy: false,
     googleDriveClientId: '',
     googleDriveConnected: false,
+    googleDriveManaged: false,
     googleDriveOrigin: 'https://todo.onthat.top',
     googleDriveTestState: 'idle',
     onCloudUrlChange: vi.fn(),

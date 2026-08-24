@@ -149,10 +149,21 @@ export function SettingsAboutPage({
                 <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">{t.github}</span>
                     <button
-                        onClick={() => onOpenLink('https://github.com/dongdongbh/Mindwtr')}
+                        onClick={() => onOpenLink('https://github.com/Zhihua-Lee/attention-planner')}
                         className="text-info hover:underline cursor-pointer flex items-center gap-1"
                     >
-                        github.com/dongdongbh/Mindwtr
+                        github.com/Zhihua-Lee/attention-planner
+                        <ExternalLink className="w-3 h-3" />
+                    </button>
+                </div>
+                <div className="border-t border-border/50"></div>
+                <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">隐私政策</span>
+                    <button
+                        onClick={() => onOpenLink('https://todo.onthat.top/privacy.html')}
+                        className="text-info hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                        todo.onthat.top/privacy.html
                         <ExternalLink className="w-3 h-3" />
                     </button>
                 </div>
@@ -177,7 +188,7 @@ export function SettingsAboutPage({
                 isConfigured={feedbackConfigured}
                 isOpen={feedbackOpen}
                 onClose={() => setFeedbackOpen(false)}
-                onOpenIssue={() => onOpenLink('https://github.com/dongdongbh/Mindwtr/issues/new/choose')}
+                onOpenIssue={() => onOpenLink('https://github.com/Zhihua-Lee/attention-planner/issues/new')}
                 onSubmit={onSubmitFeedback}
                 t={t}
             />
