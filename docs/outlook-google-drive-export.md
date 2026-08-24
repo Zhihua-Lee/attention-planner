@@ -1,5 +1,7 @@
 # Outlook 日历经 Google Drive 导入 PWA
 
+> 日常使用、同步、通知和项目设计的统一入口见 [Attention Planner 中文使用手册](./attention-planner-user-guide-zh.md)。
+
 本文记录已经在线跑通的正式方案：学校 Outlook 日历由 Power Automate 定期导出到个人 Google Drive 的私有文件，再由 Attention Planner PWA 只读加载。
 
 ## 数据路径

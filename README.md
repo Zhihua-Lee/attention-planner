@@ -3,6 +3,10 @@
 >
 > 本仓库是 **Attention Planner** 个人 PWA 分支。上游项目为 [dongdongbh/Mindwtr](https://github.com/dongdongbh/Mindwtr)，本分支继续采用 AGPL-3.0。
 
+## 中文使用手册
+
+首次使用和日常操作请阅读 **[Attention Planner 中文使用手册](./docs/attention-planner-user-guide-zh.md)**。手册统一说明收集箱、项目、周期任务、NOW、Flexible Frames、Google Drive 同步、iPhone 安装与通知、Outlook 私有导入、隐私边界，以及最初需求如何落实到当前方案。
+
 ## Attention Planner 快速开始
 
 ### 在线入口与数据同步
