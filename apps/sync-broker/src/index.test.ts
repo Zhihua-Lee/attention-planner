@@ -11,6 +11,18 @@ describe('sync broker security boundaries', () => {
         await expect(__brokerTestUtils.decryptText(encrypted, encryptionSecret)).resolves.toBe('refresh-token-value');
     });
 
+    it('encrypts, validates, and expires broker sessions', async () => {
+        const now = Date.now();
+        const session = await __brokerTestUtils.createSessionToken('Owner@Example.com', encryptionSecret, now);
+        expect(session).not.toContain('owner@example.com');
+        await expect(__brokerTestUtils.readSessionToken(session, encryptionSecret, now + 1_000))
+            .resolves.toBe('owner@example.com');
+        await expect(__brokerTestUtils.readSessionToken(session, encryptionSecret, now + 181 * 24 * 60 * 60 * 1_000))
+            .resolves.toBeNull();
+        await expect(__brokerTestUtils.readSessionToken(`${session}tampered`, encryptionSecret, now + 1_000))
+            .resolves.toBeNull();
+    });
+
     it('only permits local return paths', () => {
         expect(__brokerTestUtils.sanitizeReturnTo('/?view=settings')).toBe('/?view=settings');
         expect(__brokerTestUtils.sanitizeReturnTo('https://attacker.example/')).toBe('/?view=settings');

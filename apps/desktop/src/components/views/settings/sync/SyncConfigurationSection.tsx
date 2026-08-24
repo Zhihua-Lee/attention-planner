@@ -349,7 +349,7 @@ const renderGoogleDrivePanel = ({
             任务数据只写入 Google Drive 隐藏的 <span className="font-mono">appDataFolder</span>。
             此权限看不到、也不能修改你的普通 Drive 文件。
             {googleDriveManaged
-                ? ' 刷新令牌由受 Cloudflare Access 保护的服务加密保存，PWA 只领取短时令牌并直接连接 Google Drive。'
+                ? ' 刷新令牌由仅允许指定 Google 账号登录的服务加密保存，PWA 只领取短时令牌并直接连接 Google Drive。'
                 : ' 浏览器访问令牌约一小时后到期，届时需要重新连接。'}
         </div>
         {!googleDriveManaged && (

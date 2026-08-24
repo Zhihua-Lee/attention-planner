@@ -1,5 +1,5 @@
 > [!NOTE]
-> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds Outlook calendar frames, Google Drive `appDataFolder` synchronization, a Cloudflare Access-protected long-lived OAuth broker, and privacy-preserving iOS Web Push reminders. See the public [privacy policy](https://todo.onthat.top/privacy.html) and [`apps/sync-broker`](./apps/sync-broker) for the server design. Task JSON travels directly between the PWA and Google Drive; the broker stores no task titles or descriptions.
+> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds Outlook calendar frames, Google Drive `appDataFolder` synchronization, a single-account Google-authenticated long-lived OAuth broker, and privacy-preserving iOS Web Push reminders. See the public [privacy policy](https://todo.onthat.top/privacy.html) and [`apps/sync-broker`](./apps/sync-broker) for the server design. Task JSON travels directly between the PWA and Google Drive; the broker stores no task titles or descriptions.
 >
 > 本仓库是 **Attention Planner** 个人 PWA 分支。iPhone 请用 Safari 打开站点并“添加到主屏幕”；Google Drive 在「设置 → 同步」连接，后台推送在「设置 → 通知」按设备启用。上游项目为 [dongdongbh/Mindwtr](https://github.com/dongdongbh/Mindwtr)，本分支继续采用 AGPL-3.0。
 

@@ -2,7 +2,7 @@ const ENV_BROKER_URL = String(import.meta.env.VITE_SYNC_BROKER_URL || '').trim()
 
 export class SyncBrokerAuthenticationError extends Error {
     constructor() {
-        super('Secure sync session required. Sign in through Cloudflare Access, then try again.');
+        super('Secure sync session required. Sign in with the approved Google account, then try again.');
         this.name = 'SyncBrokerAuthenticationError';
     }
 }
@@ -37,8 +37,7 @@ export async function syncBrokerJson<T>(path: string, init: RequestInit = {}): P
             redirect: 'follow',
         });
     } catch {
-        // Access redirects can surface as a blocked cross-origin fetch rather than
-        // a readable HTML response. A top-level broker navigation completes login.
+        // A top-level broker navigation completes the secure Google sign-in flow.
         throw new SyncBrokerAuthenticationError();
     }
     const contentType = response.headers.get('Content-Type') || '';

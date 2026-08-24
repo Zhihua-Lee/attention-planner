@@ -1,9 +1,12 @@
 import webpush, { type PushSubscription } from 'web-push';
 
-const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GOOGLE_SCOPE = 'openid email https://www.googleapis.com/auth/drive.appdata';
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
+const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
+const SESSION_COOKIE = 'attention_planner_session';
+const SESSION_TTL_SECONDS = 180 * 24 * 60 * 60;
 const MAX_REMINDERS = 750;
 const MAX_REMINDER_HORIZON_MS = 366 * 24 * 60 * 60 * 1000;
 const GENERIC_NOTIFICATION = {
@@ -12,11 +15,6 @@ const GENERIC_NOTIFICATION = {
     icon: '/icon.png',
     badge: '/icon.png',
     url: '/?view=now',
-};
-
-type AccessIdentity = { email?: string | null };
-type AccessExecutionContext = ExecutionContext & {
-    access?: { getIdentity(): Promise<AccessIdentity | null> };
 };
 
 interface Env {
@@ -36,6 +34,7 @@ interface Env {
 }
 
 type StoredOAuthState = {
+    codeVerifier: string;
     state: string;
     returnTo: string;
     expiresAt: number;
@@ -94,6 +93,11 @@ async function sha256Hex(value: string): Promise<string> {
     return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+async function sha256Base64Url(value: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+    return base64UrlEncode(new Uint8Array(digest));
+}
+
 async function encryptionKey(secret: string): Promise<CryptoKey> {
     let raw: Uint8Array;
     try {
@@ -144,10 +148,37 @@ function assertSameOrigin(request: Request, env: Env): Response | null {
         : errorJson('Cross-origin request rejected', 403);
 }
 
+function requestCookie(request: Request, name: string): string | null {
+    for (const part of (request.headers.get('Cookie') || '').split(';')) {
+        const separator = part.indexOf('=');
+        if (separator < 0 || part.slice(0, separator).trim() !== name) continue;
+        return part.slice(separator + 1).trim() || null;
+    }
+    return null;
+}
+
+async function createSessionToken(email: string, secret: string, now = Date.now()): Promise<string> {
+    return encryptText(JSON.stringify({ email: normalizeEmail(email), exp: now + SESSION_TTL_SECONDS * 1_000, v: 1 }), secret);
+}
+
+async function readSessionToken(value: string, secret: string, now = Date.now()): Promise<string | null> {
+    try {
+        const payload = JSON.parse(await decryptText(value, secret)) as { email?: unknown; exp?: unknown; v?: unknown };
+        if (payload.v !== 1 || typeof payload.exp !== 'number' || payload.exp <= now) return null;
+        const email = normalizeEmail(typeof payload.email === 'string' ? payload.email : '');
+        return email || null;
+    } catch {
+        return null;
+    }
+}
+
+function sessionCookie(value: string): string {
+    return `${SESSION_COOKIE}=${value}; Path=/api; Max-Age=${SESSION_TTL_SECONDS}; HttpOnly; Secure; SameSite=Lax`;
+}
+
 async function authenticatedEmail(
     request: Request,
     env: Env,
-    ctx: AccessExecutionContext,
 ): Promise<string | null> {
     const url = new URL(request.url);
     const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
@@ -159,8 +190,9 @@ async function authenticatedEmail(
         && request.headers.get('X-Local-Dev-Token') === env.LOCAL_DEV_TOKEN
     ) {
         email = normalizeEmail(env.LOCAL_DEV_EMAIL);
-    } else if (ctx.access) {
-        email = normalizeEmail((await ctx.access.getIdentity())?.email);
+    } else {
+        const session = requestCookie(request, SESSION_COOKIE);
+        if (session) email = normalizeEmail(await readSessionToken(session, env.TOKEN_ENCRYPTION_KEY));
     }
     const allowed = normalizeEmail(env.ALLOWED_EMAIL);
     if (!allowed || !email || email !== allowed) return null;
@@ -228,6 +260,19 @@ function vaultStub(env: Env, email: string): DurableObjectStub {
     return env.USER_VAULTS.get(env.USER_VAULTS.idFromName(email));
 }
 
+async function oauthStateStub(env: Env, state: string): Promise<DurableObjectStub> {
+    return env.USER_VAULTS.get(env.USER_VAULTS.idFromName(`oauth-state:${await sha256Hex(state)}`));
+}
+
+async function oauthStateRequest(
+    env: Env,
+    state: string,
+    path: string,
+    init?: RequestInit,
+): Promise<Response> {
+    return (await oauthStateStub(env, state)).fetch(new Request(`https://state.internal${path}`, init));
+}
+
 async function vaultRequest(
     env: Env,
     email: string,
@@ -237,17 +282,20 @@ async function vaultRequest(
     return vaultStub(env, email).fetch(new Request(`https://vault.internal${path}`, init));
 }
 
-async function startGoogleOAuth(env: Env, email: string, request: Request): Promise<Response> {
+async function startGoogleOAuth(env: Env, request: Request): Promise<Response> {
     const state = randomBase64Url();
+    const codeVerifier = randomBase64Url(64);
     const returnTo = sanitizeReturnTo(new URL(request.url).searchParams.get('return'));
-    await vaultRequest(env, email, '/state', {
-        body: JSON.stringify({ state, returnTo, expiresAt: Date.now() + 10 * 60_000 }),
+    await oauthStateRequest(env, state, '/state', {
+        body: JSON.stringify({ codeVerifier, state, returnTo, expiresAt: Date.now() + 10 * 60_000 }),
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
     });
     const params = new URLSearchParams({
         access_type: 'offline',
         client_id: env.GOOGLE_CLIENT_ID,
+        code_challenge: await sha256Base64Url(codeVerifier),
+        code_challenge_method: 'S256',
         include_granted_scopes: 'false',
         prompt: 'consent',
         redirect_uri: env.GOOGLE_REDIRECT_URI,
@@ -258,7 +306,11 @@ async function startGoogleOAuth(env: Env, email: string, request: Request): Prom
     return Response.redirect(`${GOOGLE_AUTH_URL}?${params}`, 302);
 }
 
-async function exchangeGoogleCode(env: Env, code: string): Promise<{ refreshToken: string }> {
+async function exchangeGoogleCode(
+    env: Env,
+    code: string,
+    codeVerifier: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
     const response = await fetch(GOOGLE_TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -266,38 +318,65 @@ async function exchangeGoogleCode(env: Env, code: string): Promise<{ refreshToke
             client_id: env.GOOGLE_CLIENT_ID,
             client_secret: env.GOOGLE_CLIENT_SECRET,
             code,
+            code_verifier: codeVerifier,
             grant_type: 'authorization_code',
             redirect_uri: env.GOOGLE_REDIRECT_URI,
         }),
     });
-    const payload = await response.json<{ refresh_token?: string; error?: string }>();
-    if (!response.ok || !payload.refresh_token) {
+    const payload = await response.json<{ access_token?: string; refresh_token?: string; error?: string }>();
+    if (!response.ok || !payload.access_token || !payload.refresh_token) {
         throw new Error(payload.error || 'Google did not return an offline refresh token');
     }
-    return { refreshToken: payload.refresh_token };
+    return { accessToken: payload.access_token, refreshToken: payload.refresh_token };
 }
 
-async function finishGoogleOAuth(env: Env, email: string, request: Request): Promise<Response> {
+async function identifyGoogleUser(accessToken: string): Promise<string | null> {
+    const response = await fetch(GOOGLE_USERINFO_URL, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const payload = await response.json<{ email?: string; email_verified?: boolean }>();
+    if (!response.ok || payload.email_verified !== true) return null;
+    return normalizeEmail(payload.email);
+}
+
+async function finishGoogleOAuth(env: Env, request: Request): Promise<Response> {
     const url = new URL(request.url);
     const state = url.searchParams.get('state') || '';
     const code = url.searchParams.get('code') || '';
     if (!state || !code || url.searchParams.has('error')) {
         return Response.redirect(`${env.PUBLIC_ORIGIN}/?view=settings&google=denied`, 302);
     }
-    const stateResponse = await vaultRequest(env, email, '/state/consume', {
+    const stateResponse = await oauthStateRequest(env, state, '/state/consume', {
         body: JSON.stringify({ state }),
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
     });
     if (!stateResponse.ok) return errorJson('OAuth state is invalid or expired', 400);
-    const { returnTo } = await stateResponse.json<{ returnTo: string }>();
-    const { refreshToken } = await exchangeGoogleCode(env, code);
+    const { codeVerifier, returnTo } = await stateResponse.json<{ codeVerifier: string; returnTo: string }>();
+    const { accessToken, refreshToken } = await exchangeGoogleCode(env, code, codeVerifier);
+    const email = await identifyGoogleUser(accessToken);
+    if (!email || email !== normalizeEmail(env.ALLOWED_EMAIL)) {
+        await fetch(GOOGLE_REVOKE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ token: refreshToken }),
+        }).catch(() => undefined);
+        return errorJson('This Google account is not authorized', 403);
+    }
     await vaultRequest(env, email, '/token', {
         body: await encryptText(refreshToken, env.TOKEN_ENCRYPTION_KEY),
         method: 'PUT',
     });
     const separator = returnTo.includes('?') ? '&' : '?';
-    return Response.redirect(`${env.PUBLIC_ORIGIN}${returnTo}${separator}google=connected`, 302);
+    return new Response(null, {
+        status: 302,
+        headers: {
+            'Cache-Control': 'no-store',
+            Location: `${env.PUBLIC_ORIGIN}${returnTo}${separator}google=connected`,
+            'Referrer-Policy': 'no-referrer',
+            'Set-Cookie': sessionCookie(await createSessionToken(email, env.TOKEN_ENCRYPTION_KEY)),
+        },
+    });
 }
 
 async function getEncryptedRefreshToken(env: Env, email: string): Promise<string | null> {
@@ -385,23 +464,21 @@ async function testPushDevice(env: Env, email: string, request: Request): Promis
     return stub.fetch(new Request('https://device.internal/test', { method: 'POST' }));
 }
 
-async function handleRequest(request: Request, env: Env, ctx: AccessExecutionContext): Promise<Response> {
-    const email = await authenticatedEmail(request, env, ctx);
-    if (!email) return errorJson('Cloudflare Access authentication required', 403);
+async function handleRequest(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/api/, '') || '/';
 
-    if (request.method === 'GET' && path === '/session') {
-        return Response.redirect(`${env.PUBLIC_ORIGIN}${sanitizeReturnTo(url.searchParams.get('return'))}`, 302);
-    }
-    if (request.method === 'GET' && path === '/health') {
-        return json({ authenticated: true, oauth: true, push: true });
-    }
-    if (request.method === 'GET' && path === '/google/connect') {
-        return startGoogleOAuth(env, email, request);
+    if (request.method === 'GET' && (path === '/session' || path === '/google/connect')) {
+        return startGoogleOAuth(env, request);
     }
     if (request.method === 'GET' && path === '/google/callback') {
-        return finishGoogleOAuth(env, email, request);
+        return finishGoogleOAuth(env, request);
+    }
+
+    const email = await authenticatedEmail(request, env);
+    if (!email) return errorJson('Secure Google sign-in required', 403);
+    if (request.method === 'GET' && path === '/health') {
+        return json({ authenticated: true, oauth: true, push: true });
     }
     if (request.method === 'GET' && path === '/google/status') {
         return json({ connected: Boolean(await getEncryptedRefreshToken(env, email)), persistent: true });
@@ -452,7 +529,7 @@ export class UserVault {
             if (!stored || stored.expiresAt < Date.now() || !input.state || input.state !== stored.state) {
                 return errorJson('Invalid state', 400);
             }
-            return json({ returnTo: stored.returnTo });
+            return json({ codeVerifier: stored.codeVerifier, returnTo: stored.returnTo });
         }
         if (url.pathname === '/token' && request.method === 'PUT') {
             await this.state.storage.put('refresh-token', await request.text());
@@ -570,9 +647,9 @@ export class NotificationDevice {
 }
 
 export default {
-    async fetch(request: Request, env: Env, ctx: AccessExecutionContext): Promise<Response> {
+    async fetch(request: Request, env: Env): Promise<Response> {
         try {
-            return await handleRequest(request, env, ctx);
+            return await handleRequest(request, env);
         } catch (error) {
             console.error('Broker request failed', error instanceof Error ? error.message : 'Unknown error');
             return errorJson('Request failed', 500);
@@ -581,8 +658,10 @@ export default {
 };
 
 export const __brokerTestUtils = {
+    createSessionToken,
     decryptText,
     encryptText,
+    readSessionToken,
     sanitizeReturnTo,
     validateReminders,
     validateSubscription,

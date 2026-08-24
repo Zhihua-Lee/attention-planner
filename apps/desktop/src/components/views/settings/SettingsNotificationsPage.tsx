@@ -157,7 +157,7 @@ export function SettingsNotificationsPage({
                     </p>
                     {webPushError && <p className="text-xs text-destructive">{webPushError}</p>}
                     <div className="flex flex-wrap justify-end gap-2">
-                        {webPushError?.includes('Cloudflare Access') && (
+                        {webPushError?.includes('Secure sync session') && (
                             <button
                                 type="button"
                                 onClick={() => openPrivateWebPushBrokerSession()}
