@@ -1,7 +1,52 @@
 > [!NOTE]
-> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds Outlook calendar frames, Google Drive `appDataFolder` synchronization, a single-account Google-authenticated long-lived OAuth broker, and privacy-preserving iOS Web Push reminders. See the public [privacy policy](https://todo.onthat.top/privacy.html) and [`apps/sync-broker`](./apps/sync-broker) for the server design. Task JSON travels directly between the PWA and Google Drive; the broker stores no task titles or descriptions.
+> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds attention frames and NOW selection, Google Drive `appDataFolder` synchronization, an experimental read-only Outlook calendar adapter, a single-account Google-authenticated long-lived OAuth broker, and privacy-preserving Web Push reminders. See the public [privacy policy](https://todo.onthat.top/privacy.html) and [`apps/sync-broker`](./apps/sync-broker) for the server design. Task JSON travels directly between the PWA and Google Drive; the broker stores no task titles or descriptions.
 >
-> 本仓库是 **Attention Planner** 个人 PWA 分支。iPhone 请用 Safari 打开站点并“添加到主屏幕”；Google Drive 在「设置 → 同步」连接，后台推送在「设置 → 通知」按设备启用。上游项目为 [dongdongbh/Mindwtr](https://github.com/dongdongbh/Mindwtr)，本分支继续采用 AGPL-3.0。
+> 本仓库是 **Attention Planner** 个人 PWA 分支。上游项目为 [dongdongbh/Mindwtr](https://github.com/dongdongbh/Mindwtr)，本分支继续采用 AGPL-3.0。
+
+## Attention Planner 快速开始
+
+### 在线入口与数据同步
+
+1. 打开 [todo.onthat.top](https://todo.onthat.top)。应用可以离线使用，未连接云端时数据只保存在当前浏览器的本地存储中。
+2. 前往「设置 → 同步」，选择 **Google Drive** 并连接获准的 Google 账号。
+3. 页面显示“已长期授权”后，短时访问令牌会自动刷新；应用启动、回到前台、数据变化或手动点击“立即同步”时会同步。
+4. 任务数据写入 Google Drive 隐藏的 `appDataFolder`，不会出现在普通 Drive 文件列表中。PWA 直接读写任务 JSON，Cloudflare Worker 不接收任务标题、描述或笔记。
+
+Google Drive 同步与 Outlook 日历是两套相互独立的连接，可以分别使用个人 Google 账号和学校 Microsoft 账号。长期授权表示通常不必反复手动登录，不表示 iOS 会允许 PWA 在后台持续运行。
+
+### 在 iPhone 上安装
+
+要求 iOS/iPadOS 16.4 或更新版本。必须使用 Safari 安装；仅在普通浏览器标签中打开并不等于已经安装 PWA。
+
+1. 在 iPhone 的 Safari 中打开 [todo.onthat.top](https://todo.onthat.top)。
+2. 点击底部的“分享”按钮。
+3. 向下滚动并选择“添加到主屏幕”。
+4. 名称保留为 **Attention Planner**，点击右上角“添加”。
+5. 回到主屏幕，从新图标打开应用。
+6. 进入「设置 → 同步」连接 Google Drive；首次使用可点击“立即同步”确认状态。
+
+启用提醒：在主屏幕版本中进入「设置 → 通知」，先打开通知总开关，再启用“iPhone 后台推送”，允许系统通知，最后点击“发送测试通知”。每台设备都要单独启用一次。PWA 关闭后，服务器仍可发送可见提醒；iOS 不允许静默推送唤醒应用，也不保证像原生 App 一样执行任意后台任务。
+
+### Outlook 日历同步现状
+
+当前已实现的是 **Microsoft Graph 只读同步**：使用最小的 delegated `Calendars.Read` 权限读取 Outlook 事件，通过 `calendarView/delta` 增量更新，并把会议显示在 Calendar 与 NOW 中。它目前不会把任务写入 Outlook，也不是双向同步。
+
+连接步骤：
+
+1. 在 Microsoft Entra 中注册一个“单页应用（SPA）”。
+2. 添加重定向 URI：`https://todo.onthat.top/redirect`。
+3. 只添加 Microsoft Graph delegated `Calendars.Read` 权限，不需要客户端密钥。
+4. 在 Attention Planner 中打开「设置 → 集成 → Microsoft Outlook（日历只读）」，填写应用程序（客户端）ID；学校单租户应用还应填写租户 ID 或学校域名。
+5. 保存配置、打开集成开关、点击“连接 Microsoft”，然后点击“立即同步”。
+
+学校 Microsoft 365 租户可能禁止用户自行授权第三方应用。如果出现 `Need admin approval`，需要学校管理员批准；在此之前可以使用学校提供的 ICS 订阅作为只读后备。计划中的“将任务时间块写入独立 Outlook 日历”和有限双向修改尚未实现。
+
+### 当前边界
+
+- Google Drive：已部署并在线验证长期授权与同步。
+- Outlook：代码已实现只读 Graph 适配器，但学校账号仍需完成实际授权验证；写入和双向同步未实现。
+- iPhone：可安装 PWA、离线使用和接收 Web Push；实际推送权限必须在 iPhone 上由用户授予并逐设备测试。
+- 源码与部署：GitHub 是版本真相；Cloudflare Pages 托管无数据的 PWA 静态壳，Worker 只处理登录、短时令牌和不含任务内容的提醒调度元数据。
 
 <div align="center">
 
