@@ -50,28 +50,52 @@ PWA 的 Google 授权包含两个最小用途范围：
 
 每 30 分钟是当前验证配置。可以降低频率，但过于频繁会增加连接器调用量，并不能让 iOS 在后台实时刷新 PWA。
 
-### 2. Get calendar view of events (V3)
+### 2. Get calendar view of events (V3)：第一页
 
 选择 Office 365 Outlook 的 `Get calendar view of events (V3)`：
 
 - Calendar id：`Calendar`
-- Start time：
+- Start time：`addDays(utcNow(), -30)`
+- End time：`addDays(utcNow(), 365)`
+- Max Count：`256`
+- Skip Count：`0`
 
-  ```text
-  addDays(utcNow(), -30)
-  ```
+这个连接器单次最多返回 256 条。只使用一个动作时，流程仍会显示“成功”，但 JSON 会在第 256 条处静默截断；事件较密集时，后面的日期或同一天较晚的事件可能消失。因此正式流程必须继续分页。
 
-- End time：
+### 3. Initialize variable：保存第一页
 
-  ```text
-  addDays(utcNow(), 365)
-  ```
+添加 Array 变量 `AllEventsPaged`，初始值为：
 
-这会导出过去 30 天至未来 365 天的事件。使用 calendar view，而不是只列出重复事件的母项，才能得到时间窗口内的重复实例。
+```text
+body('获取事件的日历视图(V3)')?['value']
+```
 
-### 3. Select
+如果设计器使用英文或生成了不同的动作内部名称，请从动态表达式面板选择第一个日历动作的 `value`，不要手工猜测名称。
 
-添加 Data Operations 的 `Select`。From 选择上一步的事件数组，然后只映射以下字段：
+### 4. Apply to each：继续读取后续页
+
+添加 `Apply to each`，输入：
+
+```text
+range(1,32)
+```
+
+循环内按顺序放置三个动作：
+
+1. 第二个 `Get calendar view of events (V3)`：Calendar、Start time 和 End time 与第一页相同；Max Count 为 `256`；Skip Count 为 `mul(item(),256)`。
+2. Data Operations 的 `Compose`（中文旧设计器可能显示为“编辑”），输入：
+
+   ```text
+   union(variables('AllEventsPaged'), body('获取事件的日历视图(V3)_2')?['value'])
+   ```
+
+3. `Set variable`：名称选择 `AllEventsPaged`，值为 `outputs('编辑')`。如果 Compose 的内部名称不是“编辑”，从动态内容中选择它的输出。
+
+保持 Apply to each 的默认顺序执行，不要开启并发；否则多个迭代会同时覆盖同一个数组变量。这个配置读取第一页加 32 个后续页，容量为 8,448 条事件。当前 13 个月窗口约 4,800 条，仍留有余量；若将来达到上限，应增加页数或缩短时间窗口。
+
+### 5. Select
+
+添加 Data Operations 的 `Select`。From 使用 `variables('AllEventsPaged')`，然后只映射以下字段：
 
 | 输出键 | Power Automate 表达式 |
 | --- | --- |
@@ -84,7 +108,7 @@ PWA 的 Google 授权包含两个最小用途范围：
 
 不要额外导出正文、参会者、会议链接或组织者。PWA 解析的是 `Select` 产生的 JSON 数组，不需要再套一层对象。
 
-### 4. Update file
+### 6. Update file
 
 添加 Google Drive 的 `Update file`：
 
@@ -103,7 +127,7 @@ PWA 的 Google 授权包含两个最小用途范围：
 4. 抽查标题、时间、地点和全天事件。
 5. 确认没有旧来源错误，也没有所有事件都变成 `Private Appointment`。
 
-正式环境已验证：定时流启用，手动测试成功，PWA 能从同一个私有文件加载 Outlook 标题、时间和地点。
+正式环境已验证：定时流启用，手动测试成功，PWA 能从同一个私有文件加载 Outlook 标题、时间和地点。2026-08-24 的分页修复验收中，流程在 1 分 08 秒内成功完成，PWA 当日视图从 2 项恢复到 6 项，并显示 13:00、13:30、15:00 和 22:30 的事件。
 
 ## 安全与隐私边界
 
@@ -135,6 +159,12 @@ PWA 的 Google 授权包含两个最小用途范围：
 ### 手机是否会每 30 分钟自动刷新界面
 
 Power Automate 会在云端更新 Drive 文件，但 iOS 不允许 PWA 持续执行任意后台任务。打开 PWA、将它切回前台或在应用内刷新时，PWA 会读取最新文件。通知是另一条 Web Push 通道，不由这个日历导出流生成。
+
+### 同一天只有上午事件，下午和晚间事件缺失
+
+先检查 Power Automate 的第一个日历动作是否正好输出 256 条。若是，这不是 PWA 的日期筛选问题，而是 Outlook 连接器的单页上限。确认正式流包含 `AllEventsPaged`、`range(1,32)`、第二个带 Skip Count 的日历动作，以及循环后的 `Select`；不要把 Select 继续连在第一页的 `value` 上。
+
+修复后手动测试流程，并在 PWA 选择一个原本缺失的日期按“日”查看。验收应同时包含同一天较晚事件和课程类重复事件，而不只是检查流程状态为成功。
 
 ## 迁移完成后的旧组件
 
