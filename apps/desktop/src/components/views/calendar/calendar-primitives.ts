@@ -12,8 +12,17 @@ import type { CalendarDayItem } from '@mindwtr/core/calendar-day-items';
 
 export const DESKTOP_DAY_START_HOUR = 0;
 export const DESKTOP_DAY_END_HOUR = 24;
-export const DESKTOP_HOUR_HEIGHT = 56;
+export const DESKTOP_HOUR_HEIGHT = 68;
 export const DESKTOP_GRID_SNAP_MINUTES = 15;
+export const DESKTOP_MIN_TIMED_ITEM_HEIGHT = 22;
+
+export type CalendarBlockDensity = 'compact' | 'standard' | 'spacious';
+
+export const getCalendarBlockDensity = (height: number): CalendarBlockDensity => {
+    if (height < 30) return 'compact';
+    if (height < 54) return 'standard';
+    return 'spacious';
+};
 
 export type CalendarCellItem = CalendarDayItem;
 

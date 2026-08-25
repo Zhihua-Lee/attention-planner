@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import type { DragEvent } from 'react';
-import { Check, Clock, MoreHorizontal, Plus, X } from 'lucide-react';
+import { Check, Clock, MapPin, MoreHorizontal, Plus, X } from 'lucide-react';
 import { getTaskCalendarOccurrenceDate, hasTimeComponent, isProjectedRecurringTask, safeFormatDate, safeParseDate, type Task } from '@mindwtr/core';
 
 import { cn } from '../../../lib/utils';
@@ -133,10 +133,18 @@ export function CalendarSelectedDayPanel({ controller }: CalendarSelectedDayPane
                                     return (
                                         <div
                                             key={event.id}
-                                            className="flex items-center gap-3 rounded-md border-l-[3px] bg-muted/50 px-3 py-2 text-sm"
+                                            className="flex items-start gap-3 rounded-md border-l-[3px] bg-muted/50 px-3 py-2 text-sm"
                                             style={{ borderLeftColor: getExternalCalendarColor(event.sourceId) }}
                                         >
-                                            <span className="min-w-0 flex-1 truncate">{event.title}</span>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="break-words font-medium text-foreground">{event.title}</div>
+                                                {event.location?.trim() && (
+                                                    <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                                                        <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                        <span className="break-words">{event.location.trim()}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                             {sourceLabel && <span className="truncate text-xs text-muted-foreground">{sourceLabel}</span>}
                                             <button
                                                 type="button"
@@ -167,28 +175,38 @@ export function CalendarSelectedDayPanel({ controller }: CalendarSelectedDayPane
                                 const start = safeParseDate(event.start);
                                 const end = safeParseDate(event.end);
                                 const timeLabel = start && end
-                                    ? `${safeFormatDate(start, 'p')}-${safeFormatDate(end, 'p')}`
+                                    ? `${safeFormatDate(start, 'p')} – ${safeFormatDate(end, 'p')}`
                                     : '';
                                 const sourceLabel = calendarNameById.get(event.sourceId);
                                 return (
                                     <div
                                         key={event.id}
-                                        className="flex items-center gap-3 rounded-md border-l-[3px] bg-muted/50 px-3 py-2 text-sm"
+                                        className="grid gap-2 rounded-md border-l-[3px] bg-muted/50 px-3 py-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-start"
                                         style={{ borderLeftColor: getExternalCalendarColor(event.sourceId) }}
                                     >
-                                        <span className="w-28 shrink-0 text-xs font-medium text-muted-foreground">{timeLabel}</span>
-                                        <span className="min-w-0 flex-1 truncate">{event.title}</span>
-                                        {sourceLabel && <span className="truncate text-xs text-muted-foreground">{sourceLabel}</span>}
-                                        <button
-                                            type="button"
-                                            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary/10 px-2 text-xs font-medium text-primary hover:bg-primary/15 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                            onClick={() => void createTaskFromExternalEvent(event)}
-                                            aria-label={`${resolveText('calendar.createTaskFromEvent', 'Create task')}: ${event.title}`}
-                                            title={resolveText('calendar.createTaskFromEvent', 'Create task')}
-                                        >
-                                            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                                            {resolveText('calendar.createTaskFromEvent', 'Create task')}
-                                        </button>
+                                        <span className="text-xs font-medium text-muted-foreground">{timeLabel}</span>
+                                        <div className="min-w-0">
+                                            <div className="break-words font-medium text-foreground">{event.title}</div>
+                                            {event.location?.trim() && (
+                                                <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                                                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                    <span className="break-words">{event.location.trim()}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex min-w-0 items-center gap-2 sm:justify-end">
+                                            {sourceLabel && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceLabel}</span>}
+                                            <button
+                                                type="button"
+                                                className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary/10 px-2 text-xs font-medium text-primary hover:bg-primary/15 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                onClick={() => void createTaskFromExternalEvent(event)}
+                                                aria-label={`${resolveText('calendar.createTaskFromEvent', 'Create task')}: ${event.title}`}
+                                                title={resolveText('calendar.createTaskFromEvent', 'Create task')}
+                                            >
+                                                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                                                {resolveText('calendar.createTaskFromEvent', 'Create task')}
+                                            </button>
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -216,7 +234,7 @@ export function CalendarSelectedDayPanel({ controller }: CalendarSelectedDayPane
                                 const timeLabel = isAllDayScheduled
                                     ? t('calendar.allDay')
                                     : start && end
-                                    ? `${safeFormatDate(start, 'p')}-${safeFormatDate(end, 'p')}`
+                                    ? `${safeFormatDate(start, 'p')} – ${safeFormatDate(end, 'p')}`
                                     : kind === 'deadline'
                                         ? t('calendar.deadline')
                                         : '';
@@ -244,13 +262,23 @@ export function CalendarSelectedDayPanel({ controller }: CalendarSelectedDayPane
                                             onClick={() => {
                                                 if (!projected) openTaskFromCalendar(task);
                                             }}
-                                            className="min-w-0 flex-1 truncate text-left text-foreground focus:outline-none focus:underline"
+                                            className="min-w-0 flex-1 text-left text-foreground focus:outline-none focus:underline"
                                         >
-                                            <span className="mr-2 inline-flex w-28 items-center gap-1 text-xs font-medium text-muted-foreground">
-                                                {kind === 'scheduled' && <Clock className="h-3 w-3" aria-hidden="true" />}
-                                                {timeLabel}
+                                            <span className="flex min-w-0 items-start gap-2">
+                                                <span className="inline-flex w-28 shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground">
+                                                    {kind === 'scheduled' && <Clock className="h-3 w-3" aria-hidden="true" />}
+                                                    {timeLabel}
+                                                </span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block break-words">{task.title}</span>
+                                                    {task.location?.trim() && (
+                                                        <span className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                                                            <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                            <span className="break-words">{task.location.trim()}</span>
+                                                        </span>
+                                                    )}
+                                                </span>
                                             </span>
-                                            {task.title}
                                         </button>
                                         {projected && (
                                             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">

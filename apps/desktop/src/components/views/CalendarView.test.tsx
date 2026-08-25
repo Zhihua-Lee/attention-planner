@@ -5,7 +5,7 @@ import type { Area, Project, Task } from '@mindwtr/core';
 import { LanguageProvider } from '../../contexts/language-context';
 import { useUiStore } from '../../store/ui-store';
 import { CalendarView } from './CalendarView';
-import { combineDateAndTime } from './calendar/calendar-primitives';
+import { combineDateAndTime, DESKTOP_HOUR_HEIGHT } from './calendar/calendar-primitives';
 import { fetchExternalCalendarEvents } from '../../lib/external-calendar-events';
 import { setCalendarTaskDragData } from '../../lib/calendar-task-drag';
 
@@ -286,6 +286,46 @@ describe('CalendarView', () => {
         expect(screen.getAllByText(/Launch window/).length).toBeGreaterThan(0);
     });
 
+    it('adapts timed event details to the available height without losing location access', async () => {
+        window.history.replaceState(null, '', '/?calendarView=week&calendarDate=2026-04-03');
+        vi.mocked(fetchExternalCalendarEvents).mockResolvedValue({
+            calendars: [{ id: 'work', name: 'Work', url: 'https://calendar.example/work', enabled: true }],
+            events: [
+                {
+                    id: 'brief-event',
+                    sourceId: 'work',
+                    title: 'Five-minute advising',
+                    start: '2026-04-03T09:00:00',
+                    end: '2026-04-03T09:05:00',
+                    allDay: false,
+                    location: 'Room 204',
+                },
+                {
+                    id: 'long-event',
+                    sourceId: 'work',
+                    title: 'Research methods seminar',
+                    start: '2026-04-03T13:00:00',
+                    end: '2026-04-03T14:00:00',
+                    allDay: false,
+                    location: 'Main Library',
+                },
+            ],
+            warnings: [],
+        });
+
+        renderCalendar();
+        await flushCalendarEffects();
+
+        const blocks = Array.from(document.querySelectorAll<HTMLElement>('[data-calendar-block]'));
+        const briefEvent = blocks.find((block) => block.textContent?.includes('Five-minute advising'));
+        const longEvent = blocks.find((block) => block.textContent?.includes('Research methods seminar'));
+
+        expect(briefEvent).toHaveAttribute('data-calendar-block-density', 'compact');
+        expect(briefEvent).toHaveAccessibleName(/Five-minute advising.*Room 204/i);
+        expect(longEvent).toHaveAttribute('data-calendar-block-density', 'spacious');
+        expect(within(longEvent as HTMLElement).getByText('Main Library')).toBeInTheDocument();
+    });
+
     it('surfaces partial external calendar failures without dropping loaded events', async () => {
         vi.mocked(fetchExternalCalendarEvents).mockResolvedValue({
             calendars: [],
@@ -326,6 +366,8 @@ describe('CalendarView', () => {
         renderCalendar();
         await flushCalendarEffects();
         await selectDay('3');
+
+        expect(screen.getByText('Room 1')).toBeInTheDocument();
 
         await act(async () => {
             fireEvent.click(screen.getByRole('button', { name: /create task: launch window/i }));
@@ -740,8 +782,8 @@ describe('CalendarView', () => {
         expect(dropTarget).toBeTruthy();
         Object.defineProperty(dropTarget, 'getBoundingClientRect', {
             value: () => ({
-                bottom: 24 * 56,
-                height: 24 * 56,
+                bottom: 24 * DESKTOP_HOUR_HEIGHT,
+                height: 24 * DESKTOP_HOUR_HEIGHT,
                 left: 0,
                 right: 320,
                 top: 0,
@@ -755,10 +797,10 @@ describe('CalendarView', () => {
         const dataTransfer = createTaskDragDataTransfer('timed-drop-task');
         await act(async () => {
             const dragOverEvent = createEvent.dragOver(dropTarget, { dataTransfer });
-            Object.defineProperty(dragOverEvent, 'clientY', { value: 9 * 56 });
+            Object.defineProperty(dragOverEvent, 'clientY', { value: 9 * DESKTOP_HOUR_HEIGHT });
             fireEvent(dropTarget, dragOverEvent);
             const dropEvent = createEvent.drop(dropTarget, { dataTransfer });
-            Object.defineProperty(dropEvent, 'clientY', { value: 9 * 56 });
+            Object.defineProperty(dropEvent, 'clientY', { value: 9 * DESKTOP_HOUR_HEIGHT });
             fireEvent(dropTarget, dropEvent);
             await Promise.resolve();
         });

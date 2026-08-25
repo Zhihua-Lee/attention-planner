@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { isSameDay, isToday } from 'date-fns';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Plus, Search } from 'lucide-react';
 import {
     getCalendarDayOfMonth,
     getCalendarMonthIndex,
@@ -38,6 +38,7 @@ import {
     DESKTOP_GRID_SNAP_MINUTES,
     DESKTOP_HOUR_HEIGHT,
     dayKey,
+    getCalendarBlockDensity,
     type CalendarCellItem,
     type CalendarViewMode,
 } from './calendar/calendar-primitives';
@@ -567,10 +568,13 @@ export function CalendarView() {
                 )}
 
                 {(viewMode === 'day' || viewMode === 'week') && (
-                    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+                    <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-card shadow-sm">
                         <div
                             className="grid border-b border-border bg-muted/40"
-                            style={{ gridTemplateColumns: `4rem repeat(${timelineDays.length}, minmax(0, 1fr))` }}
+                            style={{
+                                gridTemplateColumns: `4rem repeat(${timelineDays.length}, minmax(0, 1fr))`,
+                                minWidth: viewMode === 'week' ? '54rem' : undefined,
+                            }}
                         >
                             <div className="border-r border-border p-2 text-xs font-medium text-muted-foreground">
                                 {resolveText('calendar.time', 'Time')}
@@ -597,7 +601,10 @@ export function CalendarView() {
 
                         <div
                             className="grid border-b border-border"
-                            style={{ gridTemplateColumns: `4rem repeat(${timelineDays.length}, minmax(0, 1fr))` }}
+                            style={{
+                                gridTemplateColumns: `4rem repeat(${timelineDays.length}, minmax(0, 1fr))`,
+                                minWidth: viewMode === 'week' ? '54rem' : undefined,
+                            }}
                         >
                             <div className="border-r border-border p-2 text-xs font-medium text-muted-foreground">
                                 {t('calendar.allDay')}
@@ -614,15 +621,25 @@ export function CalendarView() {
                                     >
                                         {allDayItems.map((item) => {
                                             if (item.kind === 'event') {
+                                                const location = item.event.location?.trim();
                                                 return (
-                                                    <div
+                                                    <button
                                                         key={item.id}
-                                                        className="truncate rounded border-l-[3px] bg-muted/60 px-2 py-1 text-xs text-muted-foreground"
+                                                        type="button"
+                                                        className="block w-full rounded border-l-[3px] bg-muted/60 px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
                                                         style={{ borderLeftColor: getExternalCalendarColor(item.event.sourceId) }}
-                                                        title={item.title}
+                                                        title={[item.title, location].filter(Boolean).join(' · ')}
+                                                        aria-label={[item.title, location].filter(Boolean).join(', ')}
+                                                        onClick={() => selectCalendarDate(day)}
                                                     >
-                                                        {item.title}
-                                                    </div>
+                                                        <div className="truncate font-medium text-foreground">{item.title}</div>
+                                                        {location && (
+                                                            <div className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-[10px]">
+                                                                <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                                                <span className="truncate">{location}</span>
+                                                            </div>
+                                                        )}
+                                                    </button>
                                                 );
                                             }
                                             const projected = isProjectedRecurringTask(item.task);
@@ -669,7 +686,13 @@ export function CalendarView() {
                             className="overflow-y-auto"
                             style={{ height: 'clamp(28rem, calc(100vh - 20rem), 48rem)' }}
                         >
-                            <div className="grid" style={{ gridTemplateColumns: `4rem repeat(${timelineDays.length}, minmax(0, 1fr))` }}>
+                            <div
+                                className="grid"
+                                style={{
+                                    gridTemplateColumns: `4rem repeat(${timelineDays.length}, minmax(0, 1fr))`,
+                                    minWidth: viewMode === 'week' ? '54rem' : undefined,
+                                }}
+                            >
                                 <div className="relative border-r border-border bg-muted/20" style={{ height: (DESKTOP_DAY_END_HOUR - DESKTOP_DAY_START_HOUR) * DESKTOP_HOUR_HEIGHT }}>
                                     {Array.from({ length: DESKTOP_DAY_END_HOUR - DESKTOP_DAY_START_HOUR + 1 }, (_, index) => {
                                         const hour = DESKTOP_DAY_START_HOUR + index;
@@ -718,7 +741,11 @@ export function CalendarView() {
                                                 </div>
                                             )}
                                             {layoutTimedItems(day).map((item) => {
-                                                const timeLabel = `${safeFormatDate(item.start, 'p')}-${safeFormatDate(item.end, 'p')}`;
+                                                const timeLabel = `${safeFormatDate(item.start, 'p')} – ${safeFormatDate(item.end, 'p')}`;
+                                                const startLabel = safeFormatDate(item.start, 'p');
+                                                const blockDensity = getCalendarBlockDensity(item.height);
+                                                const isCompactBlock = blockDensity === 'compact';
+                                                const isSpaciousBlock = blockDensity === 'spacious';
                                                 const commonStyle = {
                                                     height: item.height,
                                                     left: `calc(${item.leftPercent}% + 3px)`,
@@ -726,18 +753,52 @@ export function CalendarView() {
                                                     width: `calc(${item.widthPercent}% - 6px)`,
                                                 };
                                                 if (item.kind === 'event') {
+                                                    const location = item.event.location?.trim();
+                                                    const accessibleDetails = [item.title, timeLabel, location].filter(Boolean).join(', ');
                                                     return (
-                                                        <div
+                                                        <button
                                                             key={item.id}
+                                                            type="button"
                                                             data-calendar-block
-                                                            className="absolute z-10 overflow-hidden rounded border-l-[4px] bg-muted/80 px-2 py-1 text-xs text-muted-foreground shadow-sm"
+                                                            data-calendar-block-density={blockDensity}
+                                                            data-external-event-id={item.event.id}
+                                                            className={cn(
+                                                                "absolute z-10 overflow-hidden rounded border-l-[4px] bg-muted/80 text-left text-muted-foreground shadow-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40",
+                                                                isCompactBlock
+                                                                    ? "px-1.5 py-px text-[11px] leading-[1.15]"
+                                                                    : "px-2 py-0.5 text-[clamp(0.68rem,0.6rem+0.12vw,0.75rem)] leading-[1.2]",
+                                                            )}
                                                             style={{ ...commonStyle, borderLeftColor: getExternalCalendarColor(item.event.sourceId) }}
-                                                            title={`${item.title} ${timeLabel}`}
-                                                            onClick={(event) => event.stopPropagation()}
+                                                            title={accessibleDetails}
+                                                            aria-label={accessibleDetails}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                selectCalendarDate(day);
+                                                            }}
                                                         >
-                                                            <div className="truncate font-medium text-foreground">{item.title}</div>
-                                                            <div className="truncate">{timeLabel}</div>
-                                                        </div>
+                                                            {isCompactBlock ? (
+                                                                <div className="flex h-full min-w-0 items-center gap-1">
+                                                                    <span className="min-w-0 flex-1 truncate font-semibold text-foreground">{item.title}</span>
+                                                                    <span className="shrink-0 opacity-80">{startLabel}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className={cn("font-semibold text-foreground", isSpaciousBlock ? "line-clamp-2" : "truncate")}>
+                                                                        {item.title}
+                                                                    </div>
+                                                                    <div className="mt-0.5 flex min-w-0 items-center gap-1 opacity-90">
+                                                                        <span className="shrink-0 truncate">{timeLabel}</span>
+                                                                        {isSpaciousBlock && location && (
+                                                                            <>
+                                                                                <span aria-hidden="true">·</span>
+                                                                                <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                                                                <span className="truncate">{location}</span>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </button>
                                                     );
                                                 }
                                                 const projected = isProjectedRecurringTask(item.task);
@@ -749,18 +810,33 @@ export function CalendarView() {
                                                         key={item.id}
                                                         type="button"
                                                         data-calendar-block
+                                                        data-calendar-block-density={blockDensity}
                                                         data-task-id={item.task.id}
                                                         {...(!projected ? { 'data-task-edit-trigger': true } : {})}
                                                         draggable={!projected}
                                                         disabled={projected}
                                                         className={cn(
-                                                            "absolute z-10 overflow-hidden rounded px-2 py-1 text-left text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40",
+                                                            "absolute z-10 overflow-hidden rounded text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40",
+                                                            isCompactBlock
+                                                                ? "px-1.5 py-px text-[11px] leading-[1.15]"
+                                                                : "px-2 py-0.5 text-[clamp(0.68rem,0.6rem+0.12vw,0.75rem)] leading-[1.2]",
                                                             projected
                                                                 ? "border border-dashed border-primary/50 bg-primary/10 text-primary"
                                                                 : "bg-primary text-primary-foreground hover:bg-primary/90"
                                                         )}
                                                         style={commonStyle}
-                                                        title={projected ? `${item.title} ${timeLabel} (${projectedLabel})` : `${item.title} ${timeLabel}`}
+                                                        title={[
+                                                            item.title,
+                                                            timeLabel,
+                                                            item.task.location?.trim(),
+                                                            projected ? projectedLabel : undefined,
+                                                        ].filter(Boolean).join(' · ')}
+                                                        aria-label={[
+                                                            item.title,
+                                                            timeLabel,
+                                                            item.task.location?.trim(),
+                                                            projected ? projectedLabel : undefined,
+                                                        ].filter(Boolean).join(', ')}
                                                         onDragStart={(event) => handleCalendarTaskDragStart(event, item.task, 'scheduled')}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
@@ -772,10 +848,28 @@ export function CalendarView() {
                                                             handleCalendarTaskContextMenu(event, item.task, 'scheduled');
                                                         }}
                                                     >
-                                                        <div className="truncate font-semibold">{item.title}</div>
-                                                        <div className="truncate opacity-90">
-                                                            {projected ? `${timeLabel} · ${projectedLabel}` : timeLabel}
-                                                        </div>
+                                                        {isCompactBlock ? (
+                                                            <div className="flex h-full min-w-0 items-center gap-1">
+                                                                <span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span>
+                                                                <span className="shrink-0 opacity-85">{startLabel}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div className={cn("font-semibold", isSpaciousBlock ? "line-clamp-2" : "truncate")}>
+                                                                    {item.title}
+                                                                </div>
+                                                                <div className="mt-0.5 flex min-w-0 items-center gap-1 truncate opacity-90">
+                                                                    <span className="shrink-0">{projected ? `${timeLabel} · ${projectedLabel}` : timeLabel}</span>
+                                                                    {isSpaciousBlock && item.task.location?.trim() && (
+                                                                        <>
+                                                                            <span aria-hidden="true">·</span>
+                                                                            <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                                                            <span className="truncate">{item.task.location.trim()}</span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        )}
                                                     </button>
                                                 );
                                             })}

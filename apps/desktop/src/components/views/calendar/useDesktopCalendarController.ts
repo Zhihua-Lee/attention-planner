@@ -46,6 +46,7 @@ import {
     DESKTOP_DAY_END_HOUR,
     DESKTOP_DAY_START_HOUR,
     DESKTOP_HOUR_HEIGHT,
+    DESKTOP_MIN_TIMED_ITEM_HEIGHT,
     dayKey,
     formatDateInputValue,
     type CalendarCellItem,
@@ -482,15 +483,22 @@ export function useDesktopCalendarController() {
         const dayStart = new Date(date);
         dayStart.setHours(DESKTOP_DAY_START_HOUR, 0, 0, 0);
         const dayStartMs = dayStart.getTime();
+        const minimumDisplayMinutes = DESKTOP_MIN_TIMED_ITEM_HEIGHT / DESKTOP_HOUR_HEIGHT * 60;
         const layouts = buildTimedCalendarLayouts(items.map((item) => ({
             id: item.id,
             startMinutes: (item.start.getTime() - dayStartMs) / 60_000,
-            endMinutes: (item.end.getTime() - dayStartMs) / 60_000,
+            // Very short appointments still need a readable hit target. Their
+            // visual height participates in lane layout so adjacent five-minute
+            // events never paint over one another.
+            endMinutes: Math.max(
+                (item.end.getTime() - dayStartMs) / 60_000,
+                (item.start.getTime() - dayStartMs) / 60_000 + minimumDisplayMinutes,
+            ),
         })));
         return items.map((item) => ({
             ...item,
             ...(layouts.get(item.id) ?? { columnCount: 1, columnIndex: 0, leftPercent: 0, widthPercent: 100 }),
-            height: Math.max(24, item.durationMinutes / 60 * DESKTOP_HOUR_HEIGHT),
+            height: Math.max(DESKTOP_MIN_TIMED_ITEM_HEIGHT, item.durationMinutes / 60 * DESKTOP_HOUR_HEIGHT),
             top: Math.max(0, ((item.start.getHours() - DESKTOP_DAY_START_HOUR) * 60 + item.start.getMinutes()) / 60 * DESKTOP_HOUR_HEIGHT),
         }));
     };
