@@ -783,19 +783,21 @@ export function CalendarView() {
                                                                 </div>
                                                             ) : (
                                                                 <>
-                                                                    <div className={cn("font-semibold text-foreground", isSpaciousBlock ? "line-clamp-2" : "truncate")}>
+                                                                    <div className={cn(
+                                                                        "font-semibold text-foreground",
+                                                                        isSpaciousBlock && !location ? "line-clamp-2" : "truncate",
+                                                                    )}>
                                                                         {item.title}
                                                                     </div>
-                                                                    <div className="mt-0.5 flex min-w-0 items-center gap-1 opacity-90">
-                                                                        <span className="shrink-0 truncate">{timeLabel}</span>
-                                                                        {isSpaciousBlock && location && (
-                                                                            <>
-                                                                                <span aria-hidden="true">·</span>
-                                                                                <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                                                                <span className="truncate">{location}</span>
-                                                                            </>
-                                                                        )}
+                                                                    <div className="mt-0.5 truncate opacity-90">
+                                                                        {timeLabel}
                                                                     </div>
+                                                                    {isSpaciousBlock && location && (
+                                                                        <div className="mt-0.5 flex min-w-0 items-center gap-1 opacity-90">
+                                                                            <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                                                            <span className="truncate">{location}</span>
+                                                                        </div>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </button>
@@ -855,19 +857,21 @@ export function CalendarView() {
                                                             </div>
                                                         ) : (
                                                             <>
-                                                                <div className={cn("font-semibold", isSpaciousBlock ? "line-clamp-2" : "truncate")}>
+                                                                <div className={cn(
+                                                                    "font-semibold",
+                                                                    isSpaciousBlock && !item.task.location?.trim() ? "line-clamp-2" : "truncate",
+                                                                )}>
                                                                     {item.title}
                                                                 </div>
-                                                                <div className="mt-0.5 flex min-w-0 items-center gap-1 truncate opacity-90">
-                                                                    <span className="shrink-0">{projected ? `${timeLabel} · ${projectedLabel}` : timeLabel}</span>
-                                                                    {isSpaciousBlock && item.task.location?.trim() && (
-                                                                        <>
-                                                                            <span aria-hidden="true">·</span>
-                                                                            <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                                                            <span className="truncate">{item.task.location.trim()}</span>
-                                                                        </>
-                                                                    )}
+                                                                <div className="mt-0.5 truncate opacity-90">
+                                                                    {projected ? `${timeLabel} · ${projectedLabel}` : timeLabel}
                                                                 </div>
+                                                                {isSpaciousBlock && item.task.location?.trim() && (
+                                                                    <div className="mt-0.5 flex min-w-0 items-center gap-1 opacity-90">
+                                                                        <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                                                        <span className="truncate">{item.task.location.trim()}</span>
+                                                                    </div>
+                                                                )}
                                                             </>
                                                         )}
                                                     </button>
