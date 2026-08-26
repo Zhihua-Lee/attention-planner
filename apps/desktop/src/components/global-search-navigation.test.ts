@@ -18,7 +18,7 @@ describe('resolveGlobalSearchTaskView', () => {
             {
                 ...baseTask,
                 status: 'next',
-                startTime: '2026-02-28T10:00:00.000Z',
+                availableAt: '2026-02-28T10:00:00.000Z',
             },
             new Date('2026-02-27T09:00:00.000Z')
         );

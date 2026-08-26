@@ -217,11 +217,11 @@ describe('getDailyReviewBuckets', () => {
         expect(buckets.focusCandidates.map((task) => task.id)).toEqual(['next-later-today']);
     });
 
-    it('defers a next task starting tomorrow out of the focus candidates', () => {
+    it('defers a next task available tomorrow out of the focus candidates', () => {
         const tomorrow = createTask({
             id: 'next-tomorrow',
             status: 'next',
-            startTime: new Date(2026, 2, 2, 8, 0, 0).toISOString(),
+            availableAt: new Date(2026, 2, 2, 8, 0, 0).toISOString(),
         });
 
         const buckets = getDailyReviewBuckets([tomorrow], [], { now: dailyNow });

@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import type { DragEvent } from 'react';
 import { Check, Clock, MapPin, MoreHorizontal, Plus, X } from 'lucide-react';
-import { getTaskCalendarOccurrenceDate, getTaskScheduledAt, hasTimeComponent, isProjectedRecurringTask, safeFormatDate, safeParseDate, type Task } from '@mindwtr/core';
+import { getTaskCalendarOccurrenceDate, getTaskScheduledAt, getTaskUnschedulePatch, hasTimeComponent, isProjectedRecurringTask, safeFormatDate, safeParseDate, type Task } from '@mindwtr/core';
 
 import { cn } from '../../../lib/utils';
 import { reportError } from '../../../lib/report-error';
@@ -334,7 +334,7 @@ export function CalendarSelectedDayPanel({ controller }: CalendarSelectedDayPane
                                                     <button
                                                         type="button"
                                                         className="h-8 rounded-md bg-muted px-2 text-xs text-muted-foreground hover:text-foreground"
-                                                        onClick={() => updateTask(task.id, { scheduledAt: undefined, startTime: undefined, relativeStartOffset: undefined })
+                                                        onClick={() => updateTask(task.id, getTaskUnschedulePatch(task))
                                                             .catch((error) => reportError('Failed to clear scheduled time', error))}
                                                         title={t('calendar.unschedule')}
                                                     >

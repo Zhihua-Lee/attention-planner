@@ -65,9 +65,20 @@ describe('resolveFocusStarAction', () => {
     });
 
     it('blocks deferred tasks with the deferred reason', () => {
-        const deferred = makeTask({ startTime: '2099-01-01T00:00:00.000Z' });
+        const deferred = makeTask({ availableAt: '2099-01-01T00:00:00.000Z' });
         const action = resolveFocusStarAction(deferred, baseContext());
         expect(action).toMatchObject({ canToggle: false, blockedReason: 'deferred' });
+    });
+
+    it('does not turn a review-due Waiting task into a Today commitment', () => {
+        const waiting = makeTask({
+            status: 'waiting',
+            reviewAt: '2026-08-24T09:00:00.000Z',
+        });
+        const action = resolveFocusStarAction(waiting, baseContext({
+            now: new Date('2026-08-25T09:00:00.000Z'),
+        }));
+        expect(action).toMatchObject({ canToggle: false, blockedReason: 'clarify' });
     });
 });
 

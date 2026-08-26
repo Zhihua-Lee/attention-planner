@@ -836,14 +836,14 @@ describe('TaskStore', () => {
         expect(task?.status).toBe('inbox');
         expect(task?.isFocusedToday).toBe(false);
 
-        // Starring a waiting task keeps its status: "chase this today" does
-        // not stop the task being waiting-for.
+        // A direct stale write cannot star a Waiting task. Today commitments
+        // and NOW both require Ready; the task remains Waiting and unstarred.
         await updateTask(id, { status: 'waiting', isFocusedToday: false });
         const starWaiting = await updateTask(id, { isFocusedToday: true });
         expect(starWaiting).toEqual({ success: true });
         task = useTaskStore.getState()._tasksById.get(id);
         expect(task?.status).toBe('waiting');
-        expect(task?.isFocusedToday).toBe(true);
+        expect(task?.isFocusedToday).toBe(false);
     });
 
     it('resolves the focus star action from store state', async () => {

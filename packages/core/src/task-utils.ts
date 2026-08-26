@@ -598,10 +598,9 @@ export function getTaskFocusEligibility(
     );
     const isVisibleForStart = shouldShowTaskForStart(task, { now });
     const isVisibleActiveTask = isTaskInActiveProject(task, projectMap) && isVisibleForStart;
-    const isReviewDueEligible = task.status !== 'inbox' && isDueForReview(task.reviewAt, now);
     const eligible = isVisibleActiveTask
         && !isSequentialBlocked
-        && (task.status === 'next' || isReviewDueEligible);
+        && task.status === 'next';
 
     if (eligible) {
         return { eligible: true, reason: 'eligible' };

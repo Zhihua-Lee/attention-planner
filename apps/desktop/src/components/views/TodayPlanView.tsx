@@ -4,8 +4,9 @@ import {
     formatFocusTaskLimitText,
     getFocusStarBlockedText,
     getTaskScheduledAt,
+    getTaskUnschedulePatch,
     isTaskInActiveProject,
-    isTaskReadyForNow,
+    isTaskAttentionEligible,
     normalizeFocusTaskLimit,
     safeFormatDate,
     safeParseDate,
@@ -61,6 +62,7 @@ export function TodayPlanView() {
     }), shallow);
     const showToast = useUiStore((state) => state.showToast);
     const [scheduleTaskId, setScheduleTaskId] = useState<string | null>(null);
+    const [showAllReady, setShowAllReady] = useState(false);
     const now = new Date();
     const focusTaskLimit = normalizeFocusTaskLimit(settings?.gtd?.focusTaskLimit);
     const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
@@ -72,11 +74,16 @@ export function TodayPlanView() {
         && isTaskInActiveProject(task, projectMap)
     )), [projectMap, tasks]);
     const commitments = useMemo(
-        () => sortTasksByFocusOrder(activeTasks.filter((task) => task.isFocusedToday)),
-        [activeTasks],
+        () => sortTasksByFocusOrder(activeTasks.filter((task) => (
+            task.isFocusedToday && isTaskAttentionEligible(task, now)
+        ))),
+        [activeTasks, now],
     );
     const scheduledToday = useMemo(() => activeTasks
-        .filter((task) => isSameLocalDay(getTaskScheduledAt(task), now))
+        .filter((task) => (
+            isTaskAttentionEligible(task, now)
+            && isSameLocalDay(getTaskScheduledAt(task), now)
+        ))
         .sort((left, right) => (
             (safeParseDate(getTaskScheduledAt(left))?.getTime() ?? Number.MAX_SAFE_INTEGER)
             - (safeParseDate(getTaskScheduledAt(right))?.getTime() ?? Number.MAX_SAFE_INTEGER)
@@ -84,10 +91,9 @@ export function TodayPlanView() {
     const scheduledTodayIds = useMemo(() => new Set(scheduledToday.map((task) => task.id)), [scheduledToday]);
     const readyTasks = useMemo(() => activeTasks
         .filter((task) => (
-            task.status === 'next'
-            && !task.isFocusedToday
+            !task.isFocusedToday
             && !scheduledTodayIds.has(task.id)
-            && isTaskReadyForNow(task, now)
+            && isTaskAttentionEligible(task, now)
         ))
         .sort((left, right) => {
             const leftDue = safeParseDate(left.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
@@ -95,6 +101,7 @@ export function TodayPlanView() {
             return leftDue - rightDue || left.createdAt.localeCompare(right.createdAt);
         }), [activeTasks, now, scheduledTodayIds]);
     const focusedCount = commitments.length;
+    const visibleReadyTasks = showAllReady ? readyTasks : readyTasks.slice(0, READY_PREVIEW_LIMIT);
 
     const toggleCommitment = useCallback((task: Task) => {
         const action = useTaskStore.getState().getFocusStarAction(task);
@@ -191,10 +198,7 @@ export function TodayPlanView() {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => void updateTask(task.id, {
-                                            scheduledAt: undefined,
-                                            ...(task.scheduledAt ? {} : { startTime: undefined }),
-                                        })}
+                                        onClick={() => void updateTask(task.id, getTaskUnschedulePatch(task))}
                                         className="shrink-0 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                     >
                                         {t('calendar.unschedule')}
@@ -221,7 +225,7 @@ export function TodayPlanView() {
                 </div>
                 {readyTasks.length > 0 ? (
                     <div className="divide-y divide-border/40 border-y border-border/60">
-                        {readyTasks.slice(0, READY_PREVIEW_LIMIT).map((task) => (
+                        {visibleReadyTasks.map((task) => (
                             <div key={task.id} className="flex min-w-0 items-center gap-3 py-2">
                                 <div className="min-w-0 flex-1">
                                     <StoreTaskItem
@@ -257,9 +261,23 @@ export function TodayPlanView() {
                     </div>
                 )}
                 {readyTasks.length > READY_PREVIEW_LIMIT ? (
-                    <p className="mt-3 text-xs text-muted-foreground">
-                        {tFallback(t, 'todayPlan.readyPreview', 'Showing the first {{count}} Ready tasks.').replace('{{count}}', String(READY_PREVIEW_LIMIT))}
-                    </p>
+                    <div className="flex flex-col gap-2 border-b border-border/60 py-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs tabular-nums text-muted-foreground">
+                            {tFallback(t, 'todayPlan.readyCount', '{{shown}} of {{count}} Ready tasks')
+                                .replace('{{shown}}', String(visibleReadyTasks.length))
+                                .replace('{{count}}', String(readyTasks.length))}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setShowAllReady((current) => !current)}
+                            className="min-h-11 self-start rounded-md px-2 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:min-h-9 sm:self-auto"
+                        >
+                            {showAllReady
+                                ? tFallback(t, 'todayPlan.showFewerReady', 'Show fewer Ready tasks')
+                                : tFallback(t, 'todayPlan.viewAllReady', 'View all {{count}} Ready tasks')
+                                    .replace('{{count}}', String(readyTasks.length))}
+                        </button>
+                    </div>
                 ) : null}
             </section>
 

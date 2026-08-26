@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { createNextRecurringTask, createProjectedRecurringTask } from './recurrence';
+import {
+    createNextRecurringTask,
+    createProjectedRecurringTask,
+    getProjectedRecurringTaskCalendarDate,
+    getRecurringTaskPreviewDate,
+} from './recurrence';
 import type { Task } from './types';
 
 const recurringTask = (overrides: Partial<Task> = {}): Task => ({
@@ -36,5 +41,17 @@ describe('recurring semantic task times', () => {
 
         expect(projected?.scheduledAt).toBe('2026-08-26T13:00:00.000Z');
         expect(projected?.startTime).toBeUndefined();
+    });
+
+    it('projects availability-only recurrence for the Recurring preview without creating a calendar block', () => {
+        const value = recurringTask({
+            availableAt: '2026-08-25',
+            showFutureRecurrence: true,
+        });
+        const projected = createProjectedRecurringTask(value, '2026-08-25T12:00:00.000Z');
+
+        expect(projected?.availableAt).toBe('2026-08-26');
+        expect(getRecurringTaskPreviewDate(value, '2026-08-25T12:00:00.000Z')).toBe('2026-08-26');
+        expect(getProjectedRecurringTaskCalendarDate(value, '2026-08-25T12:00:00.000Z')).toBeUndefined();
     });
 });

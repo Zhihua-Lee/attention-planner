@@ -376,7 +376,7 @@ describe('CalendarView', () => {
 
         expect(storeMocks.taskStoreState.addTask).toHaveBeenCalledWith('Launch window', {
             status: 'next',
-            startTime: '2026-04-03T10:00:00.000Z',
+            scheduledAt: '2026-04-03T10:00:00.000Z',
             timeEstimate: 'custom:45',
             location: 'Room 1',
             description: 'Discuss launch.\n\nCalendar: Work',
@@ -451,7 +451,7 @@ describe('CalendarView', () => {
         });
 
         expect(storeMocks.taskStoreState.addTask).toHaveBeenCalledWith('Draft launch note', expect.objectContaining({
-            startTime: new Date(2026, 3, 9, 8, 0).toISOString(),
+            scheduledAt: new Date(2026, 3, 9, 8, 0).toISOString(),
         }));
     });
 
@@ -507,7 +507,7 @@ describe('CalendarView', () => {
             contexts: ['@computer'],
             description: 'Outline next steps',
             projectId: 'project-launch',
-            startTime: new Date(2026, 3, 4, 8, 0).toISOString(),
+            scheduledAt: new Date(2026, 3, 4, 8, 0).toISOString(),
             status: 'next',
             tags: ['#deep'],
             timeEstimate: '30min',
@@ -577,7 +577,7 @@ describe('CalendarView', () => {
         });
 
         expect(storeMocks.taskStoreState.updateTask).toHaveBeenCalledWith('task-existing', expect.objectContaining({
-            startTime: new Date(2026, 3, 4, 8, 0).toISOString(),
+            scheduledAt: new Date(2026, 3, 4, 8, 0).toISOString(),
             timeEstimate: '1hr',
         }));
         expect(storeMocks.taskStoreState.addTask).not.toHaveBeenCalled();
@@ -629,7 +629,7 @@ describe('CalendarView', () => {
         });
 
         expect(storeMocks.taskStoreState.updateTask).toHaveBeenCalledWith('task-plan', expect.objectContaining({
-            startTime: new Date(2026, 3, 4, 8, 0).toISOString(),
+            scheduledAt: new Date(2026, 3, 4, 8, 0).toISOString(),
         }));
     });
 
@@ -692,7 +692,7 @@ describe('CalendarView', () => {
         expect(window.localStorage.getItem('mindwtr.calendar.planningPanelCollapsed')).toBe('false');
     });
 
-    it('shows date-only start times as all-day scheduled tasks on the calendar', async () => {
+    it('treats a date-only legacy start as availability rather than a calendar block', async () => {
         storeMocks.taskStoreState.tasks = [
             makeTask({
                 id: 'task-date-only',
@@ -709,7 +709,7 @@ describe('CalendarView', () => {
         renderCalendar();
         await flushCalendarEffects();
 
-        expect(screen.getByText('Date-only start')).toBeInTheDocument();
+        expect(screen.queryByText('Date-only start')).not.toBeInTheDocument();
         expect(screen.getByText('Timed start')).toBeInTheDocument();
     });
 
@@ -806,7 +806,7 @@ describe('CalendarView', () => {
         });
 
         expect(storeMocks.taskStoreState.updateTask).toHaveBeenCalledWith('timed-drop-task', {
-            startTime: new Date(2026, 3, 3, 9, 0).toISOString(),
+            scheduledAt: new Date(2026, 3, 3, 9, 0).toISOString(),
         });
     });
 
@@ -862,7 +862,7 @@ describe('CalendarView', () => {
         });
 
         expect(storeMocks.taskStoreState.updateTask).toHaveBeenCalledWith('calendar-timed-drag-task', {
-            startTime: new Date(2026, 3, 5, 11, 15).toISOString(),
+            scheduledAt: new Date(2026, 3, 5, 11, 15).toISOString(),
         });
     });
 
@@ -898,7 +898,7 @@ describe('CalendarView', () => {
             expect(storeMocks.taskStoreState.updateTask).not.toHaveBeenCalled();
         });
 
-        it('clears startTime and relativeStartOffset for a scheduled block, and undo restores both exactly', async () => {
+        it('clears semantic and legacy schedule fields, and undo restores them exactly', async () => {
             storeMocks.taskStoreState.tasks = [
                 makeTask({
                     id: 'scheduled-task',
@@ -928,7 +928,8 @@ describe('CalendarView', () => {
             const removeCall = storeMocks.taskStoreState.updateTask.mock.calls.find(([id]) => id === 'scheduled-task');
             expect(removeCall).toBeTruthy();
             const removeUpdates = removeCall?.[1] as Record<string, unknown>;
-            expect(Object.keys(removeUpdates).sort()).toEqual(['relativeStartOffset', 'startTime']);
+            expect(Object.keys(removeUpdates).sort()).toEqual(['relativeStartOffset', 'scheduledAt', 'startTime']);
+            expect(removeUpdates.scheduledAt).toBeUndefined();
             expect(removeUpdates.startTime).toBeUndefined();
             expect(removeUpdates.relativeStartOffset).toBeUndefined();
 
@@ -941,6 +942,7 @@ describe('CalendarView', () => {
             showToast.mock.calls[0][3].onClick();
 
             expect(storeMocks.taskStoreState.updateTask).toHaveBeenCalledWith('scheduled-task', {
+                scheduledAt: undefined,
                 startTime: '2026-04-04T09:00:00',
                 relativeStartOffset: { amount: -1, unit: 'day' },
             });

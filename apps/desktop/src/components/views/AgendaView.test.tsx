@@ -408,7 +408,7 @@ describe('AgendaView', () => {
             id: 'future-start-next-task',
             title: 'Future start next task',
             status: 'next',
-            startTime: '2026-03-03T09:00:00.000Z',
+            availableAt: '2026-03-03T09:00:00.000Z',
             tags: [],
             contexts: [],
             createdAt: nowIso,
@@ -521,7 +521,7 @@ describe('AgendaView', () => {
 
         await act(async () => {
             await useTaskStore.getState().updateTask('focused-task', {
-                startTime: '2099-03-03T09:00:00.000Z',
+                availableAt: '2099-03-03T09:00:00.000Z',
             });
         });
 
@@ -552,7 +552,7 @@ describe('AgendaView', () => {
             projectId: project.id,
             order: 0,
             orderNum: 0,
-            startTime: '2026-03-03T09:00:00.000Z',
+            availableAt: '2026-03-03T09:00:00.000Z',
             tags: [],
             contexts: [],
             createdAt: nowIso,

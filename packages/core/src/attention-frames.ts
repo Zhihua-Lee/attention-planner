@@ -2,7 +2,7 @@ import { timeEstimateToMinutes } from './calendar-scheduling';
 import { safeParseDate, safeParseDueDate } from './date';
 import type { ExternalCalendarEvent } from './ics';
 import type { Task, TaskPriority } from './types';
-import { getTaskScheduledAt, isTaskReadyForNow } from './task-time-semantics';
+import { getTaskScheduledAt, isTaskAttentionEligible, isTaskReadyForNow } from './task-time-semantics';
 
 export type AttentionFrameDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -167,8 +167,8 @@ export function selectNow(options: SelectNowOptions): NowSelection | null {
     const excluded = options.excludedTaskIds ?? new Set<string>();
     const actionable = options.tasks.filter((task) => (
         !task.deletedAt
-        && task.status === 'next'
         && !excluded.has(task.id)
+        && isTaskAttentionEligible(task, now)
     ));
     if (actionable.length === 0) return null;
 

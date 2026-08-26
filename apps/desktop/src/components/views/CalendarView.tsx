@@ -7,6 +7,7 @@ import {
     getShortWeekdayLabels,
     getTaskScheduledAt,
     getTaskCalendarOccurrenceDate,
+    getTaskUnschedulePatch,
     hasTimeComponent,
     isProjectedRecurringTask,
     isSameCalendarMonth,
@@ -197,7 +198,7 @@ export function CalendarView() {
             ? { scheduledAt: task.scheduledAt, startTime: task.startTime, relativeStartOffset: task.relativeStartOffset }
             : { dueDate: task.dueDate, relativeStartOffset: task.relativeStartOffset };
         const clearedUpdates = kind === 'scheduled'
-            ? { scheduledAt: undefined, startTime: undefined, relativeStartOffset: undefined }
+            ? getTaskUnschedulePatch(task)
             : { dueDate: undefined };
         void updateTask(task.id, clearedUpdates)
             .then((result) => {

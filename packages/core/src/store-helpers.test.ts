@@ -15,6 +15,7 @@ import {
     replaceEntityInMap,
     restoreSectionFromProjectArchive,
     restoreTaskFromProjectArchive,
+    normalizeTaskUpdate,
     reuseArrayIfShallowEqual,
     reuseSettingsIfEquivalent,
 } from './store-helpers';
@@ -539,9 +540,12 @@ describe('derived store state helpers', () => {
     it('counts only active focused-today tasks toward the focus limit', () => {
         const derived = computeTaskDerivedState([
             createTask('active-focused', 'project-1', 0, { status: 'next', isFocusedToday: true }),
-            createTask('done-focused', 'project-1', 1, { status: 'done', isFocusedToday: true }),
-            createTask('reference-focused', 'project-1', 2, { status: 'reference', isFocusedToday: true }),
-            createTask('deleted-focused', 'project-1', 3, {
+            createTask('inbox-focused', 'project-1', 1, { status: 'inbox', isFocusedToday: true }),
+            createTask('waiting-focused', 'project-1', 2, { status: 'waiting', isFocusedToday: true }),
+            createTask('someday-focused', 'project-1', 3, { status: 'someday', isFocusedToday: true }),
+            createTask('done-focused', 'project-1', 4, { status: 'done', isFocusedToday: true }),
+            createTask('reference-focused', 'project-1', 5, { status: 'reference', isFocusedToday: true }),
+            createTask('deleted-focused', 'project-1', 6, {
                 status: 'next',
                 isFocusedToday: true,
                 deletedAt: '2026-01-02T00:00:00.000Z',
@@ -801,6 +805,19 @@ describe('completion timestamp updates', () => {
             focusOrder: 1,
         });
         const { updatedTask } = applyTaskUpdates(task, { status: 'archived' }, now);
+        expect(updatedTask.isFocusedToday).toBe(false);
+        expect(updatedTask.focusOrder).toBeUndefined();
+    });
+
+    it('clears a Today commitment when its status leaves Ready', () => {
+        const task = createTask('t-waiting', undefined, 0, {
+            status: 'next',
+            isFocusedToday: true,
+            focusOrder: 1,
+        });
+        const normalizedUpdates = normalizeTaskUpdate(task, { status: 'waiting' });
+        const { updatedTask } = applyTaskUpdates(task, normalizedUpdates, now);
+        expect(updatedTask.status).toBe('waiting');
         expect(updatedTask.isFocusedToday).toBe(false);
         expect(updatedTask.focusOrder).toBeUndefined();
     });

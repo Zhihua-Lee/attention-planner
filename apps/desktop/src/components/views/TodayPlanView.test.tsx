@@ -37,6 +37,9 @@ describe('TodayPlanView', () => {
     beforeEach(() => {
         const tasks = [
             task('commitment', 'Write results', { isFocusedToday: true }),
+            task('waiting-commitment', 'Waiting commitment', { status: 'waiting', isFocusedToday: true }),
+            task('someday-commitment', 'Someday commitment', { status: 'someday', isFocusedToday: true }),
+            task('inbox-commitment', 'Inbox commitment', { status: 'inbox', isFocusedToday: true }),
             task('scheduled', 'Office hours', { scheduledAt: todayAt(13) }),
             task('ready', 'Read paper'),
         ];
@@ -62,6 +65,9 @@ describe('TodayPlanView', () => {
         expect(getByText('Write results')).toBeInTheDocument();
         expect(getByText('Office hours')).toBeInTheDocument();
         expect(getByText('Read paper')).toBeInTheDocument();
+        expect(queryByText('Waiting commitment')).not.toBeInTheDocument();
+        expect(queryByText('Someday commitment')).not.toBeInTheDocument();
+        expect(queryByText('Inbox commitment')).not.toBeInTheDocument();
         expect(queryByRole('button', { name: /^Filters$/i })).not.toBeInTheDocument();
         expect(queryByText(/Pomodoro/i)).not.toBeInTheDocument();
         expect(queryByText(/Review Due/i)).not.toBeInTheDocument();
@@ -83,5 +89,37 @@ describe('TodayPlanView', () => {
         expect(updateTask).toHaveBeenCalledWith('ready', {
             scheduledAt: new Date('2026-08-26T14:30').toISOString(),
         });
+    });
+
+    it('clears both explicit and timed legacy schedule fields when unscheduling', () => {
+        const updateTask = vi.fn().mockResolvedValue({ success: true });
+        const tasks = [task('scheduled', 'Legacy office hours', {
+            scheduledAt: todayAt(13),
+            startTime: todayAt(12),
+            relativeStartOffset: { amount: -1, unit: 'day' },
+        })];
+        useTaskStore.setState({ tasks, _allTasks: tasks, updateTask });
+        const { getByRole } = renderView();
+
+        fireEvent.click(getByRole('button', { name: 'Remove from calendar' }));
+
+        expect(updateTask).toHaveBeenCalledWith('scheduled', {
+            scheduledAt: undefined,
+            startTime: undefined,
+            relativeStartOffset: undefined,
+        });
+    });
+
+    it('offers an explicit way to reveal every Ready task after the first twelve', () => {
+        const tasks = Array.from({ length: 13 }, (_, index) => (
+            task(`ready-${index + 1}`, `Ready task ${index + 1}`)
+        ));
+        useTaskStore.setState({ tasks, _allTasks: tasks });
+        const { getByRole, getByText, queryByText } = renderView();
+
+        expect(queryByText('Ready task 13')).not.toBeInTheDocument();
+        fireEvent.click(getByRole('button', { name: 'View all 13 Ready tasks' }));
+        expect(getByText('Ready task 13')).toBeInTheDocument();
+        expect(getByRole('button', { name: 'Show fewer Ready tasks' })).toBeInTheDocument();
     });
 });

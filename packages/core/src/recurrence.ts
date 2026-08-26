@@ -940,7 +940,6 @@ export function createProjectedRecurringTask(
     const nextReview = projectField('reviewAt');
     const projectionSteps = Math.max(nextStart.steps, nextAvailable.steps, nextScheduled.steps, nextDue.steps, nextReview.steps);
     if (!nextStart.iso && !nextAvailable.iso && !nextScheduled.iso && !nextDue.iso && !nextReview.iso) return null;
-    if (!nextStart.iso && !nextScheduled.iso && !nextDue.iso) return null;
     if (count && completedOccurrences + projectionSteps >= count) return null;
 
     const nextOccurrenceAnchor = nextDue.iso ?? nextScheduled.iso ?? nextStart.iso ?? nextAvailable.iso ?? nextReview.iso;
@@ -988,7 +987,9 @@ export function getRecurringTaskPreviewDate(
     const previewSource: Task = task.showFutureRecurrence ? task : { ...task, showFutureRecurrence: true };
     const current = createCurrentRecurringCalendarTask(previewSource, projectedAtIso);
     if (current?.startTime) return current.startTime;
-    return getProjectedRecurringTaskCalendarDate(previewSource, projectedAtIso);
+    const projected = createProjectedRecurringTask(previewSource, projectedAtIso);
+    if (!projected) return undefined;
+    return getTaskCalendarOccurrenceDate(projected) ?? projected.availableAt;
 }
 
 export function createCurrentRecurringCalendarTask(

@@ -1294,7 +1294,7 @@ describe('TaskItem', () => {
             .not.toBe(true);
     });
 
-    it('focuses review-due tasks from the quick actions menu without changing their status', async () => {
+    it('keeps review-due Waiting tasks out of Today commitments', () => {
         const reviewDueTask: Task = {
             ...mockTask,
             id: 'quick-focus-review-task',
@@ -1320,13 +1320,13 @@ describe('TaskItem', () => {
         const row = container.querySelector('[data-task-id="quick-focus-review-task"]');
         expect(row).toBeTruthy();
         fireEvent.contextMenu(row!);
-        fireEvent.click(getByRole('menuitem', { name: /add to today's focus/i }));
+        const focusAction = getByRole('menuitem', { name: /add to today's focus/i });
 
-        await waitFor(() => {
-            const updatedTask = useTaskStore.getState()._allTasks.find((task) => task.id === 'quick-focus-review-task');
-            expect(updatedTask?.isFocusedToday).toBe(true);
-            expect(updatedTask?.status).toBe('waiting');
-        });
+        expect(focusAction).toBeDisabled();
+        expect(focusAction).toHaveAttribute('title', 'Clarify this task before adding it to Focus.');
+        const storedTask = useTaskStore.getState()._allTasks.find((task) => task.id === 'quick-focus-review-task');
+        expect(storedTask?.isFocusedToday).not.toBe(true);
+        expect(storedTask?.status).toBe('waiting');
     });
 
     it('updates due date from the task quick actions menu', async () => {

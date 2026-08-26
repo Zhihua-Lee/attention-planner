@@ -191,14 +191,10 @@ export const normalizeTaskUpdate = (task: Task, updates: Partial<Task>): Partial
             isFocusedToday: false,
         };
     }
-    // Star ↔ status invariant: starring an unprocessed inbox task promotes it
-    // to next (committing to do it today is a clarify decision), and demoting a
-    // starred task to inbox takes the star with it. When one patch does both,
-    // the star (the more deliberate action) wins. Review-due waiting/someday
-    // tasks deliberately KEEP their status when starred — "chase this today"
-    // does not stop the task being waiting-for. Creation-side promotion lives
-    // in resolveCaptureStatusForStart, where focus eligibility is evaluated
-    // before the star commits.
+    // Star ↔ status invariant: a Today commitment is always Ready (`next`).
+    // Starring an unprocessed Inbox task promotes it to Ready; moving a starred
+    // task to any other status removes the commitment. Creation-side promotion
+    // lives in resolveCaptureStatusForStart, where eligibility is checked first.
     // Setting a start date on an Inbox task is itself a clarify decision ("I
     // decided when I can act on this") and promotes it to next, mirroring the
     // star promotion below. An Inbox task with a start date is invisible in
@@ -243,6 +239,18 @@ export const normalizeTaskUpdate = (task: Task, updates: Partial<Task>): Partial
         adjustedUpdates = {
             ...adjustedUpdates,
             status: 'next',
+        };
+    }
+    const resolvedStatus = hasOwnField(adjustedUpdates, 'status')
+        ? adjustedUpdates.status
+        : task.status;
+    const resolvedFocus = hasOwnField(adjustedUpdates, 'isFocusedToday')
+        ? adjustedUpdates.isFocusedToday
+        : task.isFocusedToday;
+    if (resolvedStatus !== 'next' && resolvedFocus === true) {
+        adjustedUpdates = {
+            ...adjustedUpdates,
+            isFocusedToday: false,
         };
     }
     if (
@@ -738,8 +746,9 @@ export const computeTaskDerivedState = (
         if (dateCoherenceIssues.length > 0) {
             dateCoherenceIssuesByTaskId.set(task.id, dateCoherenceIssues);
         }
-        // Done/reference tasks keep their historical focus flag but should not consume today's focus limit.
-        if (task.isFocusedToday && task.status !== 'done' && task.status !== 'reference') {
+        // Only Ready tasks can be Today commitments. Legacy stars on other
+        // statuses remain harmless historical data and do not consume the cap.
+        if (task.isFocusedToday && task.status === 'next') {
             focusedCount += 1;
             focusedTasks.push(task);
         }

@@ -42,7 +42,9 @@ Area（长期领域）
 - **Due**：真正的最后期限，不等于想做的时间。
 - **Recurrence**：完成或到期后生成下一次任务的规则。
 
-时间属性不会改变任务在 Area—Project—Task 中的位置。默认 Inbox 整理中的 Later 会把任务澄清为 Ready 并填写 `availableAt`；Calendar 和 Plan → Today 的 Schedule 只写 `scheduledAt`；NOW 的 Later 只写 `snoozedUntil`。旧任务的 `startTime` 继续兼容读取：仅日期解释为 Available，带钟点解释为 Scheduled；上述默认流程不再写入它。高级编辑器和上游导入路径仍保留旧字段，等待后续兼容迁移。
+时间属性不会改变任务在 Area—Project—Task 中的位置。默认 Inbox 整理中的 Later 会把任务澄清为 Ready 并填写 `availableAt`；Calendar 和 Plan → Today 的 Schedule 只写 `scheduledAt`；NOW 的 Later 只写 `snoozedUntil`。只设置 Available 的周期任务也会生成下一次可用日期预览，但不会因此在 Calendar 中伪造时间块。
+
+旧任务的 `startTime` 继续兼容读取：仅日期解释为 Available，带钟点解释为 Scheduled；上述默认流程不再写入它。取消安排时同时清除 `scheduledAt` 和带钟点的旧 `startTime`，避免旧值把时间块重新带回来；仅日期的旧 `startTime` 会保留，因为它仍表示 Available。高级编辑器和上游导入路径仍保留旧字段，等待后续兼容迁移。
 
 ### 4. 注意力层：现在看什么
 
@@ -50,6 +52,8 @@ Area（长期领域）
 - **NOW**：按“正在发生的事件 → 已安排任务 → 当前 Frame → Today commitments → Ready”给出一个当前建议。Frame 先于 Today，是为了让时间段规则真正能够生效。
 - **Frame**：某段时间适合哪类任务的后台选择规则，不是用户必须把任务放进去的容器。
 - Priority、energy、estimate、context、tag 是可选筛选信息，不进入默认工作流。
+
+Today commitments、Today 的时间块、Today 的 Ready 列表和 NOW 使用同一条基础资格：任务必须处于 Ready（`next`），并且已经到达 Available 时间。Waiting、Someday 和 Inbox 即使残留旧星标也不会混入；任务一旦离开 Ready，写入链路会自动取消 Today commitment。Snoozed 只暂时压制 NOW，不会让任务从当天规划中消失。
 
 ## 三个一级入口
 
@@ -65,7 +69,7 @@ Area（长期领域）
 
 规划面。包含五个页签：
 
-- **Today**：只处理今日承诺、时间块与 Ready 任务，不承载筛选器、保存视图、Top 3、Pomodoro、Review 或 Frame 编辑器；
+- **Today**：只处理今日承诺、时间块与 Ready 任务，不承载筛选器、保存视图、Top 3、Pomodoro、Review 或 Frame 编辑器；Ready 默认先显示 12 项，并提供明确的“查看全部／收起”出口；
 - **Calendar**：查看外部事件和带时间的任务；
 - **Projects**：管理 Area—Project—Task 内容层；
 - **Later**：处理 Waiting 与 Someday；

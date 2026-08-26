@@ -825,12 +825,12 @@ describe('task-utils', () => {
             expect(isTaskFutureStart({ startTime: new Date(2026, 4, 2, 22, 0, 0, 0).toISOString() }, now)).toBe(false);
         });
 
-        it('treats tasks starting after today as future-start tasks', () => {
-            expect(isTaskFutureStart({ startTime: new Date(2026, 4, 3, 0, 0, 0, 0).toISOString() }, now)).toBe(true);
+        it('treats tasks becoming available after today as future tasks', () => {
+            expect(isTaskFutureStart({ availableAt: new Date(2026, 4, 3, 0, 0, 0, 0).toISOString() }, now)).toBe(true);
         });
 
         it('hides future-start tasks unless the view opts into showing them', () => {
-            const task = { startTime: new Date(2026, 4, 3, 0, 0, 0, 0).toISOString() };
+            const task = { availableAt: new Date(2026, 4, 3, 0, 0, 0, 0).toISOString() };
 
             expect(shouldShowTaskForStart(task, { now })).toBe(false);
             expect(shouldShowTaskForStart(task, { now, showFutureStarts: true })).toBe(true);
@@ -880,9 +880,9 @@ describe('task-utils', () => {
             expect(isTaskFutureStart(task, new Date(2026, 4, 3, 10, 0, 0, 0))).toBe(false);
         });
 
-        it('lets an explicit start date override the due-date deferral for recurring tasks', () => {
+        it('lets an explicit availability date override the due-date deferral for recurring tasks', () => {
             const task = {
-                startTime: new Date(2026, 4, 1, 9, 0, 0, 0).toISOString(),
+                availableAt: new Date(2026, 4, 1, 9, 0, 0, 0).toISOString(),
                 dueDate: '2026-05-09',
                 recurrence: { rule: 'weekly' as const },
             };
@@ -932,7 +932,7 @@ describe('task-utils', () => {
             expect(task.status).toBe('inbox');
         });
 
-        it('can surface review-due waiting tasks without changing status', () => {
+        it('keeps review-due waiting tasks out of Ready attention surfaces', () => {
             const task = makeTask({
                 id: 'waiting-review',
                 status: 'waiting',
@@ -940,8 +940,8 @@ describe('task-utils', () => {
             });
 
             expect(getTaskFocusEligibility(task, { tasks: [task], projects: [], now })).toEqual({
-                eligible: true,
-                reason: 'eligible',
+                eligible: false,
+                reason: 'clarify',
             });
             expect(task.status).toBe('waiting');
         });
