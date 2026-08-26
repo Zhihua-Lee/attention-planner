@@ -3,6 +3,7 @@ import { addDays, addMonths, addWeeks, format } from 'date-fns';
 import { safeFormatDate, safeParseDate } from './date';
 import { generateUUID as uuidv4 } from './uuid';
 import { computeRelativeStartTime } from './task-relative-start';
+import { getTaskScheduledAt } from './task-time-semantics';
 import type { Recurrence, RecurrenceByDay, RecurrenceRule, RecurrenceStrategy, RecurrenceWeekday, Task, TaskStatus, ChecklistItem, Attachment } from './types';
 
 export const RECURRENCE_RULES: RecurrenceRule[] = ['daily', 'weekly', 'monthly', 'yearly'];
@@ -91,8 +92,10 @@ export const isProjectedRecurringTask = (task: Partial<Task> | null | undefined)
     )
 );
 
-export const getTaskCalendarOccurrenceDate = (task: Pick<Task, 'startTime' | 'dueDate'>): string | undefined => (
-    task.startTime ?? task.dueDate
+export const getTaskCalendarOccurrenceDate = (task: Pick<Task, 'id' | 'scheduledAt' | 'startTime' | 'dueDate'>): string | undefined => (
+    getTaskScheduledAt({ ...task, availableAt: undefined, snoozedUntil: undefined })
+    ?? (isProjectedRecurringTaskId(task.id) ? task.startTime : undefined)
+    ?? task.dueDate
 );
 
 const parseByDayToken = (token: string): RecurrenceByDay | null => {
@@ -479,11 +482,11 @@ export function formatRecurrenceLabel({ recurrence, t, formatDate }: FormatRecur
 
 function getRecurrenceFieldAnchorDay(
     value: Task['recurrence'],
-    field: 'startTime' | 'dueDate' | 'reviewAt'
+    field: 'startTime' | 'availableAt' | 'scheduledAt' | 'dueDate' | 'reviewAt'
 ): number | undefined {
     if (!value || typeof value === 'string') return undefined;
     const recurrence = value as Recurrence;
-    const fieldAnchor = field === 'startTime'
+    const fieldAnchor = field === 'startTime' || field === 'availableAt' || field === 'scheduledAt'
         ? recurrence.startAnchorDay
         : field === 'dueDate'
             ? recurrence.dueAnchorDay
@@ -500,7 +503,7 @@ function getNextRecurrenceAnchorDays(task: Task, rule: RecurrenceRule) {
     if (rule !== 'monthly' && rule !== 'yearly') return {};
 
     const startAnchorDay = getRecurrenceFieldAnchorDay(task.recurrence, 'startTime')
-        ?? getDateDay(task.startTime);
+        ?? getDateDay(task.startTime ?? task.availableAt ?? task.scheduledAt);
     const dueAnchorDay = getRecurrenceFieldAnchorDay(task.recurrence, 'dueDate')
         ?? getDateDay(task.dueDate);
     const reviewAnchorDay = getRecurrenceFieldAnchorDay(task.recurrence, 'reviewAt')
@@ -894,7 +897,7 @@ export function createProjectedRecurringTask(
     const projectionBase = getProjectionBaseDate(projectedAtIso);
     const projectionSourceTask = createCurrentRecurringCalendarTask(task, projectedAtIso) ?? task;
 
-    const projectField = (field: 'startTime' | 'dueDate' | 'reviewAt'): ProjectedIsoResult => {
+    const projectField = (field: 'startTime' | 'availableAt' | 'scheduledAt' | 'dueDate' | 'reviewAt'): ProjectedIsoResult => {
         const baseIso = projectionSourceTask[field];
         if (!baseIso) return { iso: undefined, steps: 0 };
         if (strategy === 'fluid') {
@@ -923,20 +926,24 @@ export function createProjectedRecurringTask(
 
     const hasScheduleFields = Boolean(
         projectionSourceTask.startTime
+        || projectionSourceTask.availableAt
+        || projectionSourceTask.scheduledAt
         || projectionSourceTask.dueDate
         || projectionSourceTask.reviewAt
     );
     const nextStart = projectionSourceTask.startTime || hasScheduleFields
         ? projectField('startTime')
         : projectUnscheduledMonthlyStart(rule, projectionBase, byDay, interval, byMonthDay, weekStart);
+    const nextAvailable = projectField('availableAt');
+    const nextScheduled = projectField('scheduledAt');
     const nextDue = projectField('dueDate');
     const nextReview = projectField('reviewAt');
-    const projectionSteps = Math.max(nextStart.steps, nextDue.steps, nextReview.steps);
-    if (!nextStart.iso && !nextDue.iso && !nextReview.iso) return null;
-    if (!nextStart.iso && !nextDue.iso) return null;
+    const projectionSteps = Math.max(nextStart.steps, nextAvailable.steps, nextScheduled.steps, nextDue.steps, nextReview.steps);
+    if (!nextStart.iso && !nextAvailable.iso && !nextScheduled.iso && !nextDue.iso && !nextReview.iso) return null;
+    if (!nextStart.iso && !nextScheduled.iso && !nextDue.iso) return null;
     if (count && completedOccurrences + projectionSteps >= count) return null;
 
-    const nextOccurrenceAnchor = nextDue.iso ?? nextStart.iso ?? nextReview.iso;
+    const nextOccurrenceAnchor = nextDue.iso ?? nextScheduled.iso ?? nextStart.iso ?? nextAvailable.iso ?? nextReview.iso;
     if (shouldStopAtUntil(nextOccurrenceAnchor, until)) return null;
 
     return {
@@ -945,6 +952,9 @@ export function createProjectedRecurringTask(
         sourceTaskId: task.id,
         isProjectedRecurringTask: true,
         startTime: nextStart.iso,
+        availableAt: nextAvailable.iso,
+        scheduledAt: nextScheduled.iso,
+        snoozedUntil: undefined,
         dueDate: nextDue.iso,
         reviewAt: nextReview.iso,
         attachments: undefined,
@@ -990,7 +1000,7 @@ export function createCurrentRecurringCalendarTask(
     if (task.deletedAt || task.status === 'done' || task.status === 'archived' || task.status === 'reference') {
         return null;
     }
-    if (task.startTime || task.dueDate || task.reviewAt) return null;
+    if (task.startTime || task.availableAt || task.scheduledAt || task.dueDate || task.reviewAt) return null;
 
     const rule = getRecurrenceRule(task.recurrence);
     if (!rule) return null;
@@ -1051,7 +1061,7 @@ export function createNextRecurringTask(
     const until = getRecurrenceUntilValue(task.recurrence);
     const completedOccurrences = getRecurrenceCompletedOccurrencesValue(task.recurrence) ?? 0;
     const startAnchorDay = getRecurrenceFieldAnchorDay(task.recurrence, 'startTime')
-        ?? getDateDay(task.startTime);
+        ?? getDateDay(task.startTime ?? task.availableAt ?? task.scheduledAt);
     const dueAnchorDay = getRecurrenceFieldAnchorDay(task.recurrence, 'dueDate')
         ?? getDateDay(task.dueDate);
     const reviewAnchorDay = getRecurrenceFieldAnchorDay(task.recurrence, 'reviewAt')
@@ -1076,6 +1086,22 @@ export function createNextRecurringTask(
                 ? nextFluidIsoFrom(completedAtIso, rule, completedAtDate, byDay, interval, byMonthDay, weekStart)
                 : nextIsoFrom(task.startTime, rule, completedAtDate, byDay, interval, byMonthDay, weekStart, undefined, startAnchorDay),
             task.startTime
+        )
+        : undefined;
+    const nextAvailableAt = task.availableAt
+        ? preserveDateOnlyFormat(
+            strategy === 'fluid'
+                ? nextFluidIsoFrom(completedAtIso, rule, completedAtDate, byDay, interval, byMonthDay, weekStart)
+                : nextIsoFrom(task.availableAt, rule, completedAtDate, byDay, interval, byMonthDay, weekStart, undefined, startAnchorDay),
+            task.availableAt
+        )
+        : undefined;
+    const nextScheduledAt = task.scheduledAt
+        ? preserveDateOnlyFormat(
+            strategy === 'fluid'
+                ? nextFluidIsoFrom(completedAtIso, rule, completedAtDate, byDay, interval, byMonthDay, weekStart)
+                : nextIsoFrom(task.scheduledAt, rule, completedAtDate, byDay, interval, byMonthDay, weekStart, undefined, startAnchorDay),
+            task.scheduledAt
         )
         : undefined;
     if (strategy === 'strict' && task.startTime && task.dueDate && nextStartTime) {
@@ -1105,7 +1131,7 @@ export function createNextRecurringTask(
             task.reviewAt
         )
         : undefined;
-    if (!nextStartTime && !nextDueDate && !nextReviewAt) {
+    if (!nextStartTime && !nextAvailableAt && !nextScheduledAt && !nextDueDate && !nextReviewAt) {
         // When recurrence exists but no schedule fields are set, defer the next instance
         // from completion so it does not reappear in Next immediately. Seed with the
         // completion's date part only: the task never had a time, so its next instance
@@ -1120,7 +1146,7 @@ export function createNextRecurringTask(
         return null;
     }
 
-    const nextOccurrenceAnchor = nextDueDate ?? nextStartTime ?? nextReviewAt;
+    const nextOccurrenceAnchor = nextDueDate ?? nextScheduledAt ?? nextStartTime ?? nextAvailableAt ?? nextReviewAt;
     if (shouldStopAtUntil(nextOccurrenceAnchor, until)) {
         return null;
     }
@@ -1188,6 +1214,9 @@ export function createNextRecurringTask(
         assignedTo: task.assignedTo,
         taskMode: task.taskMode,
         startTime: nextStartTime,
+        availableAt: nextAvailableAt,
+        scheduledAt: nextScheduledAt,
+        snoozedUntil: undefined,
         relativeStartOffset: nextRelativeStartOffset,
         dueDate: nextDueDate,
         recurrence: nextRecurrence,

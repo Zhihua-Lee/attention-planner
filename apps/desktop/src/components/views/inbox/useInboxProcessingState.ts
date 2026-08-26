@@ -91,7 +91,7 @@ export function useInboxProcessingState({
 
     const inboxProcessing = settings?.gtd?.inboxProcessing ?? {};
     const defaultScheduleTime = normalizeClockTimeInput(settings?.gtd?.defaultScheduleTime) || '';
-    const defaultProcessingMode = inboxProcessing.defaultMode === 'quick' ? 'quick' : 'guided';
+    const defaultProcessingMode = inboxProcessing.defaultMode === 'guided' ? 'guided' : 'quick';
     const twoMinuteEnabled = inboxProcessing.twoMinuteEnabled !== false;
     const twoMinuteFirst = inboxProcessing.twoMinuteFirst === true;
     const projectFirst = inboxProcessing.projectFirst === true;

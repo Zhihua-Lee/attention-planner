@@ -1,4 +1,4 @@
-export const SQLITE_SCHEMA_VERSION = 10;
+export const SQLITE_SCHEMA_VERSION = 11;
 
 export const SQLITE_BASE_SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   deletedAt TEXT,
-  purgedAt TEXT
+  purgedAt TEXT,
+  availableAt TEXT,
+  scheduledAt TEXT,
+  snoozedUntil TEXT
 );
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -221,6 +224,8 @@ CREATE INDEX IF NOT EXISTS idx_tasks_projectId ON tasks(projectId);
 CREATE INDEX IF NOT EXISTS idx_tasks_deletedAt ON tasks(deletedAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_dueDate ON tasks(dueDate);
 CREATE INDEX IF NOT EXISTS idx_tasks_startTime ON tasks(startTime);
+CREATE INDEX IF NOT EXISTS idx_tasks_availableAt ON tasks(availableAt);
+CREATE INDEX IF NOT EXISTS idx_tasks_scheduledAt ON tasks(scheduledAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_reviewAt ON tasks(reviewAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_completedAt ON tasks(completedAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_createdAt ON tasks(createdAt);

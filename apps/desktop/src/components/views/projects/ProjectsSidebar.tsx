@@ -64,6 +64,8 @@ interface ProjectsSidebarProps {
     showArchivedProjects: boolean;
     onToggleArchivedProjects: () => void;
     selectedProjectId: string | null;
+    areaTaskCount?: number;
+    onSelectAreaTasks?: () => void;
     onSelectProject: (projectId: string) => void;
     getProjectColor: (project: Project) => string;
     projectTaskSummaryById: Map<string, ProjectTaskSummary>;
@@ -106,6 +108,8 @@ export function ProjectsSidebar({
     showArchivedProjects,
     onToggleArchivedProjects,
     selectedProjectId,
+    areaTaskCount = 0,
+    onSelectAreaTasks,
     onSelectProject,
     getProjectColor,
     projectTaskSummaryById,
@@ -297,6 +301,22 @@ export function ProjectsSidebar({
                     )}
                 </select>
             </div>
+
+            {onSelectAreaTasks ? (
+                <button
+                    type="button"
+                    onClick={onSelectAreaTasks}
+                    aria-pressed={selectedProjectId === null}
+                    className={cn(
+                        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors',
+                        selectedProjectId === null ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted/40',
+                    )}
+                >
+                    <CornerDownRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">{tFallback(t, 'projects.areaTasks', 'Direct area tasks')}</span>
+                    <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{areaTaskCount}</span>
+                </button>
+            ) : null}
 
             <form
                 onSubmit={onCreateProject}

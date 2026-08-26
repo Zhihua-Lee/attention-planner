@@ -408,7 +408,7 @@ export function AgendaView({ mode = 'plan', embedded = false }: AgendaViewProps 
     }, [moveTask]);
     const handleSnoozeNowTask = useCallback((taskId: string) => {
         const snoozedUntil = new Date(Date.now() + 30 * 60_000).toISOString();
-        void updateTask(taskId, { startTime: snoozedUntil }).catch(() => undefined);
+        void updateTask(taskId, { snoozedUntil }).catch(() => undefined);
     }, [updateTask]);
     const handleSkipNowTask = useCallback((taskId: string) => {
         setExcludedNowTaskIds((current) => new Set([...current, taskId]));

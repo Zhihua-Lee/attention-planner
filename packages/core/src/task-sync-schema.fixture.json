@@ -1,5 +1,5 @@
 {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "sinceVersionPolicy": "Contract versions start at 1 for every field present when this table was introduced; they are independent of SQLite migration versions.",
     "fields": [
         { "name": "id", "sync": "identity", "nullability": "required", "sinceVersion": 1, "signature": "content", "sqliteColumn": "id", "cloudKit": null, "cloudWrite": "managed", "sqliteOrder": 0, "sqliteType": null },
@@ -10,6 +10,9 @@
         { "name": "assignedTo", "sync": "content", "nullability": "optional", "sinceVersion": 1, "signature": "content", "sqliteColumn": "assignedTo", "cloudKit": { "key": "assignedTo", "kind": "string" }, "cloudWrite": "create-patch", "sqliteOrder": 5, "sqliteType": "TEXT" },
         { "name": "taskMode", "sync": "content", "nullability": "optional", "sinceVersion": 1, "signature": "content", "sqliteColumn": "taskMode", "cloudKit": { "key": "taskMode", "kind": "string" }, "cloudWrite": "create-patch", "sqliteOrder": 6, "sqliteType": "TEXT" },
         { "name": "startTime", "sync": "content", "nullability": "optional", "sinceVersion": 1, "signature": "content", "sqliteColumn": "startTime", "cloudKit": { "key": "startTime", "kind": "date" }, "cloudWrite": "create-patch", "sqliteOrder": 7, "sqliteType": "TEXT" },
+        { "name": "availableAt", "sync": "content", "nullability": "optional", "sinceVersion": 2, "signature": "content", "sqliteColumn": "availableAt", "cloudKit": null, "cloudWrite": "patch", "sqliteOrder": 43, "sqliteType": "TEXT" },
+        { "name": "scheduledAt", "sync": "content", "nullability": "optional", "sinceVersion": 2, "signature": "content", "sqliteColumn": "scheduledAt", "cloudKit": null, "cloudWrite": "patch", "sqliteOrder": 44, "sqliteType": "TEXT" },
+        { "name": "snoozedUntil", "sync": "content", "nullability": "optional", "sinceVersion": 2, "signature": "content", "sqliteColumn": "snoozedUntil", "cloudKit": null, "cloudWrite": "patch", "sqliteOrder": 45, "sqliteType": "TEXT" },
         { "name": "relativeStartOffset", "sync": "content", "nullability": "optional", "sinceVersion": 1, "signature": "content", "sqliteColumn": "relativeStartOffset", "cloudKit": { "key": "relativeStartOffset", "kind": "json-string" }, "cloudWrite": "create-patch", "sqliteOrder": 8, "sqliteType": "TEXT" },
         { "name": "dueDate", "sync": "content", "nullability": "optional", "sinceVersion": 1, "signature": "content", "sqliteColumn": "dueDate", "cloudKit": { "key": "dueDate", "kind": "date" }, "cloudWrite": "create-patch", "sqliteOrder": 9, "sqliteType": "TEXT" },
         { "name": "recurrence", "sync": "content", "nullability": "optional", "sinceVersion": 1, "signature": "content", "sqliteColumn": "recurrence", "cloudKit": { "key": "recurrence", "kind": "json-string" }, "cloudWrite": "create-patch", "sqliteOrder": 10, "sqliteType": "TEXT" },
@@ -56,6 +59,9 @@
         "assignedTo": "person-schema",
         "taskMode": "list",
         "startTime": "2026-07-15T09:00:00.000Z",
+        "availableAt": "2026-07-15T08:00:00.000Z",
+        "scheduledAt": "2026-07-15T09:00:00.000Z",
+        "snoozedUntil": "2026-07-15T08:30:00.000Z",
         "relativeStartOffset": { "amount": -1, "unit": "day" },
         "dueDate": "2026-07-16T09:00:00.000Z",
         "recurrence": { "rule": "weekly", "strategy": "strict", "byDay": ["TH"], "rrule": "FREQ=WEEKLY;BYDAY=TH" },

@@ -11,6 +11,7 @@ import { ArchiveView } from './components/views/ArchiveView';
 import { TrashView } from './components/views/TrashView';
 import { AgendaView } from './components/views/AgendaView';
 import { LaterView, PlanShell } from './components/views/PlanShell';
+import { TodayPlanView } from './components/views/TodayPlanView';
 import { SearchView } from './components/views/SearchView';
 import {
     ACTIVE_APP_ANNOUNCEMENT,
@@ -1190,7 +1191,7 @@ function App() {
             case 'plan':
                 return (
                     <PlanShell activeSection="today" onNavigate={handleViewChange}>
-                        <AgendaView mode="plan" embedded />
+                        <TodayPlanView />
                     </PlanShell>
                 );
             case 'someday':

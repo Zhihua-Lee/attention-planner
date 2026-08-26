@@ -128,6 +128,17 @@ const renderInboxProcessor = (options?: AppData['settings'] | RenderInboxProcess
     const tasks = renderOptions.tasks ?? [inboxTask];
     const projects = renderOptions.projects ?? [];
     const areas = renderOptions.areas ?? [];
+    const requestedSettings = renderOptions.settings;
+    const settings: AppData['settings'] = {
+        ...requestedSettings,
+        gtd: {
+            ...requestedSettings?.gtd,
+            inboxProcessing: {
+                defaultMode: 'guided' as const,
+                ...requestedSettings?.gtd?.inboxProcessing,
+            },
+        },
+    };
 
     const TestHarness = () => {
         const [isProcessing, setIsProcessing] = useState(false);
@@ -138,7 +149,7 @@ const renderInboxProcessor = (options?: AppData['settings'] | RenderInboxProcess
                 tasks={tasks}
                 projects={projects}
                 areas={areas}
-                settings={renderOptions.settings}
+                settings={settings}
                 addTask={addTask}
                 addProject={addProject}
                 updateTask={updateTask}
@@ -233,8 +244,8 @@ describe('InboxProcessor', () => {
         expect(queryByText('process.refineDesc')).toBeNull();
     });
 
-    it('preselects the area already assigned to the inbox task', () => {
-        const { getByRole } = renderInboxProcessor({
+    it('keeps GTD organization fields out of the default quick decision', () => {
+        const { getByRole, queryByText } = renderInboxProcessor({
             settings: {
                 gtd: {
                     inboxProcessing: {
@@ -244,17 +255,20 @@ describe('InboxProcessor', () => {
             },
             tasks: [{ ...inboxTask, areaId: 'area-work' }],
             areas: [workArea],
+            projects: [workProject],
         });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
 
-        // The dropdown must reflect what apply will save; resetting it to empty
-        // silently dropped an area assigned while the task sat in the inbox.
-        expect(getByRole('button', { name: 'Work' })).toBeTruthy();
+        expect(queryByText('taskEdit.areaLabel')).toBeNull();
+        expect(queryByText('taskEdit.projectLabel')).toBeNull();
+        expect(queryByText('taskEdit.contextsLabel')).toBeNull();
+        expect(queryByText('taskEdit.tagsLabel')).toBeNull();
+        expect(queryByText('taskEdit.priorityLabel')).toBeNull();
     });
 
-    it('filters quick processing project choices by the selected area', () => {
-        const { getByRole, queryByRole } = renderInboxProcessor({
+    it('opens the advanced guided flow from More', () => {
+        const { getByRole, getByText, queryByText } = renderInboxProcessor({
             settings: {
                 gtd: {
                     inboxProcessing: {
@@ -267,12 +281,10 @@ describe('InboxProcessor', () => {
         });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'projects.noArea' }));
-        fireEvent.click(getByRole('option', { name: 'Work' }));
-        fireEvent.click(getByRole('button', { name: 'process.project' }));
+        expect(queryByText('process.refineDesc')).toBeNull();
+        fireEvent.click(getByRole('button', { name: 'common.more' }));
 
-        expect(getByRole('option', { name: 'Work Project' })).toBeTruthy();
-        expect(queryByRole('option', { name: 'Home Project' })).toBeNull();
+        expect(getByText('process.refineDesc')).toBeTruthy();
     });
 
     it('shows area before project in guided project-first processing and filters projects', () => {
@@ -302,8 +314,8 @@ describe('InboxProcessor', () => {
         expect(queryByRole('option', { name: 'Home Project' })).toBeNull();
     });
 
-    it('keeps processing cards from clipping project dropdowns', () => {
-        const { getByRole, getByText } = renderInboxProcessor({
+    it('keeps the simple processing surface unclipped', () => {
+        const { getByRole, getByTestId } = renderInboxProcessor({
             gtd: {
                 inboxProcessing: {
                     defaultMode: 'quick',
@@ -312,10 +324,7 @@ describe('InboxProcessor', () => {
         });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        expect(getByText('process.quickDesc').closest('.rounded-xl')).toHaveClass('overflow-visible');
-
-        fireEvent.click(getByRole('button', { name: 'process.modeGuided' }));
-        expect(getByText('process.refineDesc').closest('.rounded-xl')).toHaveClass('overflow-visible');
+        expect(getByTestId('simple-inbox-processing')).toHaveClass('overflow-visible');
     });
 
     it('routes actionable multi-step tasks directly to project conversion', async () => {
@@ -426,31 +435,18 @@ describe('InboxProcessor', () => {
         expect(getByText('process.reference')).toBeTruthy();
     });
 
-    it('shows context and tag fields for quick Reference processing', async () => {
-        const { getByRole, getByText, getByLabelText, updateTask } = renderInboxProcessor();
+    it('keeps Reference in the advanced flow instead of the default decision', () => {
+        const { getByRole, getByText, queryByText } = renderInboxProcessor({
+            gtd: { inboxProcessing: { defaultMode: 'quick' } },
+        });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
-        fireEvent.click(getByText('process.reference'));
-        fireEvent.change(getByLabelText('taskEdit.contextsLabel'), {
-            target: { value: '@docs, @desk' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.tagsLabel'), {
-            target: { value: '#reference, #launch' },
-        });
+        expect(queryByText('process.reference')).toBeNull();
 
-        fireEvent.click(getByRole('button', { name: 'process.next' }));
-
-        await waitFor(() => {
-            expect(updateTask).toHaveBeenCalledWith(
-                'task-1',
-                expect.objectContaining({
-                    status: 'reference',
-                    contexts: ['@docs', '@desk'],
-                    tags: ['#reference', '#launch'],
-                }),
-            );
-        });
+        fireEvent.click(getByRole('button', { name: 'common.more' }));
+        fireEvent.click(getByText('process.refineNext'));
+        fireEvent.click(getByText('inbox.no'));
+        expect(getByText('process.reference')).toBeTruthy();
     });
 
     it('shows context and tag fields before confirming guided Reference processing', async () => {
@@ -526,7 +522,7 @@ describe('InboxProcessor', () => {
                 'task-1',
                 expect.objectContaining({
                     status: 'next',
-                    startTime: '2026-03-23',
+                    availableAt: '2026-03-23',
                 }),
             );
         });
@@ -560,11 +556,12 @@ describe('InboxProcessor', () => {
     });
 
     it('moves a task to next with a date-only start date from the quick Later outcome', async () => {
-        const { getByRole, getByText, getByLabelText, updateTask } = renderInboxProcessor();
+        const { getByRole, getByText, getByLabelText, updateTask } = renderInboxProcessor({
+            gtd: { inboxProcessing: { defaultMode: 'quick' } },
+        });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
-        fireEvent.click(getByText('Later'));
+        fireEvent.click(getByText('process.later'));
         fireEvent.change(getByLabelText('taskEdit.startDateLabel'), {
             target: { value: '2026-03-24' },
         });
@@ -575,7 +572,7 @@ describe('InboxProcessor', () => {
                 'task-1',
                 expect.objectContaining({
                     status: 'next',
-                    startTime: '2026-03-24',
+                    availableAt: '2026-03-24',
                 }),
             );
         });
@@ -584,6 +581,7 @@ describe('InboxProcessor', () => {
     it('hides organization fields when the task editor layout disables them', () => {
         const { getByRole, getByText, queryByLabelText } = renderInboxProcessor({
             gtd: {
+                inboxProcessing: { defaultMode: 'quick' },
                 taskEditor: {
                     hidden: ['energyLevel', 'assignedTo', 'timeEstimate'],
                 },
@@ -591,13 +589,12 @@ describe('InboxProcessor', () => {
         });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
 
         expect(queryByLabelText('taskEdit.energyLevel')).toBeNull();
         expect(queryByLabelText('taskEdit.assignedTo')).toBeNull();
         expect(queryByLabelText('taskEdit.timeEstimateLabel')).toBeNull();
 
-        fireEvent.click(getByRole('button', { name: 'process.modeGuided' }));
+        fireEvent.click(getByRole('button', { name: 'common.more' }));
         fireEvent.click(getByText('process.refineNext'));
         fireEvent.click(getByText('process.yesActionable'));
         fireEvent.click(getByText('process.moreThanOneStepNo'));
@@ -609,51 +606,18 @@ describe('InboxProcessor', () => {
         expect(queryByLabelText('taskEdit.timeEstimateLabel')).toBeNull();
     });
 
-    it('processes a task from quick mode with all visible organization and scheduling fields', async () => {
+    it('processes a clarified title and description without demanding metadata', async () => {
         const { getByRole, getByLabelText, updateTask } = renderInboxProcessor({
-            gtd: {
-                inboxProcessing: {
-                    scheduleEnabled: true,
-                },
-                taskEditor: {
-                    hidden: [],
-                },
-            },
+            gtd: { inboxProcessing: { defaultMode: 'quick' } },
         });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
 
         fireEvent.change(getByLabelText('taskEdit.titleLabel'), {
             target: { value: 'Clarified task' },
         });
         fireEvent.change(getByLabelText('taskEdit.descriptionLabel'), {
             target: { value: 'Updated description' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.contextsLabel'), {
-            target: { value: '@home, @desk' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.tagsLabel'), {
-            target: { value: '#deep, #writing' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.energyLevel'), {
-            target: { value: 'medium' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.timeEstimateLabel'), {
-            target: { value: '30min' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.assignedTo'), {
-            target: { value: 'Morgan' },
-        });
-        fireEvent.click(getByRole('button', { name: 'priority.high' }));
-        fireEvent.change(getByLabelText('taskEdit.startDateLabel'), {
-            target: { value: '2026-03-23' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.dueDateLabel'), {
-            target: { value: '2026-03-24' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.reviewDateLabel'), {
-            target: { value: '2026-03-25' },
         });
 
         fireEvent.click(getByRole('button', { name: 'process.next' }));
@@ -665,15 +629,6 @@ describe('InboxProcessor', () => {
                     title: 'Clarified task',
                     description: 'Updated description',
                     status: 'next',
-                    contexts: ['@home', '@desk'],
-                    tags: ['#deep', '#writing'],
-                    energyLevel: 'medium',
-                    timeEstimate: '30min',
-                    assignedTo: 'Morgan',
-                    priority: 'high',
-                    startTime: '2026-03-23',
-                    dueDate: '2026-03-24',
-                    reviewAt: '2026-03-25',
                 }),
             );
         });
@@ -779,27 +734,20 @@ describe('InboxProcessor', () => {
         expect(updateTask).not.toHaveBeenCalled();
     });
 
-    it('keeps quick context and tag inputs editable while typing multiple tokens', async () => {
-        const user = userEvent.setup();
-        const { getByRole, getByLabelText, updateTask } = renderInboxProcessor({
-            gtd: {
-                taskEditor: {
-                    hidden: [],
-                },
-            },
+    it('preserves existing organization metadata while the simple flow keeps it hidden', async () => {
+        const organizedTask: Task = {
+            ...inboxTask,
+            projectId: workProject.id,
+            contexts: ['@office'],
+            tags: ['#writing'],
+        };
+        const { getByRole, updateTask } = renderInboxProcessor({
+            settings: { gtd: { inboxProcessing: { defaultMode: 'quick' } } },
+            tasks: [organizedTask],
+            projects: [workProject],
         });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
-
-        const contextsInput = getByLabelText('taskEdit.contextsLabel') as HTMLInputElement;
-        const tagsInput = getByLabelText('taskEdit.tagsLabel') as HTMLInputElement;
-        await user.type(contextsInput, '@home, @desk');
-        await user.type(tagsInput, '#deep, #writing');
-
-        expect(contextsInput.value).toBe('@home, @desk');
-        expect(tagsInput.value).toBe('#deep, #writing');
-
         fireEvent.click(getByRole('button', { name: 'process.next' }));
 
         await waitFor(() => {
@@ -807,53 +755,7 @@ describe('InboxProcessor', () => {
                 'task-1',
                 expect.objectContaining({
                     status: 'next',
-                    contexts: ['@home', '@desk'],
-                    tags: ['#deep', '#writing'],
-                }),
-            );
-        });
-    });
-
-    it('autocompletes quick processing context and tag inputs with ranked local labels', async () => {
-        const user = userEvent.setup();
-        const { getByRole, getByLabelText, updateTask } = renderInboxProcessor({
-            settings: {
-                gtd: {
-                    taskEditor: {
-                        hidden: [],
-                    },
-                },
-            },
-            allContexts: ['@school', '@office', '@chores'],
-            allTags: ['#deep-work', '#writing'],
-        });
-
-        fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
-
-        const contextsInput = getByLabelText('taskEdit.contextsLabel') as HTMLInputElement;
-        const tagsInput = getByLabelText('taskEdit.tagsLabel') as HTMLInputElement;
-        await user.type(contextsInput, 'of');
-        fireEvent.keyDown(contextsInput, { key: 'ArrowDown' });
-        fireEvent.keyDown(contextsInput, { key: 'Tab' });
-        await waitFor(() => {
-            expect(contextsInput.value).toBe('@office, ');
-        });
-
-        await user.type(tagsInput, 'wr');
-        fireEvent.keyDown(tagsInput, { key: 'ArrowDown' });
-        fireEvent.keyDown(tagsInput, { key: 'Tab' });
-        await waitFor(() => {
-            expect(tagsInput.value).toBe('#writing, ');
-        });
-
-        fireEvent.click(getByRole('button', { name: 'process.next' }));
-
-        await waitFor(() => {
-            expect(updateTask).toHaveBeenCalledWith(
-                'task-1',
-                expect.objectContaining({
-                    status: 'next',
+                    projectId: workProject.id,
                     contexts: ['@office'],
                     tags: ['#writing'],
                 }),
@@ -899,10 +801,11 @@ describe('InboxProcessor', () => {
     });
 
     it('prefills quick mode scheduling fields with the configured default time', async () => {
-        const { getByRole, getByLabelText, updateTask } = renderInboxProcessor({
+        const { getByRole, getByText, getByLabelText, updateTask } = renderInboxProcessor({
             gtd: {
                 defaultScheduleTime: '09:00',
                 inboxProcessing: {
+                    defaultMode: 'quick',
                     scheduleEnabled: true,
                 },
                 taskEditor: {
@@ -912,15 +815,9 @@ describe('InboxProcessor', () => {
         });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
+        fireEvent.click(getByText('process.later'));
         fireEvent.change(getByLabelText('taskEdit.startDateLabel'), {
             target: { value: '2026-03-23' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.dueDateLabel'), {
-            target: { value: '2026-03-24' },
-        });
-        fireEvent.change(getByLabelText('taskEdit.reviewDateLabel'), {
-            target: { value: '2026-03-25' },
         });
 
         fireEvent.click(getByRole('button', { name: 'process.next' }));
@@ -929,9 +826,7 @@ describe('InboxProcessor', () => {
             expect(updateTask).toHaveBeenCalledWith(
                 'task-1',
                 expect.objectContaining({
-                    startTime: '2026-03-23T09:00',
-                    dueDate: '2026-03-24T09:00',
-                    reviewAt: '2026-03-25T09:00',
+                    availableAt: '2026-03-23T09:00',
                 }),
             );
         });
@@ -972,10 +867,11 @@ describe('InboxProcessor', () => {
 
     it('shows an error toast and blocks processing when the title contains an invalid date command', async () => {
         useUiStore.setState({ toasts: [] });
-        const { getByRole, getByLabelText, updateTask } = renderInboxProcessor();
+        const { getByRole, getByLabelText, updateTask } = renderInboxProcessor({
+            gtd: { inboxProcessing: { defaultMode: 'quick' } },
+        });
 
         fireEvent.click(getByRole('button', { name: /process\.btn/i }));
-        fireEvent.click(getByRole('button', { name: 'process.modeQuick' }));
         fireEvent.change(getByLabelText('taskEdit.titleLabel'), {
             target: { value: 'Broken task /due:2026-04-31' },
         });

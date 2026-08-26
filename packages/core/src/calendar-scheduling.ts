@@ -6,6 +6,7 @@ import { parseQuickAdd } from './quick-add';
 import { isSelectableProjectForTaskAssignment } from './project-utils';
 import { getTaskDateCoherenceIssues, type TaskDateCoherenceIssue } from './task-date-coherence';
 import type { Area, CustomTimeEstimate, Project, Task, TimeEstimate, TimeEstimatePreset } from './types';
+import { getTaskScheduledAt } from './task-time-semantics';
 
 /** Shared translate-function shape for the localization seam below — same shape as
  *  recurrence.ts's `formatRecurrenceLabel`. */
@@ -40,7 +41,7 @@ export const CALENDAR_TIME_ESTIMATE_OPTIONS: Array<{ estimate: TimeEstimatePrese
 
 const normalizeExactTimeEstimateMinutes = (minutes: number): number => Math.max(1, Math.round(minutes));
 
-type SchedulingTask = Pick<Task, 'deletedAt' | 'id' | 'startTime' | 'status' | 'timeEstimate'>;
+type SchedulingTask = Pick<Task, 'deletedAt' | 'id' | 'scheduledAt' | 'startTime' | 'status' | 'timeEstimate'>;
 type SchedulingEvent = Pick<ExternalCalendarEvent, 'allDay' | 'end' | 'start'>;
 
 export type CalendarEventTaskDraft = {
@@ -210,7 +211,7 @@ export function buildCalendarQuickAddTaskDraft(
     const props: Partial<Task> = {
         status: 'next',
         ...parsed.props,
-        startTime: options.start.toISOString(),
+        scheduledAt: options.start.toISOString(),
         timeEstimate: minutesToTimeEstimate(options.durationMinutes),
     };
 
@@ -240,7 +241,7 @@ export function buildCalendarQuickAddTaskDraft(
     return {
         dateCoherenceIssues: getTaskDateCoherenceIssues({
             dueDate: props.dueDate,
-            startTime: props.startTime,
+            startTime: props.scheduledAt,
         }),
         invalidDateCommands: parsed.invalidDateCommands ?? [],
         projectTitle: props.projectId ? undefined : parsed.projectTitle,
@@ -276,7 +277,7 @@ export function buildCalendarEventTaskDraft(
             initialProps.dueDate = allDayEventDateValue(event, start);
         }
     } else if (start) {
-        initialProps.startTime = start.toISOString();
+        initialProps.scheduledAt = start.toISOString();
         if (end && end > start) {
             const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60_000));
             initialProps.timeEstimate = minutesToTimeEstimate(durationMinutes);
@@ -415,8 +416,9 @@ const collectBusyIntervals = (
 
     for (const task of tasks) {
         if (!taskBlocksScheduling(task, options?.excludeTaskId)) continue;
-        if (!hasTimeComponent(task.startTime)) continue;
-        const start = safeParseDate(task.startTime);
+        const scheduledAt = getTaskScheduledAt(task);
+        if (!hasTimeComponent(scheduledAt)) continue;
+        const start = safeParseDate(scheduledAt);
         if (!start || !isSameLocalDay(start, day)) continue;
         const durationMs = timeEstimateToMinutes(task.timeEstimate, { enabled: options?.timeEstimatesEnabled }) * 60 * 1000;
         const s = Math.max(start.getTime(), dayStart.getTime());

@@ -237,7 +237,7 @@ export function prepareComposerSave(
             kind: 'update',
             taskId: selectedTaskId,
             updates: {
-                startTime: start.toISOString(),
+                scheduledAt: start.toISOString(),
                 timeEstimate: minutesToTimeEstimate(durationMinutes),
             },
         };

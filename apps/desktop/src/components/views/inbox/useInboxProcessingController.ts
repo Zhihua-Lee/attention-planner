@@ -421,7 +421,7 @@ export function useInboxProcessingController({
             : {};
         await applyWorkflowEvent({
             type: 'later',
-            fields: { ...projectUpdates, startTime },
+            fields: { ...projectUpdates, availableAt: startTime },
         });
     }, [
         applyWorkflowEvent,

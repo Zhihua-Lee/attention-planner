@@ -171,7 +171,7 @@ describe('useCalendarComposer', () => {
         expect(addTask).toHaveBeenCalledWith('Draft launch note', expect.objectContaining({
             contexts: ['@computer'],
             projectId: 'project-1',
-            startTime: new Date(2026, 3, 4, 8, 0).toISOString(),
+            scheduledAt: new Date(2026, 3, 4, 8, 0).toISOString(),
             tags: ['#deep'],
         }));
         expect(addProject).not.toHaveBeenCalled();
@@ -221,7 +221,7 @@ describe('useCalendarComposer', () => {
         await act(async () => { await result.current.saveTaskComposer(); });
 
         expect(updateTask).toHaveBeenCalledWith('task-existing', {
-            startTime: new Date(2026, 3, 4, 8, 0).toISOString(),
+            scheduledAt: new Date(2026, 3, 4, 8, 0).toISOString(),
             timeEstimate: '1hr',
         });
         expect(addTask).not.toHaveBeenCalled();

@@ -14,6 +14,7 @@ import {
     buildCalendarEventTaskDraft,
     expandCalendarRecurringTasks,
     getCalendarPlanningCandidates,
+    getTaskScheduledAt,
     getWeekStartsOnIndex,
     findFreeSlotForDay as findCalendarFreeSlotForDay,
     isSlotFreeForDay as isCalendarSlotFreeForDay,
@@ -174,8 +175,9 @@ export function useDesktopCalendarController() {
                         else deadlinesByDay.set(dueKey, [calendarTask]);
                     }
                 }
-                if (calendarTask.startTime) {
-                    const startTime = safeParseDate(calendarTask.startTime);
+                const scheduledAt = getTaskScheduledAt(calendarTask);
+                if (scheduledAt) {
+                    const startTime = safeParseDate(scheduledAt);
                     if (startTime) {
                         const startKey = dayKey(startTime);
                         const existingStart = scheduledByDay.get(startKey);
@@ -241,7 +243,7 @@ export function useDesktopCalendarController() {
                 return;
             }
 
-            const nextDate = safeParseDate(initialProps.startTime ?? initialProps.dueDate ?? event.start);
+            const nextDate = safeParseDate(initialProps.scheduledAt ?? initialProps.dueDate ?? event.start);
             if (nextDate) {
                 nav.revealDate(nextDate);
             }
@@ -267,10 +269,11 @@ export function useDesktopCalendarController() {
         const taskIds = new Set<string>();
         for (const task of calendarTaskData.visibleTasks) {
             const dueDate = task.dueDate ? safeParseDueDate(task.dueDate) : null;
-            const startTime = task.startTime ? safeParseDate(task.startTime) : null;
+            const scheduledAt = getTaskScheduledAt(task);
+            const startTime = scheduledAt ? safeParseDate(scheduledAt) : null;
             if (dueDate && dueDate.getTime() >= startMs && dueDate.getTime() <= endMs) taskIds.add(task.id);
             if (
-                hasTimeComponent(task.startTime)
+                hasTimeComponent(scheduledAt)
                 && startTime
                 && startTime.getTime() >= startMs
                 && startTime.getTime() <= endMs
@@ -375,8 +378,9 @@ export function useDesktopCalendarController() {
         try {
             if (itemKind === 'deadline') {
                 await updateTask(task.id, { dueDate: formatDateInputValue(date) });
-            } else if (hasTimeComponent(task.startTime)) {
-                const existingStart = task.startTime ? safeParseDate(task.startTime) : null;
+            } else {
+                const scheduledAt = getTaskScheduledAt(task);
+                const existingStart = scheduledAt ? safeParseDate(scheduledAt) : null;
                 if (existingStart) {
                     const nextStart = new Date(date);
                     nextStart.setHours(
@@ -385,10 +389,10 @@ export function useDesktopCalendarController() {
                         existingStart.getSeconds(),
                         existingStart.getMilliseconds(),
                     );
-                    await updateTask(task.id, { startTime: nextStart.toISOString() });
+                    await updateTask(task.id, { scheduledAt: nextStart.toISOString() });
+                } else {
+                    await updateTask(task.id, { dueDate: formatDateInputValue(date) });
                 }
-            } else {
-                await updateTask(task.id, { dueDate: formatDateInputValue(date) });
             }
             nav.revealDate(date);
             feedback.showScheduleError(null);
@@ -402,7 +406,7 @@ export function useDesktopCalendarController() {
         if (!task) return;
 
         try {
-            await updateTask(task.id, { startTime: start.toISOString() });
+            await updateTask(task.id, { scheduledAt: start.toISOString() });
             nav.revealDate(start);
             feedback.showScheduleError(null);
         } catch (error) {
@@ -420,7 +424,7 @@ export function useDesktopCalendarController() {
         const scheduledIds = new Set(scheduled.map((task) => task.id));
         return [
             ...scheduled
-                .filter((task) => !hasTimeComponent(task.startTime))
+                .filter((task) => !hasTimeComponent(getTaskScheduledAt(task)))
                 .map((task) => ({ id: `scheduled-${task.id}`, kind: 'scheduled' as const, task, title: task.title })),
             ...getDeadlinesForDay(date)
                 .filter((task) => !scheduledIds.has(task.id))
@@ -438,8 +442,9 @@ export function useDesktopCalendarController() {
         const items: CalendarTimedItem[] = [];
 
         for (const task of getScheduledForDay(date)) {
-            if (!hasTimeComponent(task.startTime)) continue;
-            const start = task.startTime ? safeParseDate(task.startTime) : null;
+            const scheduledAt = getTaskScheduledAt(task);
+            if (!hasTimeComponent(scheduledAt)) continue;
+            const start = scheduledAt ? safeParseDate(scheduledAt) : null;
             if (!start) continue;
             const durationMinutes = timeEstimateToMinutes(task.timeEstimate);
             items.push({

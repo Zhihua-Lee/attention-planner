@@ -2,6 +2,7 @@ import { timeEstimateToMinutes } from './calendar-scheduling';
 import { safeParseDate, safeParseDueDate } from './date';
 import type { ExternalCalendarEvent } from './ics';
 import type { Task, TaskPriority } from './types';
+import { getTaskScheduledAt, isTaskReadyForNow } from './task-time-semantics';
 
 export type AttentionFrameDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -136,7 +137,7 @@ function compareTasks(left: Task, right: Task): number {
 }
 
 function isCurrentScheduledTask(task: Task, now: Date, timeEstimatesEnabled: boolean): boolean {
-    const start = safeParseDate(task.startTime);
+    const start = safeParseDate(getTaskScheduledAt(task));
     if (!start || start.getTime() > now.getTime()) return false;
     const durationMs = timeEstimateToMinutes(task.timeEstimate, { enabled: timeEstimatesEnabled }) * 60_000;
     return now.getTime() < start.getTime() + durationMs;
@@ -173,19 +174,15 @@ export function selectNow(options: SelectNowOptions): NowSelection | null {
 
     const timeEstimatesEnabled = options.timeEstimatesEnabled !== false;
     const scheduled = actionable
+        .filter((task) => isTaskReadyForNow(task, now))
         .filter((task) => isCurrentScheduledTask(task, now, timeEstimatesEnabled))
         .sort((left, right) => {
-            const startDiff = (safeParseDate(left.startTime)?.getTime() ?? 0) - (safeParseDate(right.startTime)?.getTime() ?? 0);
+            const startDiff = (safeParseDate(getTaskScheduledAt(left))?.getTime() ?? 0) - (safeParseDate(getTaskScheduledAt(right))?.getTime() ?? 0);
             return startDiff || compareTasks(left, right);
         })[0];
     if (scheduled) return { kind: 'task', task: scheduled, reason: 'scheduled' };
 
-    const visible = actionable.filter((task) => {
-        const start = safeParseDate(task.startTime);
-        return !start || start.getTime() <= nowMs;
-    });
-    const focused = visible.filter((task) => task.isFocusedToday).sort(compareTasks)[0];
-    if (focused) return { kind: 'task', task: focused, reason: 'focused' };
+    const visible = actionable.filter((task) => isTaskReadyForNow(task, now));
 
     const frame = resolveActiveAttentionFrame(options.frames, now);
     if (frame) {
@@ -200,6 +197,9 @@ export function selectNow(options: SelectNowOptions): NowSelection | null {
             })[0];
         if (frameTask) return { kind: 'task', task: frameTask, frame, reason: 'frame' };
     }
+
+    const focused = visible.filter((task) => task.isFocusedToday).sort(compareTasks)[0];
+    if (focused) return { kind: 'task', task: focused, reason: 'focused' };
 
     const next = visible.sort(compareTasks)[0];
     return next ? { kind: 'task', task: next, reason: 'next-action' } : null;

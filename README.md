@@ -5,11 +5,11 @@
 
 ## 中文使用手册
 
-首次使用和日常操作请阅读 **[Attention Planner 中文使用手册](./docs/attention-planner-user-guide-zh.md)**；开发和设计以 **[Attention Planner 产品模型](./docs/product-model.md)** 为概念基线。当前一级导航只有 NOW、Inbox、Plan，原有 GTD 高级视图收进 More。
+首次使用和日常操作请阅读 **[Attention Planner 中文使用手册](./docs/attention-planner-user-guide-zh.md)**；开发以 **[Attention Planner 产品模型](./docs/product-model.md)** 为概念基线，界面取舍遵循 **[设计原则](./DESIGN.md)**。当前一级导航只有 NOW、Inbox、Plan，原有 GTD 高级视图收进 More。
 
 ## Attention Planner 快速开始
 
-最短工作流：想到事情先放入 **Inbox**；在 **Plan** 中整理项目、时间和今日承诺；执行时回到 **NOW**，一次只看当前一件事。Ready、Waiting、Someday 是行动状态，Calendar Event 和 Due 是时间信息，两者不混用。
+最短工作流：想到事情先放入 **Inbox**，默认只回答“可执行／稍后／将来／删除”；在 **Plan → Today** 中只处理“今日承诺／时间块／可执行”；执行时回到 **NOW**，一次只看当前一件事。更细的 Waiting、Reference、Context 等只在 More 的高级流程中出现。Available、Scheduled、Snoozed 与 Due 是不同时间语义，不再共用一个开始时间字段。
 
 ### 在线入口与数据同步
 

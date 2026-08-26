@@ -280,7 +280,7 @@ describe('prepareComposerSave intents', () => {
             kind: 'update',
             taskId: 'task-7',
             updates: {
-                startTime: startAt.toISOString(),
+                scheduledAt: startAt.toISOString(),
                 timeEstimate: '1hr',
             },
         });
@@ -292,7 +292,7 @@ describe('prepareComposerSave intents', () => {
         expect(intent.kind).toBe('create');
         if (intent.kind !== 'create') return;
         expect(intent.draft.title).toBe('Draft the brief');
-        expect(intent.draft.props.startTime).toBe(startAt.toISOString());
+        expect(intent.draft.props.scheduledAt).toBe(startAt.toISOString());
         expect(intent.draft.props.timeEstimate).toBe('30min');
         expect(intent.projectToCreate).toBeUndefined();
     });

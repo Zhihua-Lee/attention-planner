@@ -41,6 +41,9 @@ export const ensureDeviceId = (settings: AppData['settings']): { settings: AppDa
 export const getReferenceTaskFieldClears = (): Partial<Task> => ({
     status: 'reference',
     startTime: undefined,
+    availableAt: undefined,
+    scheduledAt: undefined,
+    snoozedUntil: undefined,
     dueDate: undefined,
     relativeStartOffset: undefined,
     reviewAt: undefined,
@@ -178,6 +181,7 @@ export const normalizeTaskUpdate = (task: Task, updates: Partial<Task>): Partial
     // resurface unasked when the deferral ends. Evaluated on the merged task so
     // e.g. clearing the start of a recurring due-later task also unstars.
     const editsSchedule = hasOwnField(updates, 'startTime')
+        || hasOwnField(updates, 'availableAt')
         || hasOwnField(updates, 'dueDate')
         || hasOwnField(updates, 'reviewAt')
         || hasOwnField(updates, 'recurrence');
@@ -204,11 +208,24 @@ export const normalizeTaskUpdate = (task: Task, updates: Partial<Task>): Partial
     // re-save or a clear (undefined/null/'') never promotes; Someday/Waiting
     // keep their status (a dated someday is a tickler, a dated waiting a
     // follow-up reminder — only Inbox means "unclarified").
-    const startPromotingInbox = hasOwnField(updates, 'startTime')
+    const hasClarifyingTimeUpdate = hasOwnField(updates, 'startTime')
+        || hasOwnField(updates, 'availableAt')
+        || hasOwnField(updates, 'scheduledAt');
+    const nextClarifyingTime = hasOwnField(updates, 'availableAt')
+        ? updates.availableAt
+        : hasOwnField(updates, 'scheduledAt')
+            ? updates.scheduledAt
+            : updates.startTime;
+    const previousClarifyingTime = hasOwnField(updates, 'availableAt')
+        ? task.availableAt
+        : hasOwnField(updates, 'scheduledAt')
+            ? task.scheduledAt
+            : task.startTime;
+    const startPromotingInbox = hasClarifyingTimeUpdate
         && !hasOwnField(updates, 'status')
-        && updates.startTime != null
-        && updates.startTime !== ''
-        && updates.startTime !== task.startTime
+        && nextClarifyingTime != null
+        && nextClarifyingTime !== ''
+        && nextClarifyingTime !== previousClarifyingTime
         && task.status === 'inbox';
     const starTurningOn = adjustedUpdates.isFocusedToday === true && task.isFocusedToday !== true;
     const statusBecomingInbox = hasOwnField(updates, 'status') && updates.status === 'inbox' && task.status !== 'inbox';
@@ -275,8 +292,8 @@ export const resolveCaptureStatusForStart = (
 ): TaskStatus => {
     const startPromotesToNext = !hasOwnField(initialProps, 'status')
         && resolvedStatus === 'inbox'
-        && initialProps.startTime != null
-        && initialProps.startTime !== '';
+        && [initialProps.startTime, initialProps.availableAt, initialProps.scheduledAt]
+            .some((value) => value != null && value !== '');
     return startPromotesToNext ? 'next' : resolvedStatus;
 };
 

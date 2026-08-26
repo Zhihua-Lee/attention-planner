@@ -10,6 +10,7 @@ import { timeEstimateToMinutes } from './calendar-scheduling';
 import { TASK_STATUS_ORDER } from './task-status';
 import { isTaskInActiveProject } from './project-utils';
 import type { Language } from './i18n/i18n-types';
+import { getTaskAvailableAt } from './task-time-semantics';
 
 export function buildTasksByProjectId(tasks: readonly Task[]): Map<string, Task[]> {
     const tasksByProjectId = new Map<string, Task[]>();
@@ -377,10 +378,10 @@ function earliestDate(a: Date | null, b: Date | null): Date | null {
 }
 
 export function isTaskFutureStart(
-    task: Pick<Task, 'startTime'> & Partial<Pick<Task, 'dueDate' | 'recurrence' | 'reviewAt'>>,
+    task: Pick<Task, 'startTime' | 'availableAt'> & Partial<Pick<Task, 'dueDate' | 'recurrence' | 'reviewAt'>>,
     now: Date = new Date(),
 ): boolean {
-    const start = safeParseDate(task.startTime);
+    const start = safeParseDate(getTaskAvailableAt(task));
     // A recurring task without a start date defers on its next remaining
     // schedule field (the earlier of due/review); otherwise the next instance
     // spawned on completion reappears in Next/Focus immediately,
@@ -403,7 +404,7 @@ export function isTaskFutureStart(
 }
 
 export function shouldShowTaskForStart(
-    task: Pick<Task, 'startTime'> & Partial<Pick<Task, 'dueDate' | 'recurrence' | 'reviewAt'>>,
+    task: Pick<Task, 'startTime' | 'availableAt'> & Partial<Pick<Task, 'dueDate' | 'recurrence' | 'reviewAt'>>,
     options: TaskStartVisibilityOptions = {},
 ): boolean {
     if (options.showFutureStarts === true) return true;

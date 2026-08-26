@@ -18,6 +18,8 @@ export type ProcessInboxWorkflowFields = Partial<Pick<
     | 'assignedTo'
     | 'timeEstimate'
     | 'startTime'
+    | 'availableAt'
+    | 'scheduledAt'
     | 'dueDate'
     | 'reviewAt'
 >>;

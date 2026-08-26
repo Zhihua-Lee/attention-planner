@@ -169,7 +169,7 @@ describe('calendar scheduling helpers', () => {
             contexts: ['@computer'],
             description: 'Outline next steps',
             projectId: 'project-launch',
-            startTime: selectedStart.toISOString(),
+            scheduledAt: selectedStart.toISOString(),
             status: 'next',
             tags: ['#deep'],
             timeEstimate: '30min',

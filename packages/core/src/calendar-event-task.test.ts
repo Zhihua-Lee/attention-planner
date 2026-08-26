@@ -23,7 +23,7 @@ describe('calendar event task drafts', () => {
             title: 'Planning session',
             initialProps: {
                 status: 'next',
-                startTime: '2026-04-06T13:00:00.000Z',
+                scheduledAt: '2026-04-06T13:00:00.000Z',
                 timeEstimate: 'custom:75',
                 description: 'Bring roadmap notes.\n\nCalendar: Work',
                 location: 'Room 4',

@@ -198,7 +198,10 @@ export interface Task {
     energyLevel?: TaskEnergyLevel;
     assignedTo?: string;
     taskMode?: TaskMode; // 'list' for checklist-first tasks
-    startTime?: string; // ISO date string
+    startTime?: string; // Legacy time field; new writes use availableAt or scheduledAt.
+    availableAt?: string; // Task is hidden from Ready/NOW until this ISO date or timestamp.
+    scheduledAt?: string; // Exact soft time block for this task (ISO timestamp).
+    snoozedUntil?: string; // Temporary NOW suppression; does not alter availability or scheduling.
     relativeStartOffset?: RelativeStartOffset; // Offset from dueDate that recomputes startTime when dueDate changes
     dueDate?: string; // ISO date string
     recurrence?: Recurrence | RecurrenceRule; // Legacy string inputs are normalized to Recurrence on load/store writes

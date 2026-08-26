@@ -1,6 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react';
-import { ArrowRight, BookOpen, CheckCircle, ClipboardList, Clock, Trash2, User, X } from 'lucide-react';
-import { DEFAULT_PROJECT_COLOR, filterProjectsBySelectedArea, formatTimeEstimateLabel, safeFormatDate, safeParseDate, tFallback, type Area, type Project, type Task, type TaskPriority, type TimeEstimate } from '@mindwtr/core';
+import { ArrowRight, CheckCircle2, ClipboardList, Clock3, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import type { Area, Project, Task, TaskPriority, TimeEstimate } from '@mindwtr/core';
 
 import { cn } from '../lib/utils';
 import {
@@ -8,11 +8,6 @@ import {
     type InboxProcessingScheduleFieldKey,
     type InboxProcessingScheduleFieldsControls,
 } from './InboxProcessingScheduleFields';
-import { TokenAutocompleteInput } from './Task/TokenAutocompleteInput';
-import { AutocompleteTextInput } from './ui/AutocompleteTextInput';
-import { AreaSelector } from './ui/AreaSelector';
-import { ProjectSelector } from './ui/ProjectSelector';
-import { QuickDateChips } from './QuickDateChips';
 
 type QuickActionabilityChoice = 'actionable' | 'later' | 'trash' | 'someday' | 'reference';
 type QuickTwoMinuteChoice = 'yes' | 'no';
@@ -97,397 +92,160 @@ export type {
     QuickTwoMinuteChoice,
 };
 
-const PRIORITY_OPTIONS: TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
-const ENERGY_LEVEL_OPTIONS: Array<NonNullable<Task['energyLevel']>> = ['low', 'medium', 'high'];
-
-const shouldCommitQuickProcessingFromEnter = (target: EventTarget | null): boolean => {
+const shouldCommitFromEnter = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) return false;
-    if (target.isContentEditable) return false;
-    if (target.closest('button, [role="button"], [role="option"], [role="listbox"]')) return false;
-
+    if (target.isContentEditable || target.closest('button, [role="button"], [role="option"], [role="listbox"]')) return false;
     const tagName = target.tagName.toLowerCase();
-    if (tagName === 'textarea' || tagName === 'select') return false;
-    return tagName === 'input';
+    return tagName === 'input' && (target as HTMLInputElement).type !== 'date' && (target as HTMLInputElement).type !== 'time';
 };
 
-const shouldCommitQuickProcessingFromShortcut = (target: EventTarget | null): boolean => {
-    if (!(target instanceof HTMLElement)) return true;
-    if (target.isContentEditable) return false;
-    if (target.closest('[role="option"], [role="listbox"]')) return false;
-    return target.tagName.toLowerCase() !== 'select';
-};
-
-const isQuickProcessingSubmitShortcut = (event: Pick<KeyboardEvent | globalThis.KeyboardEvent, 'altKey' | 'ctrlKey' | 'key' | 'metaKey' | 'shiftKey'>): boolean => (
+const isSubmitShortcut = (event: Pick<KeyboardEvent | globalThis.KeyboardEvent, 'altKey' | 'ctrlKey' | 'key' | 'metaKey' | 'shiftKey'>): boolean => (
     event.key === 'Enter' && !event.shiftKey && !event.altKey && (event.ctrlKey || event.metaKey)
 );
 
-export function InboxProcessingQuickPanel({
-    t,
-    processingTask,
-    remainingCount,
-    processingTitle,
-    processingDescription,
-    setProcessingTitle,
-    setProcessingDescription,
-    processingMode,
-    onModeChange,
-    onSkip,
-    onClose,
-    showReferenceOption,
-    actionabilityChoice,
-    setActionabilityChoice,
-    twoMinuteChoice,
-    setTwoMinuteChoice,
-    executionChoice,
-    setExecutionChoice,
-    showScheduleFields,
-    scheduleFields,
-    visibleScheduleFieldKeys,
-    delegateWho,
-    setDelegateWho,
-    delegateFollowUp,
-    setDelegateFollowUp,
-    onSendDelegateRequest,
-    selectedContexts,
-    contextsDraft,
-    selectedTags,
-    tagsDraft,
-    selectedEnergyLevel,
-    setSelectedEnergyLevel,
-    selectedAssignedTo,
-    setSelectedAssignedTo,
-    personOptions,
-    selectedTimeEstimate,
-    setSelectedTimeEstimate,
-    timeEstimateOptions,
-    showContextsField,
-    showTagsField,
-    showEnergyLevelField,
-    showAssignedToField,
-    showTimeEstimateField,
-    showPriorityField,
-    selectedPriority,
-    setSelectedPriority,
-    onContextsInputChange,
-    onTagsInputChange,
-    toggleContext,
-    toggleTag,
-    suggestedContexts,
-    suggestedTags,
-    allContexts,
-    allTags,
-    projects,
-    areas,
-    selectedProjectId,
-    setSelectedProjectId,
-    selectedAreaId,
-    setSelectedAreaId,
-    showProjectField,
-    showAreaField,
-    convertToProject,
-    setConvertToProject,
-    projectTitleDraft,
-    setProjectTitleDraft,
-    nextActionDraft,
-    setNextActionDraft,
-    addProject,
-    onSubmit,
-}: InboxProcessingQuickPanelProps) {
-    const showActionFields = actionabilityChoice === 'actionable';
-    const showLaterFields = actionabilityChoice === 'later';
-    const showDecisionFields = showActionFields && twoMinuteChoice === 'no';
-    const showDelegationFields = showDecisionFields && executionChoice === 'delegate';
-    const showNextActionFields = showDecisionFields && executionChoice === 'defer';
-    const showReferenceOrganizationFields = actionabilityChoice === 'reference';
-    const laterLabel = tFallback(t, 'process.later', 'Later');
-    const laterHint = tFallback(t, 'process.laterHint', 'Set a start date and move this to Next.');
-    const compareLabels = (left: string, right: string) =>
-        left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
-    const sortedProjects = [...projects].sort((a, b) => compareLabels(a.title, b.title));
-    const projectFilterAreaId = selectedAreaId || undefined;
-    const filteredProjects = filterProjectsBySelectedArea(sortedProjects, projectFilterAreaId);
-    const organizationTokenFields = showContextsField || showTagsField ? (
-        <div className="grid gap-3 md:grid-cols-2">
-            {showContextsField ? (
-                <div className="space-y-2">
-                    <label htmlFor="quick-processing-contexts" className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.contextsLabel')}</label>
-                    <TokenAutocompleteInput
-                        id="quick-processing-contexts"
-                        aria-label={t('taskEdit.contextsLabel')}
-                        value={contextsDraft}
-                        onChange={onContextsInputChange}
-                        suggestions={[...suggestedContexts, ...allContexts]}
-                        prefix="@"
-                        placeholder={t('taskEdit.contextsPlaceholder')}
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                    />
-                    {suggestedContexts.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                            {suggestedContexts.map((ctx) => (
-                                <button
-                                    key={ctx}
-                                    type="button"
-                                    onClick={() => toggleContext(ctx)}
-                                    className={cn(
-                                        'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border',
-                                        selectedContexts.includes(ctx)
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-muted/40 border-border hover:bg-muted/70'
-                                    )}
-                                >
-                                    {ctx}
-                                </button>
-                            ))}
-                        </div>
-                    ) : null}
-                </div>
-            ) : null}
-            {showTagsField ? (
-                <div className="space-y-2">
-                    <label htmlFor="quick-processing-tags" className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.tagsLabel')}</label>
-                    <TokenAutocompleteInput
-                        id="quick-processing-tags"
-                        aria-label={t('taskEdit.tagsLabel')}
-                        value={tagsDraft}
-                        onChange={onTagsInputChange}
-                        suggestions={[...suggestedTags, ...allTags]}
-                        prefix="#"
-                        placeholder={t('taskEdit.tagsPlaceholder')}
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                    />
-                    {suggestedTags.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                            {suggestedTags.map((tag) => (
-                                <button
-                                    key={tag}
-                                    type="button"
-                                    onClick={() => toggleTag(tag)}
-                                    className={cn(
-                                        'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border',
-                                        selectedTags.includes(tag)
-                                            ? 'bg-success text-success-foreground border-success'
-                                            : 'bg-muted/40 border-border hover:bg-muted/70'
-                                    )}
-                                >
-                                    {tag}
-                                </button>
-                            ))}
-                        </div>
-                    ) : null}
-                </div>
-            ) : null}
-        </div>
-    ) : null;
+export function InboxProcessingQuickPanel(props: InboxProcessingQuickPanelProps) {
+    const {
+        t,
+        processingTask,
+        remainingCount,
+        processingTitle,
+        processingDescription,
+        setProcessingTitle,
+        setProcessingDescription,
+        onModeChange,
+        onSkip,
+        onClose,
+        actionabilityChoice,
+        setActionabilityChoice,
+        scheduleFields,
+        onSubmit,
+    } = props;
+    const panelRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
-            if (event.defaultPrevented) return;
-            if (event.key === 'Process' || event.isComposing) return;
-            if (!isQuickProcessingSubmitShortcut(event)) return;
-            if (!shouldCommitQuickProcessingFromShortcut(event.target)) return;
-
-            event.preventDefault();
-            event.stopPropagation();
-            void onSubmit();
-        };
-
-        document.addEventListener('keydown', handleDocumentKeyDown);
-        return () => document.removeEventListener('keydown', handleDocumentKeyDown);
-    }, [onSubmit]);
-
-    // After a long form is submitted the view is left scrolled to the bottom;
-    // bring the panel top (title of the next task) back into view on advance.
-    const panelRef = useRef<HTMLDivElement | null>(null);
     useEffect(() => {
         panelRef.current?.scrollIntoView?.({ block: 'start' });
     }, [processingTask.id]);
 
-    const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-        if (event.defaultPrevented) return;
-        if (event.key === 'Process' || event.nativeEvent.isComposing) return;
-        if (isQuickProcessingSubmitShortcut(event)) return;
-        if (event.key !== 'Enter' || event.shiftKey || event.altKey) return;
-        if (!shouldCommitQuickProcessingFromEnter(event.target)) return;
+    useEffect(() => {
+        const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+            if (!isSubmitShortcut(event)) return;
+            event.preventDefault();
+            void onSubmit();
+        };
+        document.addEventListener('keydown', handleDocumentKeyDown);
+        return () => document.removeEventListener('keydown', handleDocumentKeyDown);
+    }, [onSubmit]);
 
+    const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.defaultPrevented || event.key === 'Process' || event.nativeEvent.isComposing) return;
+        if (isSubmitShortcut(event) || event.key !== 'Enter' || event.shiftKey || event.altKey) return;
+        if (!shouldCommitFromEnter(event.target)) return;
         event.preventDefault();
         event.stopPropagation();
         void onSubmit();
     };
 
+    const decisions: Array<{
+        choice: QuickActionabilityChoice;
+        icon: typeof CheckCircle2;
+        label: string;
+        activeClass: string;
+    }> = [
+        { choice: 'actionable', icon: CheckCircle2, label: t('list.next'), activeClass: 'border-primary bg-primary text-primary-foreground' },
+        { choice: 'later', icon: Clock3, label: t('process.later'), activeClass: 'border-info/50 bg-info/10 text-info' },
+        { choice: 'someday', icon: Clock3, label: t('process.someday'), activeClass: 'border-status-someday/50 bg-status-someday/10 text-status-someday' },
+        { choice: 'trash', icon: Trash2, label: t('process.trash'), activeClass: 'border-destructive/50 bg-destructive/10 text-destructive' },
+    ];
+
     return (
         <div
             ref={panelRef}
-            className="bg-card border border-border rounded-xl animate-in fade-in overflow-visible"
+            className="overflow-visible border-y border-border/70 bg-card/40 py-1 animate-in fade-in"
             onKeyDown={handlePanelKeyDown}
+            data-testid="simple-inbox-processing"
         >
-            <div className="flex items-center justify-between gap-3 px-5 py-3.5">
-                <div className="flex items-center gap-2.5 min-w-0">
-                    <h3 className="font-semibold text-[15px] truncate inline-flex items-center gap-2">
-                        <ClipboardList className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
-                        <span className="truncate">{t('process.title')}</span>
-                    </h3>
-                    <span className="text-[11px] font-medium text-primary bg-primary/10 px-2.5 py-0.5 rounded-full shrink-0">
+            <header className="flex flex-wrap items-center justify-between gap-3 px-1 py-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <ClipboardList className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <h2 className="truncate text-sm font-semibold">{t('process.title')}</h2>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
                         {remainingCount} {t('process.remaining')}
                     </span>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                    <div className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
-                        <button
-                            type="button"
-                            onClick={() => onModeChange('guided')}
-                            className={cn(
-                                'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-                                processingMode === 'guided'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'text-muted-foreground hover:text-foreground'
-                            )}
-                        >
-                            {t('process.modeGuided')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onModeChange('quick')}
-                            className={cn(
-                                'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-                                processingMode === 'quick'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'text-muted-foreground hover:text-foreground'
-                            )}
-                        >
-                            {t('process.modeQuick')}
-                        </button>
-                    </div>
+                <div className="flex items-center gap-3">
                     <button
                         type="button"
-                        onClick={onSkip}
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => onModeChange('guided')}
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
-                        {t('inbox.skip')} <ArrowRight className="w-3.5 h-3.5" />
+                        <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                        {t('common.more')}
                     </button>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-muted-foreground hover:text-foreground"
-                    >
-                        <X className="w-4 h-4" />
+                    <button type="button" onClick={onSkip} className="text-xs text-muted-foreground hover:text-foreground">
+                        {t('inbox.skip')}
+                    </button>
+                    <button type="button" onClick={onClose} aria-label={t('common.close')} className="text-muted-foreground hover:text-foreground">
+                        <X className="h-4 w-4" aria-hidden="true" />
                     </button>
                 </div>
-            </div>
+            </header>
 
-            <div className="h-px bg-border" />
-
-            <div className="px-6 py-5 space-y-5">
-                <div className="space-y-1">
-                    <p className="text-center font-medium text-base leading-snug">
-                        {processingTitle || processingTask.title}
-                    </p>
-                    <p className="text-center text-sm text-muted-foreground">
-                        {t('process.quickDesc')}
-                    </p>
-                </div>
-
-                <div className="space-y-3">
-                    <div className="space-y-1">
-                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.titleLabel')}</label>
+            <div className="space-y-5 px-1 py-5">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                    <div>
+                        <label htmlFor="simple-inbox-title" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                            {t('taskEdit.titleLabel')}
+                        </label>
                         <input
-                            aria-label={t('taskEdit.titleLabel')}
+                            id="simple-inbox-title"
                             value={processingTitle}
                             onChange={(event) => setProcessingTitle(event.target.value)}
-                            className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.descriptionLabel')}</label>
+                    <div>
+                        <label htmlFor="simple-inbox-description" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                            {t('taskEdit.descriptionLabel')}
+                        </label>
                         <textarea
-                            aria-label={t('taskEdit.descriptionLabel')}
+                            id="simple-inbox-description"
                             value={processingDescription}
                             onChange={(event) => setProcessingDescription(event.target.value)}
                             placeholder={t('taskEdit.descriptionPlaceholder')}
-                            className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none resize-none"
-                            rows={3}
+                            rows={2}
+                            className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </div>
                 </div>
 
-                <div className="space-y-3">
-                    <div>
-                        <div className="text-sm font-medium">{t('process.actionable')}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{t('process.actionableDesc')}</div>
+                <fieldset className="space-y-2">
+                    <legend className="text-sm font-semibold">{t('process.actionable')}</legend>
+                    <p className="text-xs leading-5 text-muted-foreground">{t('process.quickDesc')}</p>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {decisions.map(({ choice, icon: Icon, label, activeClass }) => {
+                            const active = actionabilityChoice === choice;
+                            return (
+                                <button
+                                    key={choice}
+                                    type="button"
+                                    aria-pressed={active}
+                                    onClick={() => setActionabilityChoice(choice)}
+                                    className={cn(
+                                        'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                                        active ? activeClass : 'border-border bg-background text-foreground hover:bg-muted/50',
+                                    )}
+                                >
+                                    <Icon className="h-4 w-4" aria-hidden="true" />
+                                    {label}
+                                </button>
+                            );
+                        })}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                        <button
-                            type="button"
-                            onClick={() => setActionabilityChoice('actionable')}
-                            className={cn(
-                                'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                actionabilityChoice === 'actionable'
-                                    ? 'bg-primary text-primary-foreground border-primary'
-                                    : 'bg-muted/40 border-border hover:bg-muted/70'
-                            )}
-                        >
-                            <CheckCircle className="w-3.5 h-3.5 inline mr-1.5" />
-                            {t('process.yesActionable')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActionabilityChoice('later')}
-                            className={cn(
-                                'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                actionabilityChoice === 'later'
-                                    ? 'bg-info/15 text-info border-info/40'
-                                    : 'bg-muted/40 border-border hover:bg-muted/70'
-                            )}
-                        >
-                            <Clock className="w-3.5 h-3.5 inline mr-1.5" />
-                            {laterLabel}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActionabilityChoice('trash')}
-                            className={cn(
-                                'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                actionabilityChoice === 'trash'
-                                    ? 'bg-destructive/15 text-destructive border-destructive/40'
-                                    : 'bg-muted/40 border-border hover:bg-muted/70'
-                            )}
-                        >
-                            <Trash2 className="w-3.5 h-3.5 inline mr-1.5" />
-                            {t('process.trash')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActionabilityChoice('someday')}
-                            className={cn(
-                                'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                actionabilityChoice === 'someday'
-                                    ? 'bg-status-someday/15 text-status-someday border-status-someday/40'
-                                    : 'bg-muted/40 border-border hover:bg-muted/70'
-                            )}
-                        >
-                            <Clock className="w-3.5 h-3.5 inline mr-1.5" />
-                            {t('process.someday')}
-                        </button>
-                        {showReferenceOption ? (
-                            <button
-                                type="button"
-                                onClick={() => setActionabilityChoice('reference')}
-                                className={cn(
-                                    'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                    actionabilityChoice === 'reference'
-                                        ? 'bg-status-reference/15 text-status-reference border-status-reference/40'
-                                        : 'bg-muted/40 border-border hover:bg-muted/70'
-                                )}
-                            >
-                                <BookOpen className="w-3.5 h-3.5 inline mr-1.5" />
-                                {t('process.reference')}
-                            </button>
-                        ) : null}
-                    </div>
-                </div>
+                </fieldset>
 
-                {showLaterFields ? (
-                    <div className="space-y-3 rounded-lg border border-info/20 bg-info/5 p-3">
-                        <div className="text-xs text-muted-foreground">{laterHint}</div>
+                {actionabilityChoice === 'later' ? (
+                    <div className="border-l-2 border-info/50 pl-4">
+                        <p className="mb-3 text-xs leading-5 text-muted-foreground">{t('process.laterHint')}</p>
                         <InboxProcessingScheduleFields
                             t={t}
                             fields={scheduleFields}
@@ -497,348 +255,19 @@ export function InboxProcessingQuickPanel({
                     </div>
                 ) : null}
 
-                {showReferenceOrganizationFields && organizationTokenFields ? (
-                    <div className="rounded-lg border border-status-reference/20 bg-status-reference/5 p-3">
-                        {organizationTokenFields}
-                    </div>
-                ) : null}
-
-                {showActionFields ? (
-                    <div className="space-y-3">
-                        <div>
-                            <div className="text-sm font-medium">{t('process.twoMin')}</div>
-                            <div className="text-xs text-muted-foreground mt-1">{t('process.twoMinDesc')}</div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setTwoMinuteChoice('yes')}
-                                className={cn(
-                                    'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                    twoMinuteChoice === 'yes'
-                                        ? 'bg-success text-success-foreground border-success'
-                                        : 'bg-muted/40 border-border hover:bg-muted/70'
-                                )}
-                            >
-                                {t('process.doneIt')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setTwoMinuteChoice('no')}
-                                className={cn(
-                                    'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                    twoMinuteChoice === 'no'
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-muted/40 border-border hover:bg-muted/70'
-                                )}
-                            >
-                                {t('process.takesLonger')}
-                            </button>
-                        </div>
-                    </div>
-                ) : null}
-
-                {showDecisionFields ? (
-                    <>
-                        {showScheduleFields ? (
-                            <InboxProcessingScheduleFields
-                                t={t}
-                                fields={scheduleFields}
-                                visibleFieldKeys={visibleScheduleFieldKeys}
-                                variant="quick"
-                            />
-                        ) : null}
-
-                        <div className="space-y-3">
-                            <div>
-                                <div className="text-sm font-medium">{t('process.nextStep')}</div>
-                                <div className="text-xs text-muted-foreground mt-1">{t('process.nextStepDesc')}</div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setExecutionChoice('defer')}
-                                    className={cn(
-                                        'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                        executionChoice === 'defer'
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-muted/40 border-border hover:bg-muted/70'
-                                    )}
-                                >
-                                    {t('process.doIt')}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setExecutionChoice('delegate')}
-                                    className={cn(
-                                        'rounded-lg px-3 py-2 text-xs font-medium transition-colors border',
-                                        executionChoice === 'delegate'
-                                            ? 'bg-warning text-warning-foreground border-warning'
-                                            : 'bg-muted/40 border-border hover:bg-muted/70'
-                                    )}
-                                >
-                                    <User className="w-3.5 h-3.5 inline mr-1.5" />
-                                    {t('process.delegate')}
-                                </button>
-                            </div>
-                        </div>
-                    </>
-                ) : null}
-
-                {showDelegationFields ? (
-                    <div className="space-y-3">
-                        <div className="space-y-1">
-                            <label className="text-[11px] text-muted-foreground font-medium">{t('process.delegateWhoLabel')}</label>
-                            <AutocompleteTextInput
-                                aria-label={t('process.delegateWhoLabel')}
-                                value={delegateWho}
-                                onChange={setDelegateWho}
-                                suggestions={personOptions}
-                                placeholder={t('process.delegateWhoPlaceholder')}
-                                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[11px] text-muted-foreground font-medium">{t('process.delegateFollowUpLabel')}</label>
-                            <QuickDateChips
-                                t={t}
-                                selectedDate={safeParseDate(delegateFollowUp)}
-                                onSelect={(date) => setDelegateFollowUp(date ? safeFormatDate(date, 'yyyy-MM-dd') : '')}
-                            />
-                            <input
-                                type="date"
-                                aria-label={t('process.delegateFollowUpLabel')}
-                                value={delegateFollowUp}
-                                onChange={(event) => setDelegateFollowUp(event.target.value)}
-                                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                            />
-                        </div>
-                        <button
-                            type="button"
-                            onClick={onSendDelegateRequest}
-                            className="w-full py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                        >
-                            {t('process.delegateSendRequest')}
-                        </button>
-                    </div>
-                ) : null}
-
-                {showNextActionFields ? (
-                    <>
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (!convertToProject) {
-                                        setProjectTitleDraft(processingTitle);
-                                        setNextActionDraft('');
-                                    }
-                                    setConvertToProject(!convertToProject);
-                                }}
-                                className={cn(
-                                    'px-3 py-1.5 rounded-full text-xs font-medium transition-colors border',
-                                    convertToProject
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:bg-muted/70'
-                                )}
-                            >
-                                {convertToProject ? t('process.useExistingProject') : t('process.makeProject')}
-                            </button>
-                        </div>
-
-                        {convertToProject ? (
-                            <div className="space-y-3">
-                                {showAreaField ? (
-                                    <div className="space-y-1">
-                                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.areaLabel')}</label>
-                                        <AreaSelector
-                                            areas={areas}
-                                            value={selectedAreaId ?? ''}
-                                            onChange={(value) => setSelectedAreaId(value || null)}
-                                            placeholder={t('projects.noArea')}
-                                            noAreaLabel={t('projects.noArea')}
-                                            searchPlaceholder={t('areas.search')}
-                                            noMatchesLabel={t('common.noMatches')}
-                                            controlClassName="rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                            menuClassName="text-sm"
-                                        />
-                                    </div>
-                                ) : null}
-                                <div className="space-y-1">
-                                    <label className="text-[11px] text-muted-foreground font-medium">{t('projects.title')}</label>
-                                    <input
-                                        aria-label={t('projects.title')}
-                                        value={projectTitleDraft}
-                                        onChange={(event) => setProjectTitleDraft(event.target.value)}
-                                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[11px] text-muted-foreground font-medium">{t('process.nextAction')}</label>
-                                    <input
-                                        aria-label={t('process.nextAction')}
-                                        value={nextActionDraft}
-                                        onChange={(event) => setNextActionDraft(event.target.value)}
-                                        placeholder={t('taskEdit.titleLabel')}
-                                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                    />
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {!selectedProjectId && showAreaField ? (
-                                    <div className="space-y-1">
-                                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.areaLabel')}</label>
-                                        <AreaSelector
-                                            areas={areas}
-                                            value={selectedAreaId ?? ''}
-                                            onChange={(value) => setSelectedAreaId(value || null)}
-                                            placeholder={t('projects.noArea')}
-                                            noAreaLabel={t('projects.noArea')}
-                                            searchPlaceholder={t('areas.search')}
-                                            noMatchesLabel={t('common.noMatches')}
-                                            controlClassName="rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                            menuClassName="text-sm"
-                                        />
-                                    </div>
-                                ) : null}
-                                {showProjectField ? (
-                                    <div className="space-y-1">
-                                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.projectLabel')}</label>
-                                        <ProjectSelector
-                                            projects={filteredProjects}
-                                            allProjects={sortedProjects}
-                                            value={selectedProjectId ?? ''}
-                                            onChange={(value) => {
-                                                const nextProjectId = value || null;
-                                                setSelectedProjectId(nextProjectId);
-                                                if (nextProjectId) {
-                                                    setSelectedAreaId(null);
-                                                }
-                                            }}
-                                            onCreateProject={async (title) => {
-                                                const created = await addProject(
-                                                    title,
-                                                    DEFAULT_PROJECT_COLOR,
-                                                    projectFilterAreaId ? { areaId: projectFilterAreaId } : undefined,
-                                                );
-                                                return created?.id ?? null;
-                                            }}
-                                            placeholder={t('process.project')}
-                                            noProjectLabel={t('process.noProject')}
-                                            searchPlaceholder={t('projects.search')}
-                                            noMatchesLabel={t('common.noMatches')}
-                                            emptyLabel={projectFilterAreaId ? t('projects.noProjectsInArea') : undefined}
-                                            createProjectLabel={t('projects.create')}
-                                            controlClassName="rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                            menuClassName="text-sm"
-                                        />
-                                    </div>
-                                ) : null}
-                            </div>
-                        )}
-
-                        {organizationTokenFields}
-
-                        {showPriorityField ? (
-                            <div className="space-y-2">
-                                <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.priorityLabel')}</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {PRIORITY_OPTIONS.map((priority) => {
-                                        const isSelected = selectedPriority === priority;
-                                        return (
-                                            <button
-                                                key={priority}
-                                                type="button"
-                                                onClick={() => setSelectedPriority(isSelected ? undefined : priority)}
-                                                className={cn(
-                                                    'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border',
-                                                    isSelected
-                                                        ? 'bg-primary text-primary-foreground border-primary'
-                                                        : 'bg-muted/40 border-border hover:bg-muted/70'
-                                                )}
-                                            >
-                                                {t(`priority.${priority}`)}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {showEnergyLevelField || showAssignedToField || showTimeEstimateField ? (
-                            <div className="grid gap-3 md:grid-cols-2">
-                                {showEnergyLevelField ? (
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.energyLevel')}</label>
-                                        <select
-                                            aria-label={t('taskEdit.energyLevel')}
-                                            value={selectedEnergyLevel ?? ''}
-                                            onChange={(event) => setSelectedEnergyLevel((event.target.value || undefined) as Task['energyLevel'])}
-                                            className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                        >
-                                            <option value="">{t('common.none')}</option>
-                                            {ENERGY_LEVEL_OPTIONS.map((energyLevel) => (
-                                                <option key={energyLevel} value={energyLevel}>
-                                                    {t(`energyLevel.${energyLevel}`)}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                ) : null}
-                                {showTimeEstimateField ? (
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.timeEstimateLabel')}</label>
-                                        <select
-                                            aria-label={t('taskEdit.timeEstimateLabel')}
-                                            value={selectedTimeEstimate ?? ''}
-                                            onChange={(event) => setSelectedTimeEstimate((event.target.value || undefined) as TimeEstimate | undefined)}
-                                            className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                        >
-                                            <option value="">{t('common.none')}</option>
-                                            {timeEstimateOptions.map((estimate) => (
-                                                <option key={estimate} value={estimate}>
-                                                    {formatTimeEstimateLabel(estimate, { t })}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                ) : null}
-                                {showAssignedToField ? (
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] text-muted-foreground font-medium">{t('taskEdit.assignedTo')}</label>
-                                        <AutocompleteTextInput
-                                            aria-label={t('taskEdit.assignedTo')}
-                                            value={selectedAssignedTo}
-                                            onChange={setSelectedAssignedTo}
-                                            suggestions={personOptions}
-                                            placeholder={t('taskEdit.assignedToPlaceholder')}
-                                            className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                                        />
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </>
-                ) : null}
-
-                <div className="h-px bg-border -mx-6" />
-                <div className="flex items-center justify-between gap-4 -mx-6 -mb-5 px-5 py-3.5">
-                        <p className="text-xs text-muted-foreground">
-                        {actionabilityChoice === 'actionable'
-                            ? t('process.quickApplyHint')
-                            : t('process.quickMoveHint')}
+                <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+                    <p className="max-w-xl text-xs leading-5 text-muted-foreground">
+                        {actionabilityChoice === 'actionable' ? t('process.quickApplyHint') : t('process.quickMoveHint')}
                     </p>
                     <button
                         type="button"
-                        onClick={() => {
-                            void onSubmit();
-                        }}
-                        className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors shrink-0"
+                        onClick={() => void onSubmit()}
+                        className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-5 text-sm font-semibold text-background transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
-                        {t('process.next')} <ArrowRight className="w-3.5 h-3.5" />
+                        {t('process.next')}
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </button>
-                </div>
+                </footer>
             </div>
         </div>
     );

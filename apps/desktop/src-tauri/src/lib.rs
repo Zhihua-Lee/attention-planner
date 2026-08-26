@@ -326,7 +326,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   deletedAt TEXT,
-  purgedAt TEXT
+  purgedAt TEXT,
+  availableAt TEXT,
+  scheduledAt TEXT,
+  snoozedUntil TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -335,6 +338,8 @@ CREATE INDEX IF NOT EXISTS idx_tasks_updated_at ON tasks(updatedAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_deleted_at ON tasks(deletedAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(dueDate);
 CREATE INDEX IF NOT EXISTS idx_tasks_start_time ON tasks(startTime);
+CREATE INDEX IF NOT EXISTS idx_tasks_available_at ON tasks(availableAt);
+CREATE INDEX IF NOT EXISTS idx_tasks_scheduled_at ON tasks(scheduledAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_review_at ON tasks(reviewAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(createdAt);
 CREATE INDEX IF NOT EXISTS idx_tasks_status_deleted_at ON tasks(status, deletedAt);

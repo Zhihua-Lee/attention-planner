@@ -5,6 +5,7 @@ import {
     getCalendarDayOfMonth,
     getCalendarMonthIndex,
     getShortWeekdayLabels,
+    getTaskScheduledAt,
     getTaskCalendarOccurrenceDate,
     hasTimeComponent,
     isProjectedRecurringTask,
@@ -190,14 +191,13 @@ export function CalendarView() {
     }, []);
     const closeTaskQuickActionMenu = useCallback(() => setTaskQuickActionMenu(null), []);
     const handleRemoveTaskFromCalendar = useCallback((task: Task, kind: 'scheduled' | 'deadline') => {
-        // Clearing startTime alone does nothing visible: applyTaskUpdates
-        // recomputes it from dueDate whenever relativeStartOffset is set, so
-        // both fields are cleared (and both restored on undo).
+        // Clear both the semantic field and its legacy fallback so old tasks do
+        // not immediately reappear after being removed from the calendar.
         const previousValues = kind === 'scheduled'
-            ? { startTime: task.startTime, relativeStartOffset: task.relativeStartOffset }
+            ? { scheduledAt: task.scheduledAt, startTime: task.startTime, relativeStartOffset: task.relativeStartOffset }
             : { dueDate: task.dueDate, relativeStartOffset: task.relativeStartOffset };
         const clearedUpdates = kind === 'scheduled'
-            ? { startTime: undefined, relativeStartOffset: undefined }
+            ? { scheduledAt: undefined, startTime: undefined, relativeStartOffset: undefined }
             : { dueDate: undefined };
         void updateTask(task.id, clearedUpdates)
             .then((result) => {
@@ -911,7 +911,7 @@ export function CalendarView() {
                                         </div>
                                         <div className="space-y-1">
                                             {items.map((item) => {
-                                                const isAllDayScheduled = item.kind === 'scheduled' && !hasTimeComponent(item.task.startTime);
+                                                const isAllDayScheduled = item.kind === 'scheduled' && !hasTimeComponent(getTaskScheduledAt(item.task));
                                                 const timeLabel = isAllDayScheduled
                                                     ? t('calendar.allDay')
                                                     : item.start && (item.kind === 'scheduled' || (item.kind === 'event' && !item.event.allDay))

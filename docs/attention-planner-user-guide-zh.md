@@ -106,7 +106,14 @@ Review、Contexts、Board、Reference 等保留在折叠的「More」中，需�
 
 收集箱是临时入口，不是长期任务列表。想到什么先放进去，避免为了判断项目、优先级和日期而放弃记录。
 
-适合放入：任务、想法、担忧、需要确认的事情。整理时再决定它是否可行动。
+适合放入：任务、想法、担忧、需要确认的事情。点击“整理”后，默认只需要四选一：
+
+- **Ready**：现在可行动；
+- **Later**：以后才可行动，只填写“何时可用”；
+- **Someday**：现在不承诺；
+- **Trash**：不再保留。
+
+默认界面不再追问项目、领域、标签、情境、优先级、精力、时长、委派、Reference 或两分钟规则。确实需要这些字段时点“更多”，进入保留的高级整理流程。
 
 ### Ready 任务
 
@@ -139,7 +146,9 @@ Ready 表示任务现在可以直接行动；底层仍沿用兼容字段 `next`�
 ### NOW 与 Plan
 
 - **NOW**：执行主页，只显示一个当前建议和少量今日承诺。
-- **Plan**：规划主页；Today 处理今日任务，Calendar 查看时间，Projects 管理成果，Later 放置 Waiting/Someday，Recurring 检查周期。
+- **Plan**：规划主页；Today 只放今日承诺、时间块和 Ready，Calendar 查看时间，Projects 管理成果和领域直属任务，Later 放置 Waiting/Someday，Recurring 检查周期。
+
+Plan → Today 不再包含筛选器、保存视图、Top 3、Pomodoro、Review Due 或 Frame 编辑器；这些高级能力不会再和当天规划争抢注意力。
 
 Calendar 回答“什么时候发生”，NOW 回答“现在把注意力放在哪里”。
 
@@ -164,7 +173,7 @@ Calendar 回答“什么时候发生”，NOW 回答“现在把注意力放在�
 4. 给真正有硬期限的任务设置截止日期。
 5. 打开「NOW」，让它成为执行时的返回点。
 
-建议使用宽松时间框架，而不是给所有任务安排精确时间。例如上午是 Research Frame，下午是 Admin Frame；在 Frame 内只选一个 Ready 任务。
+建议使用宽松时间框架，而不是给所有任务安排精确时间。例如上午是 Research Frame，下午是 Admin Frame；Frame 在后台帮助 NOW 选择，不需要把它当作任务容器。
 
 ### 卡住或分心后：不要重新规划整天
 
@@ -236,12 +245,12 @@ Mindwtr 已提供周期任务。设置时要区分：
 
 ### NOW 如何选择内容
 
-当前 Alpha 按以下顺序选择一件立即事项：
+当前版本按以下顺序选择一件立即事项：
 
 1. 正在发生的日历事件；
 2. 当前已经安排的任务；
-3. 今天加了焦点星标的任务；
-4. 与当前 Flexible Frame 匹配、且适合剩余时间的 Ready 任务；
+3. 与当前 Flexible Frame 匹配、且适合剩余时间的 Ready 任务；
+4. 今天加了焦点星标的任务；
 5. 确定性的 Ready 任务兜底。
 
 全天日历事件不会占据 NOW。
@@ -264,7 +273,7 @@ Admin：周一至周五 14:00–15:30，匹配 #admin
 Personal：每天 18:00–21:30，匹配 @home
 ```
 
-在「Plan → Today」底部选择 **Manage flexible frames**，可以设置：
+在「Settings → GTD」的 **Attention rules** 中，可以设置：
 
 - 名称；
 - 开始和结束时间；
@@ -273,6 +282,14 @@ Personal：每天 18:00–21:30，匹配 @home
 - 是否启用。
 
 Frame 可以跨午夜，并随 GTD 设置同步到其他设备。
+
+### 三种时间不要混用
+
+- **以后可用（Available）**：在 Inbox 选择 Later 后填写；到时间前不会进入 Ready/NOW。
+- **精确安排（Scheduled）**：在 Plan → Today 或 Calendar 安排；它是可移动的时间块。
+- **暂时推迟（Snoozed）**：在 NOW 点 Later；只隐藏 30 分钟，不移动原来的日历安排。
+
+旧数据中的“开始时间”仍可读取：只有日期的值按“以后可用”解释，带具体钟点的值按“精确安排”解释。默认 Inbox、Today、Calendar 和 NOW 操作会分别保存，不再让一次推迟意外改掉日历时间；高级编辑器和旧导入仍保留兼容字段。
 
 ## 手机、电脑与 Google Drive 同步
 
@@ -541,7 +558,9 @@ Power Automate 更新的是 Drive 文件。iOS 不允许关闭的 PWA 每 30 分
 | 不想支付 Morgen、Amplenote 等持续订阅 | Fork AGPL-3.0 的 Mindwtr，自有域名和 Cloudflare 免费额度部署 | **已解决个人使用路径**：仍需遵守开源许可证和第三方免费额度政策 |
 | 从零开发效率太低 | 复用 Mindwtr 的任务、项目、周期、日历、PWA 和同步框架 | **已解决工程底座问题** |
 | 脑中很多事项，但此刻不知道做什么 | NOW 只给出一件当前事项和少量今日承诺 | **已实现 Alpha** |
-| Mindwtr 的 GTD、Agenda、Frame、Board 等概念并列，使用时需要反复猜系统 | 内容、状态、时间、注意力分层；一级入口收敛为 NOW、Inbox、Plan，其余能力降级到 More | **本次重构已实现**：底层字段和同步格式保持兼容 |
+| Mindwtr 的 GTD、Agenda、Frame、Board 等概念并列，使用时需要反复猜系统 | 内容、状态、时间、注意力分层；一级入口收敛为 NOW、Inbox、Plan，其余能力降级到 More | **已完成第二阶段**：Today 与 Inbox 默认流程已去除旧驾驶舱和 GTD 决策树 |
+| “开始时间”同时表示以后出现、日历安排和临时推迟 | 拆为 Available、Scheduled、Snoozed；旧 `startTime` 只作兼容读取 | **已解决新写入语义**：旧数据无需手工迁移 |
+| Task 可以直属 Area，但 Projects 中没有自然归宿 | 选择具体领域后显示“领域直属任务”入口与列表 | **已解决桌面端归属** |
 | 希望有结构，但不想每分钟被安排 | Flexible Frames 只限定时间段适合的任务类别 | **已实现 Alpha** |
 | 会议、课程与任务出现在同一时间视图 | Outlook 导出事件进入现有日历，并参与 NOW | **已实现只读合并** |
 | Outlook 学校账号授权失败 | 保留 Graph 适配器代码，正式改用 Power Automate → 私人 Google Drive | **已解决读取**：学校策略仍决定 Graph 能否直连 |

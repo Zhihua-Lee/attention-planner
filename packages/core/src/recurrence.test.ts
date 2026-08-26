@@ -1461,7 +1461,7 @@ describe('getRecurringTaskPreviewDate', () => {
     it('shows the projected next occurrence for a scheduled task', () => {
         const task: Task = {
             ...base,
-            startTime: '2026-07-09',
+            scheduledAt: '2026-07-09',
             recurrence: { rule: 'monthly', strategy: 'strict', byMonthDay: [9], rrule: 'FREQ=MONTHLY;BYMONTHDAY=9' },
         };
         expect(getRecurringTaskPreviewDate(task, nowIso)).toBe('2026-08-09');

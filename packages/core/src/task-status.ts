@@ -4,6 +4,7 @@ import { normalizeRepeatReminderMinutes } from './schedule-utils';
 import { normalizeTimeSpentMinutes } from './time-spent';
 import { normalizeRelativeStartOffset } from './task-relative-start';
 import { safeParseDate } from './date';
+import { getTaskAvailableAt } from './task-time-semantics';
 
 export const TASK_STATUS_VALUES: TaskStatus[] = ['inbox', 'next', 'waiting', 'someday', 'reference', 'done', 'archived'];
 export const TASK_STATUS_SET = new Set<TaskStatus>(TASK_STATUS_VALUES);
@@ -24,8 +25,8 @@ const LEGACY_STATUS_MAP: Record<string, TaskStatus> = {
     doing: 'next',
 };
 
-const isFutureStart = (task: Pick<Task, 'startTime'>, now: Date): boolean => {
-    const start = safeParseDate(task.startTime);
+const isFutureStart = (task: Pick<Task, 'startTime' | 'availableAt'>, now: Date): boolean => {
+    const start = safeParseDate(getTaskAvailableAt(task));
     if (!start) return false;
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     return start > endOfToday;

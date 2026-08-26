@@ -641,6 +641,7 @@ export function SettingsView({ initialPage, onboardingHintPage, onResumeOnboardi
           showSaved={showSaved}
           autoArchiveDays={autoArchiveDays}
           areas={areas}
+          translate={translate}
         />
       );
     }

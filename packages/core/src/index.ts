@@ -34,6 +34,7 @@ export * from './store-types';
 export * from './store-helpers';
 export * from './sync';
 export * from './task-date-coherence';
+export * from './task-time-semantics';
 export * from './sync-normalization';
 export * from './sync-helpers';
 export { toStableSyncJson as toStableJson } from './sync-helpers'; // preserved alias; the plain name is also re-exported via `export *` above

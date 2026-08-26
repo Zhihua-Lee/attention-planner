@@ -284,6 +284,7 @@ type ProjectWorkspaceProps = {
     requestConfirmation: (options: ConfirmationRequestOptions) => Promise<boolean>;
     // Selection identity — owned by ProjectsView (UI store + reset effects).
     selectedProjectId: string | null;
+    selectedAreaId?: string;
     // Persisted view state (localStorage) owned by ProjectsView.
     showCompletedTasks: boolean;
     // Translator (React context); threaded so tests keep translation control.
@@ -322,6 +323,7 @@ export function ProjectWorkspace({
     onToggleShowCompletedTasks,
     requestConfirmation,
     selectedProjectId,
+    selectedAreaId,
     showCompletedTasks,
     t,
     projectsSidebarCollapsed = false,
@@ -364,6 +366,10 @@ export function ProjectWorkspace({
         () => projects.find((project) => project.id === selectedProjectId),
         [projects, selectedProjectId],
     );
+    const selectedArea = useMemo(
+        () => selectedAreaId ? areas.find((area) => area.id === selectedAreaId) : undefined,
+        [areas, selectedAreaId],
+    );
     const [showNotesPreview, setShowNotesPreview] = useState(true);
     const [showSectionPrompt, setShowSectionPrompt] = useState(false);
     const [sectionDraft, setSectionDraft] = useState('');
@@ -371,6 +377,15 @@ export function ProjectWorkspace({
     const [sectionNotesOpen, setSectionNotesOpen] = useState<Record<string, boolean>>({});
     const [tagDraft, setTagDraft] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const directAreaTasks = useMemo(() => allTasks.filter((task) => (
+        !task.deletedAt
+        && task.areaId === selectedAreaId
+        && !task.projectId
+        && task.status !== 'done'
+        && task.status !== 'archived'
+        && task.status !== 'reference'
+        && (!searchQuery || task.title.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    )), [allTasks, searchQuery, selectedAreaId]);
     const [editProjectTitle, setEditProjectTitle] = useState('');
     // Effective sort is read straight from the selected project so it persists
     // across restarts and view switches; the change handler writes it back via
@@ -1624,6 +1639,41 @@ export function ProjectWorkspace({
                                         {renderStaticTasks(projectReferenceTasks)}
                                     </div>
                                 </section>
+                            )}
+                        </div>
+                    ) : selectedArea ? (
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                            <header className="border-y border-border/60 py-5">
+                                <div className="flex items-center gap-3">
+                                    <span
+                                        className="h-3 w-3 rounded-full border border-border/50"
+                                        style={{ backgroundColor: selectedArea.color }}
+                                        aria-hidden="true"
+                                    />
+                                    <div>
+                                        <h2 className="text-xl font-semibold tracking-tight">{selectedArea.name}</h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {resolveText('projects.areaTasksHint', 'Tasks in this area that do not need a project.')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </header>
+                            {directAreaTasks.length > 0 ? (
+                                <div className="divide-y divide-border/40 border-b border-border/60 py-2">
+                                    {directAreaTasks.map((task) => (
+                                        <TaskItem
+                                            key={task.id}
+                                            task={task}
+                                            enableDoubleClickEdit
+                                            showProjectBadgeInActions={false}
+                                            showProjectBadgeInMetadata={false}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="border-b border-dashed border-border/70 py-8 text-sm text-muted-foreground">
+                                    {resolveText('projects.areaTasksEmpty', 'No direct tasks in this area.')}
+                                </p>
                             )}
                         </div>
                     ) : (

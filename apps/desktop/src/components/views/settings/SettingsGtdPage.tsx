@@ -5,6 +5,7 @@ import {
     normalizeClockTimeInput,
     normalizeFocusTaskLimit,
     getDefaultTaskAreaMode,
+    normalizeAttentionFrames,
     resolveDefaultNewTaskAreaId,
     sanitizePomodoroDurations,
     translateText,
@@ -18,6 +19,7 @@ import { reportError } from '../../../lib/report-error';
 import { dispatchDesktopOnboardingEvent } from '../../../lib/desktop-onboarding-events';
 import { useUiStore } from '../../../store/ui-store';
 import type { Language } from '../../../contexts/language-context';
+import { AttentionFrameEditor } from '../agenda/NowCard';
 import {
     DEFAULT_TASK_EDITOR_ORDER,
     DEFAULT_TASK_EDITOR_VISIBLE,
@@ -154,6 +156,7 @@ type SettingsGtdPageProps = {
     showSaved: () => void;
     autoArchiveDays: number;
     areas: Area[];
+    translate?: (key: string) => string;
 };
 
 type SettingsDisclosureCardProps = {
@@ -207,7 +210,9 @@ export function SettingsGtdPage({
     showSaved,
     autoArchiveDays,
     areas,
+    translate,
 }: SettingsGtdPageProps) {
+    const appT = translate ?? ((key: string) => key);
     const safeSettings = settings ?? ({} as AppSettings);
     const [featuresOpen, setFeaturesOpen] = useState(false);
     const [timeEstimatesOpen, setTimeEstimatesOpen] = useState(false);
@@ -573,6 +578,31 @@ export function SettingsGtdPage({
                     </button>
                 </div>
             ) : null}
+            <div className="border-y border-border/70 py-4">
+                <p className="mb-2 text-xs leading-5 text-muted-foreground">
+                    {(() => {
+                        const value = appT('attention.frames.help');
+                        return value && value !== 'attention.frames.help'
+                            ? value
+                            : 'Frames quietly help NOW choose; they are not task containers.';
+                    })()}
+                </p>
+                <AttentionFrameEditor
+                    frames={normalizeAttentionFrames(safeSettings.gtd?.attentionFrames)}
+                    onFramesChange={(frames) => {
+                        updateSettings({
+                            gtd: {
+                                ...(safeSettings.gtd ?? {}),
+                                attentionFrames: normalizeAttentionFrames(frames),
+                            },
+                        }).then(showSaved).catch((error) => reportError('Failed to update attention frames', error));
+                    }}
+                    resolveText={(key, fallback) => {
+                        const value = appT(key);
+                        return value && value !== key ? value : fallback;
+                    }}
+                />
+            </div>
             <div className="bg-card border border-border rounded-lg divide-y divide-border">
                 <div className="p-4 flex items-center justify-between gap-6">
                     <div className="min-w-0">

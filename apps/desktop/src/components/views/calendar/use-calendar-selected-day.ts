@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
+    getTaskScheduledAt,
     safeParseDate,
     safeParseDueDate,
     type ExternalCalendarEvent,
@@ -142,7 +143,7 @@ export function useCalendarSelectedDay({
             id: `scheduled-${task.id}`,
             kind: 'scheduled' as const,
             task,
-            start: task.startTime ? safeParseDate(task.startTime) : null,
+            start: safeParseDate(getTaskScheduledAt(task)),
         })),
         ...selectedDeadlines
             .filter((task) => !selectedScheduledIds.has(task.id))
@@ -186,8 +187,8 @@ export function useCalendarSelectedDay({
     const beginEditScheduledTime = (taskId: string) => {
         if (!selectedDate) return;
         const task = tasks.find((candidate) => candidate.id === taskId);
-        if (!task?.startTime) return;
-        const start = safeParseDate(task.startTime);
+        if (!task) return;
+        const start = safeParseDate(getTaskScheduledAt(task));
         if (!start) return;
         startEditingTime(taskId, format(start, 'HH:mm'));
     };
@@ -211,7 +212,7 @@ export function useCalendarSelectedDay({
             return;
         }
 
-        await updateTask(task.id, { startTime: nextStart.toISOString() });
+        await updateTask(task.id, { scheduledAt: nextStart.toISOString() });
         stopEditingTime();
         showScheduleError(null);
     };

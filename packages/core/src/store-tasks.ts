@@ -124,6 +124,9 @@ const isExistingRecurringFollowUp = (existing: Task, candidate: Task): boolean =
     if (normalizeOptionalTaskField(existing.sectionId) !== normalizeOptionalTaskField(candidate.sectionId)) return false;
     if (normalizeOptionalTaskField(existing.areaId) !== normalizeOptionalTaskField(candidate.areaId)) return false;
     if (normalizeOptionalTaskField(existing.startTime) !== normalizeOptionalTaskField(candidate.startTime)) return false;
+    if (normalizeOptionalTaskField(existing.availableAt) !== normalizeOptionalTaskField(candidate.availableAt)) return false;
+    if (normalizeOptionalTaskField(existing.scheduledAt) !== normalizeOptionalTaskField(candidate.scheduledAt)) return false;
+    if (normalizeOptionalTaskField(existing.snoozedUntil) !== normalizeOptionalTaskField(candidate.snoozedUntil)) return false;
     if (normalizeOptionalTaskField(existing.dueDate) !== normalizeOptionalTaskField(candidate.dueDate)) return false;
     if (normalizeOptionalTaskField(existing.reviewAt) !== normalizeOptionalTaskField(candidate.reviewAt)) return false;
     return recurrenceKeyForDuplicateCheck(existing) === recurrenceKeyForDuplicateCheck(candidate);

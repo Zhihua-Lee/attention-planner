@@ -29,23 +29,25 @@ Area（长期领域）
 | Ready | 现在可以行动 | `next` |
 | Waiting | 被别人或条件阻塞 | `waiting` |
 | Someday | 主动搁置 | `someday` |
-| Done | 已完成 | `completed` |
+| Done | 已完成 | `done` |
 
-`Reference` 是资料类型，`Archived` 是保存方式；它们不是行动状态。为了兼容已有数据和同步格式，本次重构只把界面中的 “Next” 改名为 “Ready”，不迁移底层枚举。
+`Reference` 是资料类型，`Archived` 是保存方式；它们不是用户需要在默认流程中判断的行动状态。兼容层仍保留 `reference` 与 `archived` 两个历史存储值，高级视图也仍能读取它们；“Ready”继续使用已有的 `next` 存储值。
 
 ### 3. 时间层：什么时候发生
 
 - **Event**：会议、课程等外部硬约束，只读显示。
-- **Time Block**：为某个 Task 预留的软安排；当前由任务的开始时间和预计时长表示。
+- **Available**：任务在此之前不应进入 Ready/NOW；存储为 `availableAt`。
+- **Time Block / Scheduled**：为某个 Task 预留的精确钟点；存储为 `scheduledAt`，时长仍由预计时长表示。
+- **Snoozed**：只在一小段时间内从 NOW 隐藏；存储为 `snoozedUntil`，不移动时间块。
 - **Due**：真正的最后期限，不等于想做的时间。
 - **Recurrence**：完成或到期后生成下一次任务的规则。
 
-时间属性不会改变任务在 Area—Project—Task 中的位置，也不会自动改变它的行动状态。
+时间属性不会改变任务在 Area—Project—Task 中的位置。默认 Inbox 整理中的 Later 会把任务澄清为 Ready 并填写 `availableAt`；Calendar 和 Plan → Today 的 Schedule 只写 `scheduledAt`；NOW 的 Later 只写 `snoozedUntil`。旧任务的 `startTime` 继续兼容读取：仅日期解释为 Available，带钟点解释为 Scheduled；上述默认流程不再写入它。高级编辑器和上游导入路径仍保留旧字段，等待后续兼容迁移。
 
 ### 4. 注意力层：现在看什么
 
 - **Today commitments**：今天主动承诺关注的少量任务；当前复用焦点星标。
-- **NOW**：根据正在发生的事件、已安排任务、Today commitments、Frame 和 Ready 任务，给出一个当前建议。
+- **NOW**：按“正在发生的事件 → 已安排任务 → 当前 Frame → Today commitments → Ready”给出一个当前建议。Frame 先于 Today，是为了让时间段规则真正能够生效。
 - **Frame**：某段时间适合哪类任务的后台选择规则，不是用户必须把任务放进去的容器。
 - Priority、energy、estimate、context、tag 是可选筛选信息，不进入默认工作流。
 
@@ -57,13 +59,13 @@ Area（长期领域）
 
 ### Inbox
 
-捕获面。想到事情先写下来，稍后再决定动作、状态、项目和时间。
+捕获面。想到事情先写下来。默认整理只要求四选一：Ready、Later、Someday、Trash；标题与说明可以顺手澄清。项目、领域、委派、Reference、两分钟规则、标签、情境、优先级、精力和时长只放在“更多”的高级整理流程中。
 
 ### Plan
 
 规划面。包含五个页签：
 
-- **Today**：选择今日承诺、查看已安排与 Ready 任务，并管理 Frame；
+- **Today**：只处理今日承诺、时间块与 Ready 任务，不承载筛选器、保存视图、Top 3、Pomodoro、Review 或 Frame 编辑器；
 - **Calendar**：查看外部事件和带时间的任务；
 - **Projects**：管理 Area—Project—Task 内容层；
 - **Later**：处理 Waiting 与 Someday；
@@ -87,9 +89,11 @@ Review、Contexts、Board、Reference 等上游能力保留在折叠的 **More**
 
 ## 兼容与迁移边界
 
-- 不修改任务、项目、同步或 Google Drive 文件格式，已有数据无需迁移。
+- Google Drive/JSON 与 SQLite 同步格式新增 `availableAt`、`scheduledAt`、`snoozedUntil` 三个可选字段；已有数据无需手工迁移，旧 `startTime` 由兼容读取规则解释。Apple CloudKit 生产 schema 本次不扩展，避免把未经 Dashboard 发布的字段伪装成已部署。
 - `agenda` 路由继续存在，但产品名称为 NOW；旧链接仍可打开。
 - `next` 状态继续存储，但面向用户显示 Ready。
+- `reference` 与 `archived` 继续作为兼容存储值存在，但不进入默认 Inbox 决策。
+- Frame 编辑移动到「Settings → GTD」，日常使用时只在 NOW 后台参与选择。
 - Board、Matrix、Contexts、Reference 等功能没有删除，只从默认导航降级。
 - Outlook/Google Drive 日历事件仍是只读时间约束；本次重构不改变同步协议。
 

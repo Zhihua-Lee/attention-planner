@@ -67,7 +67,7 @@ describe('NOW selection', () => {
     });
 
     it('chooses a currently scheduled task before focused and frame tasks', () => {
-        const scheduled = task('scheduled', { startTime: '2026-08-24T14:50:00.000Z', timeEstimate: '30min' });
+        const scheduled = task('scheduled', { scheduledAt: '2026-08-24T14:50:00.000Z', timeEstimate: '30min' });
         const focused = task('focused', { isFocusedToday: true });
         expect(selectNow({ now, tasks: [focused, scheduled] })).toMatchObject({
             kind: 'task',
@@ -76,7 +76,7 @@ describe('NOW selection', () => {
         });
     });
 
-    it('chooses focused work, then a matching frame task that fits the remaining window', () => {
+    it('lets the active frame choose before a Today commitment, then falls back to that commitment', () => {
         const focused = task('focused', { isFocusedToday: true });
         expect(selectNow({ now, tasks: [task('plain'), focused] })).toMatchObject({
             reason: 'focused',
@@ -86,10 +86,22 @@ describe('NOW selection', () => {
         const frameNow = new Date(2026, 7, 24, 11, 40);
         const tooLong = task('long', { contexts: ['@research'], timeEstimate: '1hr', priority: 'urgent' });
         const fits = task('fits', { contexts: ['@research'], timeEstimate: '15min' });
-        expect(selectNow({ frames: [frame()], now: frameNow, tasks: [tooLong, fits] })).toMatchObject({
+        expect(selectNow({ frames: [frame()], now: frameNow, tasks: [focused, tooLong, fits] })).toMatchObject({
             reason: 'frame',
             frame: { id: 'research' },
             task: { id: 'fits' },
+        });
+    });
+
+    it('ignores snoozed tasks without changing their schedule', () => {
+        const snoozed = task('snoozed', {
+            scheduledAt: '2026-08-24T14:50:00.000Z',
+            snoozedUntil: '2026-08-24T15:30:00.000Z',
+            timeEstimate: '30min',
+        });
+        expect(selectNow({ now, tasks: [snoozed, task('fallback')] })).toMatchObject({
+            reason: 'next-action',
+            task: { id: 'fallback' },
         });
     });
 

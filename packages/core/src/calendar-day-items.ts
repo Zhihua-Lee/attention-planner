@@ -6,6 +6,7 @@
 import { safeParseDate, safeParseDueDate } from './date';
 import type { ExternalCalendarEvent } from './ics';
 import type { Task } from './types';
+import { getTaskScheduledAt } from './task-time-semantics';
 
 export type CalendarDayItem =
     | { id: string; kind: 'scheduled'; start: Date | null; task: Task; title: string }
@@ -29,7 +30,7 @@ export function buildCalendarDayItems({ deadlines, events, scheduled }: Calendar
         ...scheduled.map((task): CalendarDayItem => ({
             id: `scheduled-${task.id}`,
             kind: 'scheduled',
-            start: task.startTime ? safeParseDate(task.startTime) : null,
+            start: safeParseDate(getTaskScheduledAt(task)),
             task,
             title: task.title,
         })),

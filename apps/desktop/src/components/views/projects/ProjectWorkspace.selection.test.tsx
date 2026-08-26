@@ -1,7 +1,7 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Project, Section, Task } from '@mindwtr/core';
+import type { Area, Project, Section, Task } from '@mindwtr/core';
 
 import { useUiStore } from '../../../store/ui-store';
 import { LanguageProvider } from '../../../contexts/language-context';
@@ -141,6 +141,15 @@ const projectSection: Section = {
     updatedAt: '2026-05-12T00:00:00.000Z',
 };
 
+const area: Area = {
+    id: 'area-1',
+    name: 'Research',
+    color: '#8b5cf6',
+    order: 0,
+    createdAt: '2026-05-12T00:00:00.000Z',
+    updatedAt: '2026-05-12T00:00:00.000Z',
+};
+
 const task = (id: string, title: string, overrides: Partial<Task> = {}): Task => ({
     id,
     title,
@@ -256,6 +265,26 @@ const renderWorkspaceWithKeybindings = (overrides: Record<string, unknown> = {})
         </LanguageProvider>
     );
 };
+
+describe('ProjectWorkspace area home', () => {
+    it('shows tasks that belong directly to the selected area', () => {
+        const directTask = task('task-area', 'Draft Figure 3', {
+            projectId: undefined,
+            areaId: area.id,
+        });
+        const view = renderWorkspace({
+            selectedProjectId: null,
+            selectedAreaId: area.id,
+            projects: [],
+            areas: [area],
+            areaById: new Map([[area.id, area]]),
+            allTasks: [directTask],
+        });
+
+        expect(view.getByText('Research')).toBeTruthy();
+        expect(view.getByText('Draft Figure 3')).toBeTruthy();
+    });
+});
 
 describe('ProjectWorkspace Select mode', () => {
     beforeEach(() => {

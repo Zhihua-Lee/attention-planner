@@ -107,10 +107,10 @@ describe('useCalendarSelectedDay', () => {
         });
 
         expect(result.current.selectedTaskRows.map((row) => row.id)).toEqual([
-            'scheduled-untimed',
             'scheduled-earlier',
             'scheduled-later',
             'deadline-due',
+            'scheduled-untimed',
         ]);
         // A task that is both scheduled and due that day appears once, as its
         // scheduled row.
@@ -190,7 +190,7 @@ describe('useCalendarSelectedDay', () => {
         await act(async () => { await result.current.commitEditScheduledTime(); });
 
         expect(updateTask).toHaveBeenCalledWith('task-timed', {
-            startTime: new Date(2026, 3, 4, 11, 30).toISOString(),
+            scheduledAt: new Date(2026, 3, 4, 11, 30).toISOString(),
         });
         expect(result.current.editingTimeTaskId).toBeNull();
         expect(result.current.editingTimeValue).toBe('');

@@ -446,6 +446,19 @@ export function ProjectsView() {
     });
 
     const getProjectColorForTask = (project: Project) => getProjectColor(project, areaById, DEFAULT_AREA_COLOR);
+    const selectedAreaWorkspaceId = selectedArea !== ALL_AREAS && selectedArea !== NO_AREA
+        ? selectedArea
+        : undefined;
+    const directAreaTaskCount = useMemo(() => selectedAreaWorkspaceId
+        ? allTasks.filter((task) => (
+            !task.deletedAt
+            && task.areaId === selectedAreaWorkspaceId
+            && !task.projectId
+            && task.status !== 'done'
+            && task.status !== 'archived'
+            && task.status !== 'reference'
+        )).length
+        : 0, [allTasks, selectedAreaWorkspaceId]);
 
     useEffect(() => {
         setNewProjectAreaId(selectedArea !== ALL_AREAS && selectedArea !== NO_AREA ? selectedArea : '');
@@ -781,6 +794,11 @@ export function ProjectsView() {
                                     showArchivedProjects={showArchivedProjects}
                                     onToggleArchivedProjects={() => setShowArchivedProjects((prev) => !prev)}
                                     selectedProjectId={selectedProjectId}
+                                    areaTaskCount={directAreaTaskCount}
+                                    onSelectAreaTasks={selectedAreaWorkspaceId ? () => {
+                                        setSelectedProjectId(null);
+                                        if (isCompactProjectsLayout) setCompactSidebarOpen(false);
+                                    } : undefined}
                                     onSelectProject={(projectId) => {
                                         setSelectedProjectId(projectId);
                                         if (isCompactProjectsLayout) setCompactSidebarOpen(false);
@@ -842,6 +860,7 @@ export function ProjectsView() {
                         }}
                         requestConfirmation={requestConfirmation}
                         selectedProjectId={selectedProjectId}
+                        selectedAreaId={selectedAreaWorkspaceId}
                         showCompletedTasks={showCompletedProjectTasks}
                         t={t}
                         projectsSidebarCollapsed={projectsSidebarEffectivelyCollapsed}
