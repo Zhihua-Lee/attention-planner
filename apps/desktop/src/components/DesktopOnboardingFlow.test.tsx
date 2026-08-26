@@ -18,7 +18,7 @@ describe('DesktopOnboardingFlow', () => {
         const props = baseProps();
         const { getByRole } = renderFlow(<DesktopOnboardingFlow {...props} />);
 
-        expect(getByRole('heading', { name: 'Welcome to Mindwtr' })).toBeInTheDocument();
+        expect(getByRole('heading', { name: 'Welcome to Attention Planner' })).toBeInTheDocument();
         expect(getByRole('button', { name: /set up sync/i })).toBeInTheDocument();
         expect(getByRole('button', { name: /import tasks/i })).toBeInTheDocument();
         expect(getByRole('button', { name: /start fresh/i })).toBeInTheDocument();

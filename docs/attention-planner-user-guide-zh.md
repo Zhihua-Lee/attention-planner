@@ -10,10 +10,10 @@ Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的
 
 1. [先记住这一条流程](#先记住这一条流程)
 2. [五分钟开始使用](#五分钟开始使用)
-3. [核心概念](#核心概念)
+3. [核心概念与三个入口](#核心概念与三个入口)
 4. [每天怎么用](#每天怎么用)
 5. [任务、项目、日期与周期](#任务项目日期与周期)
-6. [日程、NOW 与 Flexible Frames](#日程now-与-flexible-frames)
+6. [NOW、Plan 与 Flexible Frames](#nowplan-与-flexible-frames)
 7. [手机、电脑与 Google Drive 同步](#手机电脑与-google-drive-同步)
 8. [在 iPhone 上安装和启用通知](#在-iphone-上安装和启用通知)
 9. [Outlook 日历导入](#outlook-日历导入)
@@ -30,16 +30,16 @@ Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的
     ↓
 收集箱：先记下来，不要求当场整理
     ↓
-整理：决定下一步、项目、日期或等待对象
+Plan：决定 Ready、项目、日期或等待对象
     ↓
-日程：今天主要看 NOW 和少量焦点任务
+NOW：只看当前建议和少量今日承诺
     ↓
 回顾：每天清一次收集箱，每周检查整个系统
 ```
 
 一句话版本：**随时捕获，稍后整理；执行时只看现在，不反复浏览全部任务。**
 
-这个系统不是为了把每一分钟排满。固定会议和生活锚点进入日历，宽松时段用 Frame 表示“适合做哪类事”，具体任务只在真正需要时进入今日焦点或时间安排。
+这个系统不是为了把每一分钟排满。固定会议和生活锚点进入 Calendar，宽松时段用 Frame 表示“适合做哪类事”，具体任务只在真正需要时进入 Today commitments 或时间安排。
 
 ## 五分钟开始使用
 
@@ -81,11 +81,26 @@ Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的
 
 1. 打开「收集箱」，选择一条任务。
 2. 把模糊标题改成能直接开始的动作。
-3. 如果今天要做，给它加焦点星标；如果有真实期限，再设置截止日期。
-4. 打开「日程」，从 NOW 或今日焦点开始。
+3. 如果今天要做，在「Plan → Today」把它加入今日承诺；如果有真实期限，再设置截止日期。
+4. 打开「NOW」，从系统给出的一件事开始。
 5. 完成后勾选，不需要立刻重构整个系统。
 
-## 核心概念
+## 核心概念与三个入口
+
+Attention Planner 把信息分成四层：
+
+- **内容**：Area → Project → Task → Checklist，说明事情是什么；
+- **状态**：Inbox、Ready、Waiting、Someday、Done，说明现在能不能做；
+- **时间**：Event、Time Block、Due、Recurrence，说明什么时候发生；
+- **注意力**：Today commitments、NOW、Frame，说明此刻看什么。
+
+默认只保留三个一级入口：
+
+- **NOW**：执行当前一件事；
+- **Inbox**：快速捕获，稍后判断；
+- **Plan**：管理 Today、Calendar、Projects、Later 和 Recurring。
+
+Review、Contexts、Board、Reference 等保留在折叠的「More」中，需要时再用。完整的产品定义和兼容关系见 [产品模型](./product-model.md)。
 
 ### 收集箱
 
@@ -93,9 +108,9 @@ Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的
 
 适合放入：任务、想法、担忧、需要确认的事情。整理时再决定它是否可行动。
 
-### 下一步行动
+### Ready 任务
 
-下一步行动必须可以直接开始：
+Ready 表示任务现在可以直接行动；底层仍沿用兼容字段 `next`。Ready 任务的标题应能直接开始：
 
 - 模糊：`准备考试`
 - 可行动：`打开第三章并完成第 1 节习题`
@@ -117,16 +132,16 @@ Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的
 
 把这些内容移出可执行列表，可以避免 NOW 被不可行动事项污染。
 
-### 今日焦点
+### Today commitments（今日承诺）
 
-焦点星标表示“我今天承诺关注它”，不是永久优先级。建议每天 3–5 项，状态不好时甚至只保留 1 项。
+今日承诺复用焦点星标，表示“我今天承诺关注它”，不是永久优先级。建议每天 1–3 项，状态不好时只保留 1 项。
 
-### 日程与日历
+### NOW 与 Plan
 
-- **日程**：执行主页，组合 NOW、焦点任务和下一步行动。
-- **日历**：按日、周、月查看有日期的任务和外部事件。
+- **NOW**：执行主页，只显示一个当前建议和少量今日承诺。
+- **Plan**：规划主页；Today 处理今日任务，Calendar 查看时间，Projects 管理成果，Later 放置 Waiting/Someday，Recurring 检查周期。
 
-日历回答“什么时候发生”，日程回答“现在把注意力放在哪里”。
+Calendar 回答“什么时候发生”，NOW 回答“现在把注意力放在哪里”。
 
 ## 每天怎么用
 
@@ -145,11 +160,11 @@ Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的
 
 1. 查看 Outlook 会议和固定安排。
 2. 确认吃饭、睡眠、通勤等生活锚点不会被忽略。
-3. 从可执行任务中选择 1–3 项今日焦点。
+3. 在「Plan → Today」从 Ready 任务中选择 1–3 项今日承诺。
 4. 给真正有硬期限的任务设置截止日期。
-5. 打开「日程」，让 NOW 成为返回点。
+5. 打开「NOW」，让它成为执行时的返回点。
 
-建议使用宽松时间框架，而不是给所有任务安排精确时间。例如上午是 Research Frame，下午是 Admin Frame；在 Frame 内只选一个下一步行动。
+建议使用宽松时间框架，而不是给所有任务安排精确时间。例如上午是 Research Frame，下午是 Admin Frame；在 Frame 内只选一个 Ready 任务。
 
 ### 卡住或分心后：不要重新规划整天
 
@@ -217,7 +232,7 @@ Mindwtr 已提供周期任务。设置时要区分：
 
 项目保存结果，任务保存动作，日期保存时间约束；不要把三者都塞进任务标题。
 
-## 日程、NOW 与 Flexible Frames
+## NOW、Plan 与 Flexible Frames
 
 ### NOW 如何选择内容
 
@@ -226,8 +241,8 @@ Mindwtr 已提供周期任务。设置时要区分：
 1. 正在发生的日历事件；
 2. 当前已经安排的任务；
 3. 今天加了焦点星标的任务；
-4. 与当前 Flexible Frame 匹配、且适合剩余时间的下一步行动；
-5. 确定性的下一步行动兜底。
+4. 与当前 Flexible Frame 匹配、且适合剩余时间的 Ready 任务；
+5. 确定性的 Ready 任务兜底。
 
 全天日历事件不会占据 NOW。
 
@@ -249,7 +264,7 @@ Admin：周一至周五 14:00–15:30，匹配 #admin
 Personal：每天 18:00–21:30，匹配 @home
 ```
 
-在「日程」的 NOW 区域选择 **Manage flexible frames**，可以设置：
+在「Plan → Today」底部选择 **Manage flexible frames**，可以设置：
 
 - 名称；
 - 开始和结束时间；
@@ -525,7 +540,8 @@ Power Automate 更新的是 Drive 文件。iOS 不允许关闭的 PWA 每 30 分
 | 多设备同步，且不把活动仓库放 OneDrive | 任务通过 Google Drive `appDataFolder` 同步；源码以 GitHub 为版本真相 | **已解决** |
 | 不想支付 Morgen、Amplenote 等持续订阅 | Fork AGPL-3.0 的 Mindwtr，自有域名和 Cloudflare 免费额度部署 | **已解决个人使用路径**：仍需遵守开源许可证和第三方免费额度政策 |
 | 从零开发效率太低 | 复用 Mindwtr 的任务、项目、周期、日历、PWA 和同步框架 | **已解决工程底座问题** |
-| 脑中很多事项，但此刻不知道做什么 | 日程页增加 NOW，只给出一件当前事项 | **已实现 Alpha** |
+| 脑中很多事项，但此刻不知道做什么 | NOW 只给出一件当前事项和少量今日承诺 | **已实现 Alpha** |
+| Mindwtr 的 GTD、Agenda、Frame、Board 等概念并列，使用时需要反复猜系统 | 内容、状态、时间、注意力分层；一级入口收敛为 NOW、Inbox、Plan，其余能力降级到 More | **本次重构已实现**：底层字段和同步格式保持兼容 |
 | 希望有结构，但不想每分钟被安排 | Flexible Frames 只限定时间段适合的任务类别 | **已实现 Alpha** |
 | 会议、课程与任务出现在同一时间视图 | Outlook 导出事件进入现有日历，并参与 NOW | **已实现只读合并** |
 | Outlook 学校账号授权失败 | 保留 Graph 适配器代码，正式改用 Power Automate → 私人 Google Drive | **已解决读取**：学校策略仍决定 Graph 能否直连 |

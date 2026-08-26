@@ -5,9 +5,11 @@
 
 ## 中文使用手册
 
-首次使用和日常操作请阅读 **[Attention Planner 中文使用手册](./docs/attention-planner-user-guide-zh.md)**。手册统一说明收集箱、项目、周期任务、NOW、Flexible Frames、Google Drive 同步、iPhone 安装与通知、Outlook 私有导入、隐私边界，以及最初需求如何落实到当前方案。
+首次使用和日常操作请阅读 **[Attention Planner 中文使用手册](./docs/attention-planner-user-guide-zh.md)**；开发和设计以 **[Attention Planner 产品模型](./docs/product-model.md)** 为概念基线。当前一级导航只有 NOW、Inbox、Plan，原有 GTD 高级视图收进 More。
 
 ## Attention Planner 快速开始
+
+最短工作流：想到事情先放入 **Inbox**；在 **Plan** 中整理项目、时间和今日承诺；执行时回到 **NOW**，一次只看当前一件事。Ready、Waiting、Someday 是行动状态，Calendar Event 和 Due 是时间信息，两者不混用。
 
 ### 在线入口与数据同步
 

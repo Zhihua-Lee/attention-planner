@@ -10,6 +10,7 @@ const ReviewView = lazy(() => import('./components/views/ReviewView').then((m) =
 import { ArchiveView } from './components/views/ArchiveView';
 import { TrashView } from './components/views/TrashView';
 import { AgendaView } from './components/views/AgendaView';
+import { LaterView, PlanShell } from './components/views/PlanShell';
 import { SearchView } from './components/views/SearchView';
 import {
     ACTIVE_APP_ANNOUNCEMENT,
@@ -1183,25 +1184,53 @@ function App() {
             case 'inbox':
                 return <ListView title={t('list.inbox')} statusFilter="inbox" />;
             case 'agenda':
-                return <AgendaView />;
+                return <AgendaView mode="now" />;
             case 'next':
-                return <AgendaView />;
+                return <AgendaView mode="now" />;
+            case 'plan':
+                return (
+                    <PlanShell activeSection="today" onNavigate={handleViewChange}>
+                        <AgendaView mode="plan" embedded />
+                    </PlanShell>
+                );
             case 'someday':
-                return <ListView title={t('list.someday')} statusFilter="someday" />;
+                return (
+                    <PlanShell activeSection="later" onNavigate={handleViewChange}>
+                        <LaterView activeList="someday" onNavigate={handleViewChange} />
+                    </PlanShell>
+                );
             case 'reference':
                 return <ListView title={t('list.reference')} statusFilter="reference" />;
             case 'waiting':
-                return <ListView title={t('list.waiting')} statusFilter="waiting" />;
+                return (
+                    <PlanShell activeSection="later" onNavigate={handleViewChange}>
+                        <LaterView activeList="waiting" onNavigate={handleViewChange} />
+                    </PlanShell>
+                );
             case 'done':
                 return <ListView title={t('list.done')} statusFilter="done" />;
             case 'calendar':
-                return <CalendarView />;
+                return (
+                    <PlanShell activeSection="calendar" onNavigate={handleViewChange}>
+                        <CalendarView />
+                    </PlanShell>
+                );
             case 'board':
                 return <BoardView />;
             case 'obsidian':
                 return <ObsidianView />;
             case 'projects':
-                return <ProjectsView />;
+                return (
+                    <PlanShell activeSection="projects" onNavigate={handleViewChange}>
+                        <ProjectsView />
+                    </PlanShell>
+                );
+            case 'recurring':
+                return (
+                    <PlanShell activeSection="recurring" onNavigate={handleViewChange}>
+                        <ListView title={t('plan.recurring')} statusFilter="all" recurringOnly />
+                    </PlanShell>
+                );
             case 'contexts':
                 return <ContextsView />;
             case 'review':

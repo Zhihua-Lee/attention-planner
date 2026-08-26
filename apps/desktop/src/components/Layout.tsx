@@ -8,16 +8,14 @@ import {
     Tag,
     CheckCircle2,
     ChevronDown,
-    Folder,
     Settings,
     Target,
     Search,
     ChevronsLeft,
     ChevronsRight,
+    MoreHorizontal,
     Trash2,
-    PauseCircle,
     Book,
-    Clock3,
     BookOpen,
     AlertTriangle,
     Plus,
@@ -60,6 +58,7 @@ type NavSection = {
     key: string;
     label: string;
     items: NavItem[];
+    showHeader?: boolean;
 };
 
 // Safety net only: drop and dragend clear the highlight immediately in every
@@ -80,8 +79,9 @@ const NAV_DROP_STATUSES: Record<string, TaskStatus> = {
     done: 'done',
     archived: 'archived',
 };
-const SECTION_COLLAPSE_STORAGE_KEY = 'mindwtr:sidebar:collapsedSections';
-const DEFAULT_COLLAPSED_SECTION_KEYS: string[] = [];
+const SECTION_COLLAPSE_STORAGE_KEY = 'mindwtr:sidebar:collapsedSections:v2';
+const DEFAULT_COLLAPSED_SECTION_KEYS: string[] = ['more', 'saved', 'archive'];
+const PLAN_VIEW_IDS = new Set(['plan', 'calendar', 'projects', 'waiting', 'someday', 'recurring']);
 
 function createDefaultCollapsedSections(): Set<string> {
     return new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
@@ -269,6 +269,7 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
         [settings?.filters?.areaId, areas],
     );
     const sortedAreas = useMemo(() => [...areas].sort((a, b) => a.order - b.order), [areas]);
+    const savedSearches = useMemo(() => settings?.savedSearches ?? [], [settings?.savedSearches]);
     const inboxCount = useMemo(() => {
         let count = 0;
         for (const task of tasks) {
@@ -294,6 +295,8 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
         'contexts',
         'search',
         'agenda',
+        'plan',
+        'recurring',
         'obsidian',
     ]);
     const isWideView = wideViews.has(currentView);
@@ -308,36 +311,38 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
 
     const navSections = useMemo<NavSection[]>(() => ([
         {
-            key: 'focus',
-            label: t('nav.sectionFocus') || 'Focus',
+            key: 'primary',
+            label: t('nav.main') || 'Main',
+            showHeader: false,
             items: [
                 { id: 'agenda', labelKey: 'nav.agenda', icon: Target, tone: 'primary' },
                 { id: 'inbox', labelKey: 'nav.inbox', icon: Inbox, count: inboxCount, tone: 'primary' },
+                { id: 'plan', labelKey: 'nav.plan', fallbackLabel: 'Plan', icon: Calendar, tone: 'primary' },
             ],
         },
         {
-            key: 'lists',
-            label: t('nav.sectionLists') || 'Lists',
+            key: 'more',
+            label: tFallback(t, 'common.more', 'More'),
             items: [
-                { id: 'projects', labelKey: 'nav.projects', icon: Folder, tone: 'primary' },
-                { id: 'someday', labelKey: 'nav.someday', icon: Clock3 },
-                { id: 'waiting', labelKey: 'nav.waiting', icon: PauseCircle },
-                { id: 'reference', labelKey: 'nav.reference', icon: Book },
-            ],
-        },
-        {
-            key: 'organize',
-            label: t('nav.sectionOrganize') || 'Organize',
-            items: [
-                { id: 'calendar', labelKey: 'nav.calendar', icon: Calendar },
                 { id: 'review', labelKey: 'nav.review', icon: CheckCircle2 },
                 { id: 'contexts', labelKey: 'nav.contexts', icon: Tag },
                 ...(isObsidianEnabled
                     ? [{ id: 'obsidian', labelKey: 'nav.obsidian', fallbackLabel: 'Obsidian', icon: BookOpen }]
                     : []),
                 { id: 'board', labelKey: 'nav.board', icon: Kanban },
+                { id: 'reference', labelKey: 'nav.reference', icon: Book },
             ],
         },
+        ...(savedSearches.length > 0 ? [{
+            key: 'saved',
+            label: t('search.savedSearches'),
+            items: savedSearches.map((search) => ({
+                id: `savedSearch:${search.id}`,
+                fallbackLabel: search.name,
+                icon: Search,
+                tone: 'recessed' as const,
+            })),
+        }] : []),
         {
             key: 'archive',
             label: t('nav.sectionArchive') || 'Archive',
@@ -347,9 +352,15 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
                 { id: 'trash', labelKey: 'nav.trash', icon: Trash2, tone: 'recessed' },
             ],
         },
-    ]), [inboxCount, isObsidianEnabled, t]);
+    ]), [inboxCount, isObsidianEnabled, savedSearches, t]);
 
     const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => loadCollapsedSections());
+    const [compactExtrasOpen, setCompactExtrasOpen] = useState(false);
+
+    useEffect(() => {
+        const primaryView = currentView === 'agenda' || currentView === 'inbox' || PLAN_VIEW_IDS.has(currentView);
+        if (isCollapsed && !primaryView) setCompactExtrasOpen(true);
+    }, [currentView, isCollapsed]);
 
     useEffect(() => {
         saveCollapsedSections(collapsedSections);
@@ -448,7 +459,7 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
         // Spring-loading is calendar-only: dropping on a status list finishes the
         // job where you are, so yanking the view out from under the pointer would
         // just lose your place in the list you were working through.
-        if (navId !== 'calendar') return;
+        if (navId !== 'plan') return;
         if (currentView === 'calendar' || calendarDragNavTimeoutRef.current !== null) return;
         calendarDragNavTimeoutRef.current = window.setTimeout(() => {
             stageCalendarDropLanding();
@@ -473,7 +484,7 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
         setDragOverNavId(null);
         clearCalendarDragNavTimeout();
 
-        if (navId === 'calendar') {
+        if (navId === 'plan') {
             if (currentView !== 'calendar') {
                 stageCalendarDropLanding();
                 onViewChange('calendar');
@@ -524,8 +535,6 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
     const inboxCaptureLabel = `${addTaskLabel} (${inboxLabel})`;
     const searchTitleLabel = tFallback(t, 'search.title', 'Search');
     const searchScopeLabel = tFallback(t, 'search.scopeHint', 'Tasks, projects, people');
-
-    const savedSearches = settings?.savedSearches || [];
 
     const toggleSidebar = () => {
         updateSettings({ sidebarCollapsed: !userSidebarCollapsed }).catch((error) => reportError('Failed to update settings', error));
@@ -658,11 +667,11 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
                     {!isCollapsed && (
                         <img
                             src="/logo.png"
-                            alt="Mindwtr"
+                            alt="Attention Planner"
                             className="w-7 h-7 rounded-md"
                         />
                     )}
-                    {!isCollapsed && <h1 className="text-base font-semibold tracking-tight">{t('app.name')}</h1>}
+                    {!isCollapsed && <h1 className="text-base font-semibold tracking-tight">Attention Planner</h1>}
                     <button
                         onClick={toggleSidebar}
                         className={cn(
@@ -715,40 +724,14 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
                 </button>
 
                 <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                    {savedSearches.length > 0 && (
-                        <div className={cn("mb-2 space-y-1", isCollapsed && "mb-2")}>
-                            {!isCollapsed && (
-                                <div className="px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.16em]">
-                                    {t('search.savedSearches')}
-                                </div>
-                            )}
-                            {savedSearches.map((search) => (
-                                <button
-                                    key={search.id}
-                                    onClick={() => onViewChange(`savedSearch:${search.id}`)}
-                                    className={cn(
-                                        "w-full flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-inset",
-                                        currentView === `savedSearch:${search.id}`
-                                            ? "bg-primary/5 text-primary"
-                                            : "hover:bg-accent text-muted-foreground",
-                                        isCollapsed && "justify-center px-2"
-                                    )}
-                                    title={search.name}
-                                >
-                                    <Search className="w-4 h-4" />
-                                    {!isCollapsed && <span className="truncate">{search.name}</span>}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
                     <nav className="space-y-3.5 pb-2" data-sidebar-nav>
                         {navSections.map((section) => {
                             const isSectionCollapsed = !isCollapsed && collapsedSections.has(section.key);
+                            const isCompactSectionHidden = isCollapsed && section.key !== 'primary' && !compactExtrasOpen;
                             const sectionId = `sidebar-section-${section.key}`;
                             return (
                             <div key={section.key} className="space-y-1">
-                                {!isCollapsed && (
+                                {!isCollapsed && section.showHeader !== false && (
                                     <button
                                         type="button"
                                         onClick={() => toggleSection(section.key)}
@@ -765,11 +748,17 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
                                         <span>{section.label}</span>
                                     </button>
                                 )}
-                                <div id={sectionId} className={cn("space-y-1", isSectionCollapsed && "hidden")}>
+                                <div
+                                    id={sectionId}
+                                    hidden={isSectionCollapsed || isCompactSectionHidden}
+                                    className={cn("space-y-1", (isSectionCollapsed || isCompactSectionHidden) && "hidden")}
+                                >
                                 {section.items.map((item) => {
                                     const itemLabel = item.labelKey ? tFallback(t, item.labelKey, item.fallbackLabel ?? item.id) : (item.fallbackLabel ?? item.id);
-                                    const isActiveItem = currentView === item.id;
-                                    const isDropTarget = item.id === 'calendar' || NAV_DROP_STATUSES[item.id] !== undefined;
+                                    const isActiveItem = item.id === 'plan'
+                                        ? PLAN_VIEW_IDS.has(currentView)
+                                        : currentView === item.id;
+                                    const isDropTarget = item.id === 'plan' || NAV_DROP_STATUSES[item.id] !== undefined;
                                     const tone = item.tone ?? 'normal';
                                     const inactiveItemClass = tone === 'primary'
                                         ? 'text-foreground hover:bg-accent/80 hover:text-foreground'
@@ -834,6 +823,21 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
                                     );
                                 })}
                                 </div>
+                                {isCollapsed && section.key === 'primary' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCompactExtrasOpen((open) => !open)}
+                                        aria-expanded={compactExtrasOpen}
+                                        aria-label={tFallback(t, 'common.more', 'More')}
+                                        title={tFallback(t, 'common.more', 'More')}
+                                        className={cn(
+                                            "mt-2 flex h-10 w-full items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                                            compactExtrasOpen && "bg-muted/50 text-foreground",
+                                        )}
+                                    >
+                                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                                    </button>
+                                )}
                             </div>
                             );
                         })}

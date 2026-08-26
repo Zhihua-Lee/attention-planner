@@ -17,6 +17,7 @@ type AgendaHeaderProps = {
     showListDetails: boolean;
     t: (key: string) => string;
     top3Only: boolean;
+    hideTitle?: boolean;
 };
 
 export function AgendaHeader({
@@ -32,6 +33,7 @@ export function AgendaHeader({
     showListDetails,
     t,
     top3Only,
+    hideTitle = false,
 }: AgendaHeaderProps) {
     const filtersActive = filtersOpen || filterCount > 0;
     const filtersLabel = resolveText('filters.label', 'Filters');
@@ -41,14 +43,16 @@ export function AgendaHeader({
 
     return (
         <header className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">
-                    {t('agenda.title')}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    {nextActionsCount} {t('list.next') || t('agenda.nextActions')}
-                </p>
-            </div>
+            {!hideTitle && (
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">
+                        {t('agenda.title')}
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {nextActionsCount} {t('list.next') || t('agenda.nextActions')}
+                    </p>
+                </div>
+            )}
             <div className="flex flex-wrap items-center gap-2">
                 <ToolbarButton active={top3Only} onClick={onToggleTop3} aria-pressed={top3Only}>
                     {t('agenda.top3Only')}

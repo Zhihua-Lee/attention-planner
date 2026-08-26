@@ -452,7 +452,7 @@ export function BoardView() {
                 };
             case 'next':
                 return {
-                    title: t('list.next') || 'Next Actions',
+                    title: t('list.next') || 'Ready',
                     body: resolveText('list.noTasks', 'No next actions yet.'),
                     action: t('common.add') || 'Add',
                 };

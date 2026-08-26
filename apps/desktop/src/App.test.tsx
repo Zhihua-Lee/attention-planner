@@ -53,14 +53,14 @@ describe('App', () => {
         }));
     });
 
-    it('renders Focus by default', () => {
-        const { getByRole } = renderWithProviders(<App />);
-        expect(getByRole('heading', { name: 'Focus' })).toBeInTheDocument();
+    it('renders NOW by default', () => {
+        const { getByTestId } = renderWithProviders(<App />);
+        expect(getByTestId('now-card')).toBeInTheDocument();
     });
 
     it('renders Sidebar navigation', () => {
         const { getByRole } = renderWithProviders(<App />);
-        expect(getByRole('button', { name: 'Projects' })).toBeInTheDocument();
+        expect(getByRole('button', { name: 'Plan' })).toBeInTheDocument();
     });
 
     it('prefers the view in the URL over the restored last view (#931)', async () => {
@@ -89,9 +89,9 @@ describe('App', () => {
     it('falls back past an unknown URL view instead of rendering blank (#931)', () => {
         window.history.replaceState(null, '', '?view=not-a-real-view');
 
-        const { getByRole } = renderWithProviders(<App />);
+        const { getByTestId } = renderWithProviders(<App />);
 
-        expect(getByRole('heading', { name: 'Focus' })).toBeInTheDocument();
+        expect(getByTestId('now-card')).toBeInTheDocument();
     });
 
     it('writes the resolved initial view back into the URL on a fresh load with no ?view= param (#931 follow-up)', async () => {
@@ -114,7 +114,7 @@ describe('App', () => {
             dispatchDesktopOnboardingEvent();
         });
 
-        expect(getByRole('dialog', { name: /welcome to mindwtr/i })).toBeInTheDocument();
+        expect(getByRole('dialog', { name: /welcome to attention planner/i })).toBeInTheDocument();
         fireEvent.click(getByRole('button', { name: /start fresh/i }));
 
         await waitFor(() => {

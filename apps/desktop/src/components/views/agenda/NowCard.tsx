@@ -21,6 +21,7 @@ type NowCardProps = {
     onSnoozeTask: (taskId: string) => void;
     resolveText: ResolveText;
     selection: NowSelection | null;
+    showFrameEditor?: boolean;
 };
 
 type DayPreset = 'weekdays' | 'weekend' | 'everyday';
@@ -47,7 +48,7 @@ function selectionLabel(selection: NowSelection | null, resolveText: ResolveText
     }
 }
 
-function AttentionFrameEditor({
+export function AttentionFrameEditor({
     frames,
     onFramesChange,
     resolveText,
@@ -185,6 +186,7 @@ export function NowCard({
     onSnoozeTask,
     resolveText,
     selection,
+    showFrameEditor = true,
 }: NowCardProps) {
     const eventEnd = useMemo(() => {
         if (!selection || selection.kind !== 'event') return null;
@@ -193,16 +195,16 @@ export function NowCard({
     }, [selection]);
 
     return (
-        <section className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm" data-testid="now-card">
-            <div className="p-5 md:p-6">
+        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_18px_50px_-38px_hsl(var(--foreground))]" data-testid="now-card">
+            <div className="border-l-4 border-l-primary p-5 md:p-7">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
                             <Clock3 className="h-4 w-4" />
                             {resolveText('attention.now.title', 'NOW')}
-                            <span className="font-normal normal-case tracking-normal text-muted-foreground">{formatClock(now)}</span>
+                            <span className="font-medium normal-case tracking-normal text-muted-foreground">{formatClock(now)}</span>
                         </div>
-                        <p className="mt-2 text-sm text-muted-foreground">{selectionLabel(selection, resolveText)}</p>
+                        <p className="mt-2 text-sm font-medium text-muted-foreground">{selectionLabel(selection, resolveText)}</p>
                     </div>
                     {activeFrame && (
                         <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
@@ -212,24 +214,26 @@ export function NowCard({
                 </div>
 
                 {selection?.kind === 'event' ? (
-                    <div className="mt-4 flex items-start gap-3">
-                        <CalendarClock className="mt-1 h-5 w-5 shrink-0 text-primary" />
-                        <div>
-                            <h3 className="text-xl font-semibold text-foreground">{selection.event.title}</h3>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                    <div className="mt-6 flex items-start gap-3">
+                        <CalendarClock className="mt-1 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                        <div className="min-w-0">
+                            <h2 className="break-words text-2xl font-semibold leading-tight tracking-[-0.02em] text-foreground">{selection.event.title}</h2>
+                            <p className="mt-2 break-words text-sm leading-6 text-muted-foreground">
                                 {eventEnd ? `${resolveText('attention.now.until', 'Until')} ${formatClock(eventEnd)}` : resolveText('attention.now.inProgress', 'In progress')}
                                 {selection.event.location ? ` · ${selection.event.location}` : ''}
                             </p>
                         </div>
                     </div>
                 ) : selection?.kind === 'task' ? (
-                    <div className="mt-4">
-                        <h3 className="text-2xl font-semibold leading-tight text-foreground">→ {selection.task.title}</h3>
-                        <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-6">
+                        <h2 className="max-w-3xl break-words text-2xl font-semibold leading-tight tracking-[-0.025em] text-foreground md:text-3xl">
+                            {selection.task.title}
+                        </h2>
+                        <div className="mt-6 flex flex-wrap gap-2">
                             <button
                                 type="button"
                                 onClick={() => onCompleteTask(selection.task.id)}
-                                className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                                className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                             >
                                 <Check className="h-4 w-4" />
                                 {resolveText('common.done', 'Done')}
@@ -237,7 +241,7 @@ export function NowCard({
                             <button
                                 type="button"
                                 onClick={() => onSnoozeTask(selection.task.id)}
-                                className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background/70 px-3 text-sm font-medium hover:bg-muted"
+                                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                             >
                                 <Clock3 className="h-4 w-4" />
                                 {resolveText('attention.now.snooze', 'Later · 30 min')}
@@ -245,7 +249,7 @@ export function NowCard({
                             <button
                                 type="button"
                                 onClick={() => onSkipTask(selection.task.id)}
-                                className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background/70 px-3 text-sm font-medium hover:bg-muted"
+                                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                             >
                                 <RefreshCw className="h-4 w-4" />
                                 {resolveText('attention.now.another', 'Show another')}
@@ -253,7 +257,7 @@ export function NowCard({
                         </div>
                     </div>
                 ) : (
-                    <div className="mt-4 rounded-xl border border-dashed border-border bg-background/40 px-4 py-5">
+                    <div className="mt-6 border-l-2 border-border pl-4 py-1">
                         <p className="font-medium text-foreground">
                             {activeFrame
                                 ? resolveText('attention.now.noFrameTask', 'No executable task matches this frame yet.')
@@ -267,9 +271,11 @@ export function NowCard({
                     </div>
                 )}
             </div>
-            <div className="bg-background/35 px-5 pb-5 md:px-6 md:pb-6">
-                <AttentionFrameEditor frames={frames} onFramesChange={onFramesChange} resolveText={resolveText} />
-            </div>
+            {showFrameEditor && (
+                <div className="border-t border-border/60 bg-muted/20 px-5 pb-5 md:px-7 md:pb-6">
+                    <AttentionFrameEditor frames={frames} onFramesChange={onFramesChange} resolveText={resolveText} />
+                </div>
+            )}
         </section>
     );
 }

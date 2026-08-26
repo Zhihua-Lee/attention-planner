@@ -108,7 +108,7 @@ describe('ContextsView', () => {
 
         // Status names also appear as filter chips, so assert on the group
         // header shape (a span next to the count) via duplicate presence.
-        expect(getAllByText('Next').length).toBeGreaterThan(1);
+        expect(getAllByText('Ready').length).toBeGreaterThan(1);
         expect(getAllByText('Waiting').length).toBeGreaterThan(1);
         expect(getAllByText('Someday').length).toBeGreaterThan(1);
         expect(getByText('Next task')).toBeInTheDocument();
@@ -194,7 +194,7 @@ describe('ContextsView', () => {
         expect(getByText('Waiting office task')).toBeInTheDocument();
         expect(queryByText('Done office task')).not.toBeInTheDocument();
 
-        const nextButton = statusButton('Next');
+        const nextButton = statusButton('Ready');
         fireEvent.click(nextButton);
 
         expect(nextButton).toHaveAttribute('aria-pressed', 'true');
