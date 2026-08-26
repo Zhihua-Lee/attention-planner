@@ -148,12 +148,12 @@ afterEach(() => {
 });
 
 describe('Layout sidebar archive section', () => {
-    it('keeps archive visible by default on a fresh sidebar', () => {
-        const { container, getByRole } = renderLayout();
+    it('keeps history out of the primary navigation on a fresh sidebar', () => {
+        const { container, getByRole, queryByRole } = renderLayout();
 
-        expect(getByRole('button', { name: 'Archive' })).toHaveAttribute('aria-expanded', 'true');
-        expect(container.querySelector('#sidebar-section-archive')).not.toHaveClass('hidden');
-        expect(getByRole('button', { name: 'Done' })).toBeInTheDocument();
+        expect(getByRole('button', { name: 'Archive' })).toHaveAttribute('aria-expanded', 'false');
+        expect(container.querySelector('#sidebar-section-archive')).toHaveClass('hidden');
+        expect(queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
     });
 
     it('expands archive when the active view lives in archive', async () => {
@@ -167,7 +167,7 @@ describe('Layout sidebar archive section', () => {
     });
 
     it('respects a stored collapsed archive preference', () => {
-        window.localStorage.setItem('mindwtr:sidebar:collapsedSections', JSON.stringify(['archive']));
+        window.localStorage.setItem('mindwtr:sidebar:collapsedSections:v2', JSON.stringify(['archive']));
 
         const { container, getByRole } = renderLayout();
 
@@ -182,8 +182,43 @@ describe('Layout sidebar archive section', () => {
         expect(archiveHeader).toHaveAttribute('aria-controls', 'sidebar-section-archive');
         fireEvent.click(archiveHeader);
 
-        expect(archiveHeader).toHaveAttribute('aria-expanded', 'false');
-        expect(container.querySelector('#sidebar-section-archive')).toHaveClass('hidden');
+        expect(archiveHeader).toHaveAttribute('aria-expanded', 'true');
+        expect(container.querySelector('#sidebar-section-archive')).not.toHaveClass('hidden');
+    });
+});
+
+describe('Layout product navigation', () => {
+    it('uses the fork product name in the application shell', () => {
+        const { getByRole } = renderLayout();
+
+        expect(getByRole('heading', { name: 'Attention Planner' })).toBeInTheDocument();
+    });
+
+    it('shows NOW, Inbox, and Plan as the only always-visible destinations', () => {
+        const { container, getByRole, queryByRole } = renderLayout('agenda');
+
+        expect(getByRole('button', { name: 'NOW' })).toHaveAttribute('aria-current', 'page');
+        expect(getByRole('button', { name: 'Inbox' })).toBeInTheDocument();
+        expect(getByRole('button', { name: 'Plan' })).toBeInTheDocument();
+        expect(getByRole('button', { name: 'More' })).toHaveAttribute('aria-expanded', 'false');
+        expect(container.querySelector('#sidebar-section-more')).toHaveClass('hidden');
+        expect(queryByRole('button', { name: 'Board View' })).not.toBeInTheDocument();
+    });
+
+    it('keeps Plan selected across its calendar, project, and later sections', () => {
+        const { getByRole, rerender } = renderLayout('calendar');
+        expect(getByRole('button', { name: 'Plan' })).toHaveAttribute('aria-current', 'page');
+
+        rerender(
+            <LanguageProvider>
+                <KeybindingProvider currentView="waiting" onNavigate={onNavigate}>
+                    <Layout currentView="waiting" onViewChange={vi.fn()}>
+                        <div>Main content</div>
+                    </Layout>
+                </KeybindingProvider>
+            </LanguageProvider>
+        );
+        expect(getByRole('button', { name: 'Plan' })).toHaveAttribute('aria-current', 'page');
     });
 });
 
@@ -226,6 +261,8 @@ describe('Layout Obsidian nav visibility', () => {
         });
 
         const { getByRole } = renderLayout();
+
+        fireEvent.click(getByRole('button', { name: 'More' }));
 
         expect(getByRole('button', { name: 'Obsidian' })).toBeInTheDocument();
     });
@@ -443,7 +480,7 @@ describe('Layout collapsed sidebar area filter', () => {
         expect(getByRole('button', { name: 'Area filter: Work' })).toBeInTheDocument();
     });
 
-    it('uses distinct collapsed icons for board navigation and area filtering', () => {
+    it('keeps advanced destinations behind More in the collapsed sidebar', () => {
         act(() => {
             useTaskStore.setState((state) => ({
                 ...state,
@@ -454,7 +491,10 @@ describe('Layout collapsed sidebar area filter', () => {
             }));
         });
 
-        const { container, getByRole } = renderLayout();
+        const { container, getByRole, queryByRole } = renderLayout();
+        expect(queryByRole('button', { name: 'Board' })).not.toBeInTheDocument();
+
+        fireEvent.click(getByRole('button', { name: 'More' }));
         const boardIcon = container.querySelector('[data-view="board"] svg');
         const areaFilterIcon = getByRole('button', { name: 'Area filter: All areas' }).querySelector('svg');
 
@@ -545,30 +585,30 @@ describe('Layout sync security warning', () => {
     // undiscoverable (#867).
     it('lights up every drop target while a task drag is in flight', () => {
         const { container, getByRole } = renderLayout();
-        const calendarItem = getByRole('button', { name: 'Calendar' });
-        const somedayItem = container.querySelector('[data-view="someday"]')!;
-        const projectsItem = container.querySelector('[data-view="projects"]')!;
-        expect(calendarItem.className).not.toContain('outline-dashed');
+        const planItem = getByRole('button', { name: 'Plan' });
+        const inboxItem = container.querySelector('[data-view="inbox"]')!;
+        const boardItem = container.querySelector('[data-view="board"]')!;
+        expect(planItem.className).not.toContain('outline-dashed');
 
         dispatchDragStartFromRow(true);
 
         // Every destination, not just whichever one the pointer happens to be over.
-        expect(calendarItem.className).toContain('outline-dashed');
-        expect(somedayItem.className).toContain('outline-dashed');
-        // Projects is not a destination and must stay quiet.
-        expect(projectsItem.className).not.toContain('outline-dashed');
+        expect(planItem.className).toContain('outline-dashed');
+        expect(inboxItem.className).toContain('outline-dashed');
+        // Advanced views are not classification destinations and stay quiet.
+        expect(boardItem.className).not.toContain('outline-dashed');
 
         dispatchDrag('dragend', true);
-        expect(calendarItem.className).not.toContain('outline-dashed');
+        expect(planItem.className).not.toContain('outline-dashed');
 
         // An unrelated drag (text, a file) must not advertise anything.
         dispatchDragStartFromRow(false);
-        expect(calendarItem.className).not.toContain('outline-dashed');
+        expect(planItem.className).not.toContain('outline-dashed');
     });
 
     it('reclassifies a task dropped on a status list, with undo', async () => {
         const moveTask = vi.fn().mockResolvedValue({ success: true });
-        const task = { id: 'task-1', title: 'Buy milk', status: 'inbox' };
+        const task = { id: 'task-1', title: 'Buy milk', status: 'next' };
         useTaskStore.setState({
             tasks: [task],
             _allTasks: [task],
@@ -584,9 +624,9 @@ describe('Layout sync security warning', () => {
             dropEffect: 'none',
         };
 
-        fireEvent.drop(container.querySelector('[data-view="waiting"]')!, { dataTransfer });
+        fireEvent.drop(container.querySelector('[data-view="inbox"]')!, { dataTransfer });
 
-        await waitFor(() => expect(moveTask).toHaveBeenCalledWith('task-1', 'waiting'));
+        await waitFor(() => expect(moveTask).toHaveBeenCalledWith('task-1', 'inbox'));
         const latestToast = () => {
             const toasts = useUiStore.getState().toasts;
             return toasts[toasts.length - 1];
@@ -595,7 +635,7 @@ describe('Layout sync security warning', () => {
 
         // Undo puts it back where it came from.
         latestToast()!.action!.onClick();
-        expect(moveTask).toHaveBeenLastCalledWith('task-1', 'inbox');
+        expect(moveTask).toHaveBeenLastCalledWith('task-1', 'next');
     });
 
     // Trash is deliberately not a drop target: a stray drag must never be able to
@@ -627,17 +667,17 @@ describe('Layout sync security warning', () => {
     // lit for the rest of the session (#867).
     it('clears the calendar highlight when a drag ends with no drop or dragend', () => {
         const { getByRole } = renderLayout();
-        const calendarItem = getByRole('button', { name: 'Calendar' });
+        const planItem = getByRole('button', { name: 'Plan' });
 
         dispatchDragStartFromRow(true);
-        expect(calendarItem.className).toContain('outline-dashed');
+        expect(planItem.className).toContain('outline-dashed');
 
         vi.useFakeTimers();
         try {
             // Nothing else arrives — no drop, no dragend, no further dragover.
             dispatchDrag('dragover', true);
             act(() => { vi.advanceTimersByTime(5_000); });
-            expect(calendarItem.className).not.toContain('outline-dashed');
+            expect(planItem.className).not.toContain('outline-dashed');
         } finally {
             vi.useRealTimers();
         }

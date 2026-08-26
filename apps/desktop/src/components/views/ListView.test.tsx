@@ -41,11 +41,15 @@ const renderStaticListView = (statusFilter: 'inbox' | 'done', title: string) =>
     </LanguageProvider>
   );
 
-const renderListView = (statusFilter: 'inbox' | 'next' | 'waiting' | 'someday' | 'done' | 'archived' | 'reference' = 'next', title = 'Next') =>
+const renderListView = (
+  statusFilter: 'inbox' | 'next' | 'waiting' | 'someday' | 'done' | 'archived' | 'reference' | 'all' = 'next',
+  title = 'Next',
+  recurringOnly = false,
+) =>
   render(
     <LanguageProvider>
       <KeybindingProvider currentView={statusFilter} onNavigate={() => {}}>
-        <ListView title={title} statusFilter={statusFilter} />
+        <ListView title={title} statusFilter={statusFilter} recurringOnly={recurringOnly} />
       </KeybindingProvider>
     </LanguageProvider>
   );
@@ -88,6 +92,22 @@ describe('ListView', () => {
   it('renders the view title', () => {
     const html = renderStaticListView('inbox', 'Inbox');
     expect(html).toContain('Inbox');
+  });
+
+  it('shows only recurring tasks in the Plan recurring view', async () => {
+    useTaskStore.setState({
+      _allTasks: [
+        makeTask('repeat', { title: 'Weekly review', recurrence: { rule: 'weekly' } }),
+        makeTask('plain', { title: 'One-off task' }),
+      ],
+      lastDataChangeAt: 1,
+    });
+
+    const view = renderListView('all', 'Recurring', true);
+
+    await waitFor(() => expect(view.queryByText('Weekly review')).toBeInTheDocument());
+    expect(view.queryByText('One-off task')).not.toBeInTheDocument();
+    expect(view.queryByRole('button', { name: 'Filters' })).not.toBeInTheDocument();
   });
 
   it('does not render local search input in inbox view', () => {

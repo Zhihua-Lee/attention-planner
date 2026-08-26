@@ -27,7 +27,7 @@ import { usePersistedViewState } from '../../hooks/usePersistedViewState';
 import { PomodoroPanel } from './PomodoroPanel';
 import { AgendaFiltersPanel, type AgendaActiveFilterChip, type AgendaProjectFilterOption } from './agenda/AgendaFiltersPanel';
 import { AgendaHeader } from './agenda/AgendaHeader';
-import { NowCard } from './agenda/NowCard';
+import { AttentionFrameEditor, NowCard } from './agenda/NowCard';
 import { AgendaCollapsibleSection, AgendaProjectSection } from './agenda/AgendaSections';
 import { SortableFocusRow } from './agenda/SortableFocusRow';
 import { StoreTaskItem } from './list/StoreTaskItem';
@@ -236,7 +236,12 @@ function AgendaTaskList({
     );
 }
 
-export function AgendaView() {
+type AgendaViewProps = {
+    mode?: 'now' | 'plan';
+    embedded?: boolean;
+};
+
+export function AgendaView({ mode = 'plan', embedded = false }: AgendaViewProps = {}) {
     const perf = usePerformanceMonitor('AgendaView');
     const { projects, areas, moveTask, updateTask, updateSettings, reorderFocusedTasks, settings, error, highlightTaskId, setHighlightTask, taskChangeToken, hasAnyTasks } = useTaskStore(
         (state) => ({
@@ -1167,7 +1172,7 @@ export function AgendaView() {
     return (
         <ErrorBoundary>
             <div className="space-y-6 w-full">
-            <AgendaHeader
+            {mode === 'plan' && <AgendaHeader
                 filterCount={activeFilterCount}
                 filtersOpen={filtersOpen}
                 nextActionsCount={nextActionsCount}
@@ -1180,9 +1185,10 @@ export function AgendaView() {
                 showListDetails={showListDetails}
                 t={t}
                 top3Only={top3Only}
-            />
+                hideTitle={embedded}
+            />}
 
-            <NowCard
+            {mode === 'now' && <NowCard
                 activeFrame={activeAttentionFrame}
                 frames={attentionFrames}
                 inboxCount={inboxCount}
@@ -1193,9 +1199,10 @@ export function AgendaView() {
                 onSnoozeTask={handleSnoozeNowTask}
                 resolveText={resolveText}
                 selection={nowSelection}
-            />
+                showFrameEditor={false}
+            />}
 
-            {savedFocusFilters.length > 0 && (
+            {mode === 'plan' && savedFocusFilters.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
                     <button
                         type="button"
@@ -1246,9 +1253,9 @@ export function AgendaView() {
                 </div>
             )}
 
-            {pomodoroEnabled && <PomodoroPanel tasks={pomodoroTasks} />}
+            {mode === 'plan' && pomodoroEnabled && <PomodoroPanel tasks={pomodoroTasks} />}
 
-            {shouldRenderFiltersPanel && (
+            {mode === 'plan' && shouldRenderFiltersPanel && (
                 <AgendaFiltersPanel
                     allTokens={allTokens}
                     activeFilterChips={activeFilterChips}
@@ -1319,7 +1326,7 @@ export function AgendaView() {
                 </div>
             )}
 
-            {top3Only ? (
+            {mode === 'now' ? todaysFocusSection : top3Only ? (
                 <div className="space-y-4">
                     {todaysFocusSection}
                     <div className="space-y-2">
@@ -1493,7 +1500,7 @@ export function AgendaView() {
                 </>
             )}
 
-            {!top3Only && !hasAgendaContent && (
+            {mode === 'plan' && !top3Only && !hasAgendaContent && (
                 <div className="flex flex-col items-center gap-1 py-8 text-center text-muted-foreground">
                     <CheckCircle2 className="h-6 w-6 text-success/80" aria-hidden="true" strokeWidth={1.5} />
                     <p className="text-base font-medium text-foreground">{t('agenda.allClear')}</p>
@@ -1504,7 +1511,16 @@ export function AgendaView() {
                     </p>
                 </div>
             )}
-            <PromptModal
+            {mode === 'plan' && (
+                <div className="rounded-xl border border-border/70 bg-muted/15 px-4 pb-4">
+                    <AttentionFrameEditor
+                        frames={attentionFrames}
+                        onFramesChange={handleAttentionFramesChange}
+                        resolveText={resolveText}
+                    />
+                </div>
+            )}
+            {mode === 'plan' && <PromptModal
                 isOpen={saveFilterPromptOpen}
                 title={resolveText('savedFilters.saveTitle', 'Save filter')}
                 description={resolveText('savedFilters.saveDescription', 'Name this Focus filter.')}
@@ -1514,8 +1530,8 @@ export function AgendaView() {
                 cancelLabel={t('common.cancel')}
                 onConfirm={handleSaveFilterConfirm}
                 onCancel={() => setSaveFilterPromptOpen(false)}
-            />
-            <ConfirmModal
+            />}
+            {mode === 'plan' && <ConfirmModal
                 isOpen={Boolean(filterPendingDelete)}
                 title={resolveText('savedFilters.deleteTitle', 'Delete saved filter?')}
                 description={filterPendingDelete?.name}
@@ -1523,7 +1539,7 @@ export function AgendaView() {
                 cancelLabel={t('common.cancel')}
                 onConfirm={handleDeleteSavedFilterConfirm}
                 onCancel={() => setFilterPendingDelete(null)}
-            />
+            />}
             </div>
         </ErrorBoundary>
     );

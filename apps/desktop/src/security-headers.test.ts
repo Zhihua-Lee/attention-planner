@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const headers = readFileSync(join(process.cwd(), 'public/_headers'), 'utf8');
+const headers = readFileSync(join(process.cwd(), 'public/_headers'), 'utf8').replace(/\r\n/g, '\n');
 
 describe('desktop static security headers', () => {
   it('ships a CSP for hosted PWA builds without inline scripts or embeddable content', () => {
