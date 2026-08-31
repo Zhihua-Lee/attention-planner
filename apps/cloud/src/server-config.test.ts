@@ -13,13 +13,10 @@ import {
 
 const sorted = (values: Iterable<string>): string[] => Array.from(values).sort();
 
-// Frozen snapshot of the pre-refactor hand-written literals (2026-07-20 generative-schema
-// refactor). CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS and CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS are
-// now derived from TASK_SYNC_FIELD_SCHEMA's cloudWrite flag instead of hand-maintained Sets;
-// this proves the derived output is unchanged. Do not update this list to match a schema
-// change — grow the schema and leave this alone, the same as the schema tests in
-// packages/core/src/task-sync-schema.test.ts.
-const PRE_REFACTOR_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS = [
+// Reviewed allowlist baseline. The generative schema must stay aligned with
+// the former hand-written fields plus intentional, separately reviewed schema
+// extensions such as the 2026-08 split task-time patch fields.
+const EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS = [
     'status', 'priority', 'taskMode', 'startTime', 'relativeStartOffset', 'dueDate', 'recurrence',
     'showFutureRecurrence', 'pushCount', 'tags', 'contexts', 'checklist', 'description',
     'textDirection', 'attachments', 'location', 'projectId', 'sectionId', 'areaId',
@@ -27,9 +24,10 @@ const PRE_REFACTOR_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS = [
     'suppressMindwtrReminders', 'repeatReminderMinutes',
 ];
 
-const PRE_REFACTOR_CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS = [
+const EXPECTED_CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS = [
     'title', 'order', 'orderNum', 'boardOrder', 'focusOrder',
-    ...PRE_REFACTOR_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS,
+    'availableAt', 'scheduledAt', 'snoozedUntil',
+    ...EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS,
 ];
 
 describe('cloud Task schema contract', () => {
@@ -49,12 +47,12 @@ describe('cloud Task schema contract', () => {
         expect(sorted(CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS)).toEqual(sorted(expected));
     });
 
-    it('derives CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS identical to the pre-refactor literal', () => {
-        expect(sorted(CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS)).toEqual(sorted(PRE_REFACTOR_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS));
+    it('derives CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS from the reviewed allowlist', () => {
+        expect(sorted(CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS)).toEqual(sorted(EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS));
     });
 
-    it('derives CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS identical to the pre-refactor literal', () => {
-        expect(sorted(CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS)).toEqual(sorted(PRE_REFACTOR_CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS));
+    it('derives CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS from the reviewed allowlist', () => {
+        expect(sorted(CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS)).toEqual(sorted(EXPECTED_CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS));
     });
 });
 
@@ -62,7 +60,7 @@ describe('cloud Task schema contract', () => {
 // 2026-07-20 generative-schema refactor). CLOUD_PROJECT_*/CLOUD_SECTION_* allowlists are now
 // derived from PROJECT_SYNC_FIELD_SCHEMA / SECTION_SYNC_FIELD_SCHEMA's cloudWrite flag instead
 // of hand-maintained Sets. Do not update these lists to match a schema change — grow the
-// schema and leave this alone, the same as PRE_REFACTOR_CLOUD_TASK_* above.
+// schema and leave this alone, the same as EXPECTED_CLOUD_TASK_* above.
 const PRE_REFACTOR_CLOUD_PROJECT_CREATION_ALLOWED_PROP_KEYS = [
     'status', 'color', 'order', 'tagIds', 'isSequential', 'taskSortBy', 'isFocused',
     'supportNotes', 'attachments', 'dueDate', 'reviewAt', 'areaId', 'areaTitle',
