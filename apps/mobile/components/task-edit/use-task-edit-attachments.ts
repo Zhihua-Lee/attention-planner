@@ -6,6 +6,7 @@ import {
     buildTaskUpdatesFromSpeechResult,
     findSelectableProjectByTitleAndArea,
     generateUUID,
+    hasTimeComponent,
     normalizeLinkAttachmentInput,
     translateWithFallback,
     useTaskStore,
@@ -50,7 +51,10 @@ const applySpeechUpdatesToDraft = (updates: Partial<Task>, setDraftField: SetTas
     if ('title' in updates) setDraftField('title', updates.title ?? '', false);
     if ('description' in updates) setDraftField('description', updates.description ?? '', false);
     if ('dueDate' in updates) setDraftField('dueDate', toTaskDraftDateTimeLocalValue(updates.dueDate), false);
-    if ('startTime' in updates) setDraftField('startTime', toTaskDraftDateTimeLocalValue(updates.startTime), false);
+    if ('startTime' in updates) {
+        const field = hasTimeComponent(updates.startTime) ? 'scheduledAt' : 'availableAt';
+        setDraftField(field, toTaskDraftDateTimeLocalValue(updates.startTime), false);
+    }
     if ('tags' in updates) setDraftField('tags', (updates.tags ?? []).join(', '), false);
     if ('contexts' in updates) setDraftField('contexts', (updates.contexts ?? []).join(', '), false);
     if ('projectId' in updates) setDraftField('projectId', updates.projectId ?? '', false);

@@ -20,6 +20,9 @@ import {
   getCalendarPlanningCandidates,
   getCalendarMonthIndex,
   getShortWeekdayLabels,
+  getTaskSchedulePatch,
+  getTaskScheduledAt,
+  getTaskUnschedulePatch,
   normalizeDateFormatSetting,
   resolveCalendarSystemSetting,
   resolveDateLocaleTag,
@@ -852,6 +855,8 @@ export function useCalendarViewController() {
 
   const commitTaskDrag = (taskId: string, dayStartMs: number, startMinutes: number, durationMinutes: number) => {
     if (isProjectedRecurringTaskId(taskId)) return;
+    const task = visibleTasks.find((item) => item.id === taskId);
+    if (!task) return;
     const day = new Date(dayStartMs);
     const nextStart = new Date(dayStartMs + startMinutes * 60 * 1000);
     const ok = isSlotFreeForDay(day, nextStart, durationMinutes, taskId);
@@ -864,7 +869,7 @@ export function useCalendarViewController() {
       });
       return;
     }
-    updateTask(taskId, { startTime: nextStart.toISOString() }).catch(logCalendarError);
+    updateTask(taskId, getTaskSchedulePatch(task, nextStart.toISOString())).catch(logCalendarError);
   };
 
   const setTimelineScrollEnabled = (enabled: boolean) => {
@@ -897,10 +902,10 @@ export function useCalendarViewController() {
       },
     ] as Parameters<typeof Alert.alert>[2];
 
-    if (task.startTime) {
+    if (getTaskScheduledAt(task)) {
       buttons?.push({
         text: t('calendar.unschedule'),
-        onPress: () => updateTask(task.id, { startTime: undefined }).catch(logCalendarError),
+        onPress: () => updateTask(task.id, getTaskUnschedulePatch(task)).catch(logCalendarError),
       });
     }
     if (task.status !== 'done' && task.status !== 'archived') {
@@ -961,7 +966,7 @@ export function useCalendarViewController() {
         return;
       }
 
-      const nextDate = safeParseDate(initialProps.startTime ?? initialProps.dueDate ?? event.start);
+      const nextDate = safeParseDate(initialProps.scheduledAt ?? initialProps.dueDate ?? event.start);
       if (nextDate) {
         setSelectedDate(nextDate);
         setCurrentMonth(nextDate.getMonth());

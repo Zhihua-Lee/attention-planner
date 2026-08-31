@@ -13,6 +13,7 @@ import {
     type TaskEditDraft,
 } from './task-edit-draft-adapter';
 import { parseTokenList } from './task-edit-token-utils';
+import type { ShowDatePickerMode } from './TaskEditFieldRenderer.types';
 import {
     getActionFailureMessage,
     getUnknownErrorMessage,
@@ -101,7 +102,7 @@ export function useTaskEditState({
         });
     }, []);
 
-    const [showDatePicker, setShowDatePicker] = React.useState<'start' | 'start-time' | 'due' | 'due-time' | 'review' | 'recurrence-end' | null>(null);
+    const [showDatePicker, setShowDatePicker] = React.useState<ShowDatePickerMode>(null);
     const [pendingStartDate, setPendingStartDate] = React.useState<Date | null>(null);
     const [pendingDueDate, setPendingDueDate] = React.useState<Date | null>(null);
     const [editTab, setEditTab] = React.useState<TaskEditTab>(() => resolveInitialTaskEditTab(defaultTab, task));
@@ -242,6 +243,9 @@ export function useTaskEditState({
         const referenceUpdate: Partial<Task> = {
             status: 'reference',
             startTime: undefined,
+            availableAt: undefined,
+            scheduledAt: undefined,
+            snoozedUntil: undefined,
             dueDate: undefined,
             reviewAt: undefined,
             recurrence: undefined,
@@ -260,6 +264,9 @@ export function useTaskEditState({
                 let draft = current.draft;
                 draft = setTaskDraftField(draft, 'status', 'reference');
                 draft = setTaskDraftField(draft, 'startTime', '');
+                draft = setTaskDraftField(draft, 'availableAt', '');
+                draft = setTaskDraftField(draft, 'scheduledAt', '');
+                draft = setTaskDraftField(draft, 'snoozedUntil', '');
                 draft = setTaskDraftField(draft, 'dueDate', '');
                 draft = setTaskDraftField(draft, 'reviewAt', '');
                 draft = setTaskDraftField(draft, 'recurrence', '');

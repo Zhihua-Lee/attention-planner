@@ -5,6 +5,8 @@ import {
   formatRecurrenceLabel,
   getAttachmentDisplayTitle,
   getRecurringTaskPreviewDate,
+  getTaskAvailableAt,
+  getTaskScheduledAt,
   hasTimeComponent,
   tFallback,
 } from '@mindwtr/core';
@@ -173,7 +175,9 @@ function TaskEditViewTabComponent({
   const recurrencePreviewLabel = recurrenceLabel && projectedRecurrenceDateLabel
     ? `${recurrenceLabel} · ${tFallback(t, 'recurrence.nextCalendarPreview', 'Next calendar preview')}: ${projectedRecurrenceDateLabel}`
     : recurrenceLabel;
-  const hasReminderHandoffSchedule = hasTimeComponent(mergedTask.startTime) || hasTimeComponent(mergedTask.dueDate);
+  const availableAt = getTaskAvailableAt(mergedTask);
+  const scheduledAt = getTaskScheduledAt(mergedTask);
+  const hasReminderHandoffSchedule = hasTimeComponent(scheduledAt) || hasTimeComponent(mergedTask.dueDate);
 
   return (
     <ScrollView
@@ -215,7 +219,8 @@ function TaskEditViewTabComponent({
       )}
       {project?.id ? renderViewRow(t('taskEdit.sectionLabel'), section?.title) : null}
       {!project?.id ? renderViewRow(t('taskEdit.areaLabel'), area?.name) : null}
-      {!isReference ? renderViewRow(t('taskEdit.startDateLabel'), mergedTask.startTime ? formatDate(mergedTask.startTime) : undefined) : null}
+      {!isReference ? renderViewRow(tFallback(t, 'agenda.starting', 'Available'), availableAt ? formatDate(availableAt) : undefined) : null}
+      {!isReference ? renderViewRow(tFallback(t, 'todayPlan.timeBlocks', 'Time block'), scheduledAt ? formatDate(scheduledAt) : undefined) : null}
       {!isReference ? renderViewRow(t('taskEdit.dueDateLabel'), mergedTask.dueDate ? formatDueDate(mergedTask.dueDate) : undefined) : null}
       {!isReference && hasReminderHandoffSchedule && mergedTask.suppressMindwtrReminders === true
         ? renderViewRow(

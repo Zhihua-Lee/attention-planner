@@ -88,6 +88,21 @@ describe('mobile task edit draft', () => {
         });
     });
 
+    it('persists a mobile schedule edit through scheduledAt instead of the legacy field', () => {
+        const scheduledTask: Task = {
+            ...baseTask,
+            scheduledAt: '2026-07-14T13:00:00.000Z',
+        };
+        const state = createTaskEditDraft(scheduledTask);
+        const draft = setTaskDraftField(state.draft, 'scheduledAt', '2026-07-14T15:30');
+
+        expect(buildTaskEditUpdatePatch({ ...state, draft }, scheduledTask)).toMatchObject({
+            scheduledAt: '2026-07-14T15:30',
+            startTime: undefined,
+            relativeStartOffset: undefined,
+        });
+    });
+
     it('serializes recurrence and Container changes through the shared TaskDraft patch', () => {
         const recurringTask: Task = {
             ...baseTask,

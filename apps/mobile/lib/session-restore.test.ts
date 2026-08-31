@@ -27,6 +27,14 @@ describe('mobile session restore', () => {
         });
     });
 
+    it('restores the Attention Planner primary NOW and Plan routes', async () => {
+        await persistLastRoute('/now');
+        expect(await readRestorableRoute()).toEqual({ pathname: '/now' });
+
+        await persistLastRoute('/plan');
+        expect(await readRestorableRoute()).toEqual({ pathname: '/plan' });
+    });
+
     it('drops params outside the project context and off the projects screen', async () => {
         await persistLastRoute('/projects-screen', { projectId: 'project-1', openToken: 'x' } as never);
         expect(await readRestorableRoute()).toEqual({

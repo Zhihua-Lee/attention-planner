@@ -5,7 +5,7 @@ import { buildRRuleString, computeRelativeStartTime, hasTimeComponent, parseRRul
 import type { TaskDraft, TaskDraftSetter } from '@mindwtr/core/task-draft';
 
 
-type TaskEditDatePickerMode = 'start' | 'start-time' | 'due' | 'due-time' | 'review' | 'recurrence-end';
+type TaskEditDatePickerMode = 'start' | 'start-time' | 'schedule' | 'schedule-time' | 'due' | 'due-time' | 'review' | 'recurrence-end';
 
 type UseTaskEditDatesParams = {
     draft: TaskDraft | null;
@@ -14,8 +14,8 @@ type UseTaskEditDatesParams = {
     setDraftField: TaskDraftSetter;
     setPendingDueDate: React.Dispatch<React.SetStateAction<Date | null>>;
     setPendingStartDate: React.Dispatch<React.SetStateAction<Date | null>>;
-    setShowDatePicker: React.Dispatch<React.SetStateAction<'start' | 'start-time' | 'due' | 'due-time' | 'review' | 'recurrence-end' | null>>;
-    showDatePicker: 'start' | 'start-time' | 'due' | 'due-time' | 'review' | 'recurrence-end' | null;
+    setShowDatePicker: React.Dispatch<React.SetStateAction<TaskEditDatePickerMode | null>>;
+    showDatePicker: TaskEditDatePickerMode | null;
     defaultScheduleTime?: string;
     t: (key: string) => string;
 };
@@ -38,9 +38,13 @@ const applyClockTime = (date: Date, time: string): Date => {
 };
 
 
-const applyStartTimeUpdate = (setDraftField: TaskDraftSetter, startTime: string) => {
-    setDraftField('startTime', startTime);
+const applyAvailableAtUpdate = (setDraftField: TaskDraftSetter, availableAt: string) => {
+    setDraftField('availableAt', availableAt);
     setDraftField('relativeStartOffset', undefined);
+};
+
+const applyScheduledAtUpdate = (setDraftField: TaskDraftSetter, scheduledAt: string) => {
+    setDraftField('scheduledAt', scheduledAt);
 };
 
 const applyDueDateUpdate = (draft: TaskDraft | null, setDraftField: TaskDraftSetter, dueDate: string) => {
@@ -50,7 +54,7 @@ const applyDueDateUpdate = (draft: TaskDraft | null, setDraftField: TaskDraftSet
         return;
     }
     const computedStart = computeRelativeStartTime(dueDate, draft?.relativeStartOffset);
-    if (computedStart) setDraftField('startTime', computedStart);
+    if (computedStart) setDraftField('availableAt', computedStart);
 };
 
 export function useTaskEditDates({
@@ -83,31 +87,56 @@ export function useTaskEditDates({
     ) => {
         if (currentMode === 'start') {
             const dateOnly = safeFormatDate(selectedDate, 'yyyy-MM-dd');
-            const existing = draft?.startTime && hasTimeComponent(draft.startTime)
-                ? safeParseDate(draft.startTime)
+            const existing = draft?.availableAt && hasTimeComponent(draft.availableAt)
+                ? safeParseDate(draft.availableAt)
                 : null;
             if (existing) {
                 const combined = new Date(selectedDate);
                 combined.setHours(existing.getHours(), existing.getMinutes(), 0, 0);
                 setPendingStartDate(combined);
-                applyStartTimeUpdate(setDraftField, combined.toISOString());
-            } else if (defaultScheduleTime) {
-                const combined = applyClockTime(selectedDate, defaultScheduleTime);
-                setPendingStartDate(combined);
-                applyStartTimeUpdate(setDraftField, buildDateWithTimeValue(selectedDate, defaultScheduleTime));
+                applyAvailableAtUpdate(setDraftField, combined.toISOString());
             } else {
                 setPendingStartDate(new Date(selectedDate));
-                applyStartTimeUpdate(setDraftField, dateOnly);
+                applyAvailableAtUpdate(setDraftField, dateOnly);
             }
             if (closePicker) setShowDatePicker(null);
             return;
         }
 
         if (currentMode === 'start-time') {
-            const base = pendingStartDate ?? safeParseDate(draft?.startTime) ?? new Date();
+            const base = pendingStartDate ?? safeParseDate(draft?.availableAt) ?? new Date();
             const combined = new Date(base);
             combined.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
-            applyStartTimeUpdate(setDraftField, combined.toISOString());
+            applyAvailableAtUpdate(setDraftField, combined.toISOString());
+            setPendingStartDate(null);
+            if (closePicker) setShowDatePicker(null);
+            return;
+        }
+
+        if (currentMode === 'schedule') {
+            const existing = draft?.scheduledAt && hasTimeComponent(draft.scheduledAt)
+                ? safeParseDate(draft.scheduledAt)
+                : null;
+            if (existing) {
+                const combined = new Date(selectedDate);
+                combined.setHours(existing.getHours(), existing.getMinutes(), 0, 0);
+                setPendingStartDate(combined);
+                applyScheduledAtUpdate(setDraftField, combined.toISOString());
+            } else {
+                const time = defaultScheduleTime || '09:00';
+                const combined = applyClockTime(selectedDate, time);
+                setPendingStartDate(combined);
+                applyScheduledAtUpdate(setDraftField, buildDateWithTimeValue(selectedDate, time));
+            }
+            if (closePicker) setShowDatePicker(null);
+            return;
+        }
+
+        if (currentMode === 'schedule-time') {
+            const base = pendingStartDate ?? safeParseDate(draft?.scheduledAt) ?? new Date();
+            const combined = new Date(base);
+            combined.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+            applyScheduledAtUpdate(setDraftField, combined.toISOString());
             setPendingStartDate(null);
             if (closePicker) setShowDatePicker(null);
             return;
@@ -183,7 +212,7 @@ export function useTaskEditDates({
         if (!selectedDate) {
             if (mode === 'start') {
                 setPendingStartDate(null);
-                applyStartTimeUpdate(setDraftField, '');
+                applyAvailableAtUpdate(setDraftField, '');
             } else if (mode === 'due') {
                 setPendingDueDate(null);
                 applyDueDateUpdate(draft, setDraftField, '');
@@ -209,7 +238,7 @@ export function useTaskEditDates({
         if (!currentMode) return;
 
         if (event.type === 'dismissed') {
-            if (currentMode === 'start-time') setPendingStartDate(null);
+            if (currentMode === 'start-time' || currentMode === 'schedule-time') setPendingStartDate(null);
             if (currentMode === 'due-time') setPendingDueDate(null);
             setShowDatePicker(null);
             return;

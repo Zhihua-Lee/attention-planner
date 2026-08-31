@@ -1,7 +1,7 @@
 import { Link, Tabs, useRouter } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Search, Inbox, Calendar, Circle, ClipboardCheck, Folder, Menu, Mic, Plus, Target } from 'lucide-react-native';
+import { Search, Inbox, Calendar, Circle, ClipboardCheck, Folder, Menu, Mic, Plus, Target, ListChecks } from 'lucide-react-native';
 import { Animated, Dimensions, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,7 +22,6 @@ import { getDefaultTaskAreaMode, useTaskStore, type MobileQuickAccessView, type 
 import {
   coerceMobileQuickAccessView,
   MOBILE_QUICK_ACCESS_STACK_ROUTE,
-  MOBILE_QUICK_ACCESS_TAB_ROUTE,
 } from '@/lib/mobile-quick-access-view';
 import { COMPACT_NAV_TEXT_MAX_SCALE } from '@/constants/text-scale';
 
@@ -255,6 +254,7 @@ function MoreNavigationSheet({
     quickAccessView === view ? quickAccessItems.review : quickAccessItems[view]
   );
   const primaryItems: MoreDestination[] = [
+    { id: 'focus', label: t('nav.sectionFocus'), icon: 'circle', iconColor: iconColors.board, route: '/focus' },
     { id: 'waiting', label: t('nav.waiting'), icon: 'pause.circle.fill', iconColor: iconColors.waiting, route: '/waiting' },
     { id: 'board', label: t('nav.board'), icon: 'square.grid.2x2.fill', iconColor: iconColors.board, route: '/board' },
     moreQuickAccessItem('projects'),
@@ -383,7 +383,6 @@ function NativeTabBar({
   audioCaptureAccessibilityLabel,
   menuSyncIndicatorColor,
   moreSheetVisible,
-  quickAccessTabRoute,
 }: BottomTabBarProps & {
   iconTint: string;
   inactiveTint: string;
@@ -404,10 +403,9 @@ function NativeTabBar({
   audioCaptureAccessibilityLabel: string;
   menuSyncIndicatorColor?: string;
   moreSheetVisible: boolean;
-  quickAccessTabRoute: string;
 }) {
   const longPressRef = useRef(false);
-  const visibleTabNames = new Set(['inbox', 'focus', 'capture', quickAccessTabRoute, 'menu']);
+  const visibleTabNames = new Set(['now', 'inbox', 'capture', 'plan', 'menu']);
   const visibleRoutes = state.routes.filter((route) => visibleTabNames.has(route.name));
 
   return (
@@ -643,7 +641,6 @@ export default function TabLayout() {
   const defaultCapture = settings.gtd?.defaultCaptureMethod ?? 'text';
   const defaultAutoRecord = defaultCapture === 'audio';
   const quickAccessView = coerceMobileQuickAccessView(settings.appearance?.mobileQuickAccessView);
-  const quickAccessTabRoute = MOBILE_QUICK_ACCESS_TAB_ROUTE[quickAccessView];
   const { syncBadgeAccessibilityLabel, syncBadgeColor } = useMobileSyncBadge();
 
   return (
@@ -672,7 +669,6 @@ export default function TabLayout() {
             audioCaptureAccessibilityLabel={t('quickAdd.audioCaptureLabel')}
             menuSyncIndicatorColor={syncBadgeColor}
             moreSheetVisible={moreSheetVisible}
-            quickAccessTabRoute={quickAccessTabRoute}
           />
         )}
         screenOptions={({ route }) => ({
@@ -744,10 +740,17 @@ export default function TabLayout() {
       <Tabs.Screen
         name={MOBILE_HOME_TAB_ROUTE}
         options={{
-          title: t('tab.next'),
+          title: t('nav.agenda'),
           tabBarIcon: ({ color, focused }) => (
             <Target size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="focus"
+        options={{
+          title: t('nav.sectionFocus'),
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -801,10 +804,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="plan"
+        options={{
+          title: t('nav.plan'),
+          tabBarIcon: ({ color, focused }) => (
+            <ListChecks size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="projects"
         options={{
           title: t('projects.title'),
-          href: quickAccessView === 'projects' ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Folder size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -814,7 +826,7 @@ export default function TabLayout() {
         name="calendar-tab"
         options={{
           title: t('nav.calendar'),
-          href: quickAccessView === 'calendar' ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Calendar size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -824,7 +836,7 @@ export default function TabLayout() {
         name="contexts-tab"
         options={{
           title: t('nav.contexts'),
-          href: quickAccessView === 'contexts' ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <Circle size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),
@@ -834,7 +846,7 @@ export default function TabLayout() {
         name="review-tab"
         options={{
           title: t('tab.review'),
-          href: quickAccessView === 'review' ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => (
             <ClipboardCheck size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
           ),

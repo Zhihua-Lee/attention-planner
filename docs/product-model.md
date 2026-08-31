@@ -53,7 +53,7 @@ Area（长期领域）
 - **Frame**：某段时间适合哪类任务的后台选择规则，不是用户必须把任务放进去的容器。
 - Priority、energy、estimate、context、tag 是可选筛选信息，不进入默认工作流。
 
-Today commitments、Today 的时间块、Today 的 Ready 列表和 NOW 使用同一条基础资格：任务必须处于 Ready（`next`），并且已经到达 Available 时间。Waiting、Someday 和 Inbox 即使残留旧星标也不会混入；任务一旦离开 Ready，写入链路会自动取消 Today commitment。Snoozed 只暂时压制 NOW，不会让任务从当天规划中消失。
+Today commitments、Today 的时间块、Today 的 Ready 列表和 NOW 使用同一条基础资格：任务必须处于 Ready（`next`），并且已经到达 Available 时间。Waiting、Someday 和 Inbox 即使残留旧星标也不会混入；任务一旦离开 Ready，写入链路会自动取消 Today commitment。Snoozed 只暂时压制 NOW，不会让任务从当天规划中消失；带有未来 `scheduledAt` 的任务在钟点到达前也不会从 Frame、今日承诺或普通 Ready 回退中抢跑。
 
 ## 三个一级入口
 
@@ -77,6 +77,8 @@ Today commitments、Today 的时间块、Today 的 Ready 列表和 NOW 使用同
 
 Review、Contexts、Board、Reference 等上游能力保留在折叠的 **More** 中，作为高级工具，而不是一级心智入口。
 
+桌面/PWA 与原生手机端遵守同一入口结构。手机底栏显示 NOW、Inbox、居中的 Capture 动作、Plan 和 More；旧 Focus 驾驶舱仍可从 More 打开，用于兼容筛选、Review 与 Pomodoro，但不再是冷启动主页或默认 Today。
+
 ## 日常最短路径
 
 ```text
@@ -93,7 +95,7 @@ Review、Contexts、Board、Reference 等上游能力保留在折叠的 **More**
 
 ## 兼容与迁移边界
 
-- Google Drive/JSON 与 SQLite 同步格式新增 `availableAt`、`scheduledAt`、`snoozedUntil` 三个可选字段；已有数据无需手工迁移，旧 `startTime` 由兼容读取规则解释。Apple CloudKit 生产 schema 本次不扩展，避免把未经 Dashboard 发布的字段伪装成已部署。
+- Google Drive/JSON 与 SQLite 同步格式新增 `availableAt`、`scheduledAt`、`snoozedUntil` 三个可选字段；已有数据无需手工迁移，旧 `startTime` 由兼容读取规则解释。共享 TaskTime 适配层负责语义读取、写入和取消安排，TaskDraft 与手机 Calendar 不再各自解释旧字段。Apple CloudKit 生产 schema 本次不扩展，避免把未经 Dashboard 发布的字段伪装成已部署。
 - `agenda` 路由继续存在，但产品名称为 NOW；旧链接仍可打开。
 - `next` 状态继续存储，但面向用户显示 Ready。
 - `reference` 与 `archived` 继续作为兼容存储值存在，但不进入默认 Inbox 决策。

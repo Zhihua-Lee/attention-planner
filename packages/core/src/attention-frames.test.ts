@@ -105,6 +105,18 @@ describe('NOW selection', () => {
         });
     });
 
+    it('does not let a future time block enter ordinary NOW fallbacks early', () => {
+        const future = task('future', {
+            scheduledAt: '2026-08-24T16:00:00.000Z',
+            isFocusedToday: true,
+            priority: 'urgent',
+        });
+        expect(selectNow({ now, tasks: [future, task('available')] })).toMatchObject({
+            reason: 'next-action',
+            task: { id: 'available' },
+        });
+    });
+
     it('honors exclusions and falls back deterministically', () => {
         const first = task('first', { priority: 'urgent' });
         const second = task('second', { priority: 'low' });

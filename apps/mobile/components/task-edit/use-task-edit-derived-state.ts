@@ -104,8 +104,8 @@ export function useTaskEditDerivedState({
         return parsed.interval && parsed.interval > 0 ? parsed.interval : 1;
     }, [recurrenceRRuleValue, recurrenceRuleValue]);
     const monthlyAnchorSource = draft
-        ? draft.dueDate || draft.startTime
-        : task?.dueDate || task?.startTime;
+        ? draft.dueDate || draft.scheduledAt || draft.availableAt || draft.startTime
+        : task?.dueDate || task?.scheduledAt || task?.availableAt || task?.startTime;
     const monthlyAnchorDate = useMemo(
         () => safeParseDate(monthlyAnchorSource) ?? new Date(),
         [monthlyAnchorSource]
@@ -223,7 +223,9 @@ export function useTaskEditDerivedState({
             case 'recurrence':
                 return Boolean(draft ? draft.recurrence : task?.recurrence);
             case 'startTime':
-                return Boolean(draft ? draft.startTime : task?.startTime);
+                return Boolean(draft
+                    ? (draft.availableAt || draft.scheduledAt || draft.startTime)
+                    : (task?.availableAt || task?.scheduledAt || task?.startTime));
             case 'dueDate':
                 return Boolean(draft ? draft.dueDate : task?.dueDate);
             case 'reviewAt':
@@ -246,6 +248,7 @@ export function useTaskEditDerivedState({
         prioritiesEnabled,
         tagInputDraft,
         task?.assignedTo,
+        task?.availableAt,
         task?.checklist,
         task?.dueDate,
         task?.energyLevel,
@@ -253,6 +256,7 @@ export function useTaskEditDerivedState({
         task?.priority,
         task?.recurrence,
         task?.reviewAt,
+        task?.scheduledAt,
         task?.startTime,
         task?.timeEstimate,
         timeEstimatesEnabled,

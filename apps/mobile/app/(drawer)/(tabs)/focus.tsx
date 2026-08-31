@@ -46,6 +46,7 @@ import {
   useTaskStore,
   getAdvancedReviewDate,
   isTaskInActiveProject,
+  isTaskScheduledInFuture,
   isDueForReview,
   safeFormatDate,
   safeParseDate,
@@ -286,6 +287,7 @@ export default function FocusScreen() {
     const now = new Date();
     return baseActiveTasks.filter((task) => (
       shouldShowTaskForStart(task, { now })
+      && !isTaskScheduledInFuture(task, now)
     ));
   }, [baseActiveTasks, localDayKey]);
   const tokenOptions = useMemo(() => getFocusTokenOptions(activeTasks), [activeTasks]);

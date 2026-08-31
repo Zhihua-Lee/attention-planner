@@ -99,7 +99,16 @@ export function TaskEditScheduleField({
             : 'never';
     const recurrenceDefaultEndDate = parsedRecurrenceRRule.until
         || safeFormatDate(
-            safeParseDate(draft.dueDate || draft.startTime || task?.dueDate || task?.startTime) ?? new Date(),
+            safeParseDate(
+                draft.dueDate
+                || draft.scheduledAt
+                || draft.availableAt
+                || draft.startTime
+                || task?.dueDate
+                || task?.scheduledAt
+                || task?.availableAt
+                || task?.startTime
+            ) ?? new Date(),
             'yyyy-MM-dd'
         );
     const buildEditedRecurrence = (
@@ -160,8 +169,10 @@ export function TaskEditScheduleField({
         setShowDatePicker(mode);
     };
     const getDatePickerValue = (mode: NonNullable<ShowDatePickerMode>) => {
-        if (mode === 'start') return getSafePickerDateValue(draft.startTime);
-        if (mode === 'start-time') return pendingStartDate ?? getSafePickerDateValue(draft.startTime);
+        if (mode === 'start') return getSafePickerDateValue(draft.availableAt);
+        if (mode === 'start-time') return pendingStartDate ?? getSafePickerDateValue(draft.availableAt);
+        if (mode === 'schedule') return getSafePickerDateValue(draft.scheduledAt);
+        if (mode === 'schedule-time') return pendingStartDate ?? getSafePickerDateValue(draft.scheduledAt);
         if (mode === 'review') return getSafePickerDateValue(draft.reviewAt);
         if (mode === 'recurrence-end') {
             return getSafePickerDateValue(parsedRecurrenceRRule.until || recurrenceDefaultEndDate);
@@ -170,7 +181,7 @@ export function TaskEditScheduleField({
         return getSafePickerDateValue(draft.dueDate);
     };
     const getDatePickerMode = (mode: NonNullable<ShowDatePickerMode>) =>
-        mode === 'start-time' || mode === 'due-time' ? 'time' : 'date';
+        mode === 'start-time' || mode === 'schedule-time' || mode === 'due-time' ? 'time' : 'date';
     const renderInlineIOSDatePicker = (targetModes: NonNullable<ShowDatePickerMode>[]) => {
         if (Platform.OS !== 'ios' || !showDatePicker || !targetModes.includes(showDatePicker)) {
             return null;
@@ -222,7 +233,7 @@ export function TaskEditScheduleField({
     };
     const dateOnlyLabel = t('taskEdit.dateOnly');
     const dateIssueLabel = getTaskDateCoherenceIssues({
-        startTime: draft.startTime,
+        startTime: draft.availableAt,
         dueDate: draft.dueDate,
     }).some((issue) => issue.code === 'start_after_due')
         ? tFallback(t, 'task.dateIssue.startAfterDue', 'Starts after due date')
@@ -253,6 +264,9 @@ export function TaskEditScheduleField({
             createdAt: task?.createdAt ?? nowIso,
             updatedAt: task?.updatedAt ?? nowIso,
             startTime: draft.startTime || undefined,
+            availableAt: draft.availableAt || undefined,
+            scheduledAt: draft.scheduledAt || undefined,
+            snoozedUntil: draft.snoozedUntil || undefined,
             dueDate: draft.dueDate || undefined,
             reviewAt: draft.reviewAt || undefined,
             recurrence,
@@ -263,7 +277,7 @@ export function TaskEditScheduleField({
     const projectedRecurrenceDateHint = projectedRecurrenceDateLabel
         ? `${tFallback(t, 'recurrence.nextCalendarPreview', 'Next calendar preview')}: ${projectedRecurrenceDateLabel}.`
         : '';
-    const hasReminderHandoffSchedule = hasTimeComponent(draft.startTime) || hasTimeComponent(draft.dueDate);
+    const hasReminderHandoffSchedule = hasTimeComponent(draft.scheduledAt) || hasTimeComponent(draft.dueDate);
     const renderReminderHandoffControl = () => {
         if (fieldId !== 'dueDate' || !hasReminderHandoffSchedule) return null;
         const enabled = draft.suppressMindwtrReminders === true;
@@ -363,7 +377,7 @@ export function TaskEditScheduleField({
             return;
         }
         setDraftField('relativeStartOffset', offset);
-        setDraftField('startTime', computedStart);
+        setDraftField('availableAt', computedStart);
     };
 
     const updateDueDate = (dueDate: string | undefined) => {
@@ -373,7 +387,7 @@ export function TaskEditScheduleField({
             return;
         }
         const computedStart = computeRelativeStartTime(dueDate, draft.relativeStartOffset);
-        if (computedStart) setDraftField('startTime', computedStart);
+        if (computedStart) setDraftField('availableAt', computedStart);
         if (draft.relativeStartOffset && !computedStart) setDraftField('relativeStartOffset', undefined);
     };
 
@@ -713,21 +727,26 @@ export function TaskEditScheduleField({
                 </View>
             );
         case 'startTime': {
-            const parsed = draft.startTime ? safeParseDate(draft.startTime) : null;
-            const hasTime = hasTimeComponent(draft.startTime);
+            const parsed = draft.availableAt ? safeParseDate(draft.availableAt) : null;
+            const hasTime = hasTimeComponent(draft.availableAt);
             const timeOnly = hasTime && parsed ? safeFormatDate(parsed, 'HH:mm') : '';
+            const scheduled = draft.scheduledAt ? safeParseDate(draft.scheduledAt) : null;
+            const scheduledHasTime = hasTimeComponent(draft.scheduledAt);
+            const scheduledTimeOnly = scheduledHasTime && scheduled ? safeFormatDate(scheduled, 'HH:mm') : '';
             return (
                 <View style={styles.formGroup}>
-                    <Text style={[styles.label, { color: tc.secondaryText }]}>{t('taskEdit.startDateLabel')}</Text>
+                    <Text style={[styles.label, { color: tc.secondaryText }]}>
+                        {t('agenda.starting')}
+                    </Text>
                     <View>
                         <View style={styles.dateRow}>
                             <TouchableOpacity
                                 style={[styles.dateBtn, styles.flex1, { backgroundColor: tc.inputBg, borderColor: tc.border }]}
                                 onPress={() => openDatePicker('start')}
                             >
-                                <Text style={{ color: tc.text }}>{formatStartDateTime(draft.startTime)}</Text>
+                                <Text style={{ color: tc.text }}>{formatStartDateTime(draft.availableAt)}</Text>
                             </TouchableOpacity>
-                            {!!draft.startTime && (
+                            {!!draft.availableAt && (
                                 <TouchableOpacity
                                     style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
                                     onPress={() => openDatePicker('start-time')}
@@ -737,22 +756,22 @@ export function TaskEditScheduleField({
                                     </Text>
                                 </TouchableOpacity>
                             )}
-                            {!!draft.startTime && hasTime && (
+                            {!!draft.availableAt && hasTime && (
                                 <TouchableOpacity
                                     style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
                                     onPress={() => {
-                                        setDraftField('startTime', clearTimePart(draft.startTime));
+                                        setDraftField('availableAt', clearTimePart(draft.availableAt));
                                         setDraftField('relativeStartOffset', undefined);
                                     }}
                                 >
                                     <Text style={[styles.clearDateText, { color: tc.secondaryText }]}>{dateOnlyLabel}</Text>
                                 </TouchableOpacity>
                             )}
-                            {!!draft.startTime && (
+                            {!!draft.availableAt && (
                                 <TouchableOpacity
                                     style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
                                     onPress={() => {
-                                        setDraftField('startTime', '');
+                                        setDraftField('availableAt', '');
                                         setDraftField('relativeStartOffset', undefined);
                                     }}
                                 >
@@ -840,7 +859,36 @@ export function TaskEditScheduleField({
                                 </View>
                             );
                         })()}
-                        {renderInlineIOSDatePicker(['start', 'start-time'])}
+                        <Text style={[styles.label, { color: tc.secondaryText, marginTop: 14 }]}>
+                            {t('todayPlan.timeBlocks')}
+                        </Text>
+                        <View style={styles.dateRow}>
+                            <TouchableOpacity
+                                style={[styles.dateBtn, styles.flex1, { backgroundColor: tc.inputBg, borderColor: tc.border }]}
+                                onPress={() => openDatePicker('schedule')}
+                            >
+                                <Text style={{ color: tc.text }}>{formatStartDateTime(draft.scheduledAt)}</Text>
+                            </TouchableOpacity>
+                            {!!draft.scheduledAt && (
+                                <TouchableOpacity
+                                    style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
+                                    onPress={() => openDatePicker('schedule-time')}
+                                >
+                                    <Text style={[styles.clearDateText, { color: tc.secondaryText }]}>
+                                        {scheduledHasTime && scheduledTimeOnly ? scheduledTimeOnly : (t('calendar.changeTime') || 'Add time')}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                            {!!draft.scheduledAt && (
+                                <TouchableOpacity
+                                    style={[styles.clearDateBtn, { borderColor: tc.border, backgroundColor: tc.filterBg }]}
+                                    onPress={() => setDraftField('scheduledAt', '')}
+                                >
+                                    <Text style={[styles.clearDateText, { color: tc.secondaryText }]}>{t('common.clear')}</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        {renderInlineIOSDatePicker(['start', 'start-time', 'schedule', 'schedule-time'])}
                     </View>
                 </View>
             );

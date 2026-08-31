@@ -299,7 +299,7 @@ function TaskEditFormTabComponent({
         return fieldIds.filter((fieldId) => {
             switch (fieldId) {
                 case 'startTime':
-                    return Boolean(draft?.startTime);
+                    return Boolean(draft?.availableAt || draft?.scheduledAt || draft?.startTime);
                 case 'recurrence':
                     return Boolean(draft?.recurrence);
                 case 'reviewAt':
@@ -516,8 +516,10 @@ function TaskEditFormTabComponent({
                         <View>
                             <DateTimePicker
                                 value={(() => {
-                                    if (showDatePicker === 'start') return getSafePickerDateValue(draft?.startTime);
-                                    if (showDatePicker === 'start-time') return pendingStartDate ?? getSafePickerDateValue(draft?.startTime);
+                                    if (showDatePicker === 'start') return getSafePickerDateValue(draft?.availableAt);
+                                    if (showDatePicker === 'start-time') return pendingStartDate ?? getSafePickerDateValue(draft?.availableAt);
+                                    if (showDatePicker === 'schedule') return getSafePickerDateValue(draft?.scheduledAt);
+                                    if (showDatePicker === 'schedule-time') return pendingStartDate ?? getSafePickerDateValue(draft?.scheduledAt);
                                     if (showDatePicker === 'review') return getSafePickerDateValue(draft?.reviewAt);
                                     if (showDatePicker === 'recurrence-end') {
                                         return getSafePickerDateValue(parseRRuleString(draft?.recurrenceRRule ?? '').until);
@@ -526,7 +528,9 @@ function TaskEditFormTabComponent({
                                     return getSafePickerDateValue(draft?.dueDate);
                                 })()}
                                 mode={
-                                    showDatePicker === 'start-time' || showDatePicker === 'due-time'
+                                    showDatePicker === 'start-time'
+                                        || showDatePicker === 'schedule-time'
+                                        || showDatePicker === 'due-time'
                                         ? 'time'
                                         : 'date'
                                 }

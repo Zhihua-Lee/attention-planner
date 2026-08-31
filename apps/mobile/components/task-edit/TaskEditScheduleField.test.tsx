@@ -55,6 +55,8 @@ const t = (key: string) => ({
     'common.done': 'Done',
     'taskEdit.dueDateLabel': 'Due Date',
     'taskEdit.startDateLabel': 'Start Date',
+    'agenda.starting': 'Available',
+    'todayPlan.timeBlocks': 'Time block',
     'taskEdit.suppressMindwtrReminders': 'Skip reminders',
     'taskEdit.suppressMindwtrRemindersHint': 'Skip start and due reminders for this task. It still appears in Focus and your lists.',
     'taskEdit.repeatReminderLabel': 'Repeat reminder',
@@ -258,6 +260,59 @@ describe('TaskEditScheduleField', () => {
 
         const textValues = tree.root.findAllByType(Text).map((node) => node.props.children);
         expect(textValues).toContain('2026-04-28 09:20');
+    });
+
+    it('renders Available and Time block separately and edits the semantic schedule', () => {
+        configureDateFormatting({ language: 'en', dateFormat: 'ymd', timeFormat: '24h', systemLocale: 'en-US' });
+        const setShowDatePicker = vi.fn();
+        let tree!: renderer.ReactTestRenderer;
+        act(() => {
+            tree = renderer.create(
+                <TaskEditScheduleField {...({
+                    customWeekdays: [],
+                    dailyInterval: 1,
+                    draft: makeDraft({
+                        availableAt: '2026-04-28',
+                        scheduledAt: '2026-04-28T13:30:00',
+                    }),
+                    fieldId: 'startTime',
+                    formatDate: (value?: string) => value ?? '',
+                    formatDueDate: (value?: string) => value ?? '',
+                    getSafePickerDateValue: () => new Date('2026-04-28T13:30:00'),
+                    monthlyPattern: 'date',
+                    onDateChange: vi.fn(),
+                    openCustomRecurrence: vi.fn(),
+                    pendingDueDate: null,
+                    pendingStartDate: null,
+                    recurrenceOptions: [],
+                    recurrenceRRuleValue: '',
+                    recurrenceRuleValue: '',
+                    recurrenceStrategyValue: 'strict',
+                    recurrenceWeekdayButtons: [],
+                    setCustomWeekdays: vi.fn(),
+                    setDraftField: vi.fn(),
+                    setShowDatePicker,
+                    showDatePicker: null,
+                    styles,
+                    t,
+                    task: null,
+                    tc,
+                } as any)}
+                />
+            );
+        });
+
+        const textValues = tree.root.findAllByType(Text).map((node) => node.props.children);
+        expect(textValues).toContain('Available');
+        expect(textValues).toContain('Time block');
+        expect(textValues).toContain('2026-04-28');
+        expect(textValues).toContain('2026-04-28 13:30');
+
+        const timeButton = tree.root.findAllByType(TouchableOpacity).find((button) => (
+            button.findAllByType(Text).some((node) => node.props.children === '13:30')
+        ));
+        act(() => timeButton?.props.onPress());
+        expect(setShowDatePicker).toHaveBeenCalledWith('schedule-time');
     });
 
     it('shows a date-coherence note for start dates after due dates', () => {

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
     getTaskAvailableAt,
+    getTaskAvailabilityPatch,
+    getTaskSchedulePatch,
     getTaskScheduledAt,
     getTaskUnschedulePatch,
     isTaskAttentionEligible,
@@ -49,7 +51,7 @@ describe('task time semantics', () => {
         expect(isTaskReadyForNow(value, now)).toBe(false);
         expect(getTaskAvailableAt(value)).toBe('2026-08-25T09:00:00.000Z');
         expect(getTaskScheduledAt(value)).toBe('2026-08-25T14:00:00.000Z');
-        expect(isTaskReadyForNow(value, new Date('2026-08-25T12:31:00.000Z'))).toBe(true);
+        expect(isTaskReadyForNow(value, new Date('2026-08-25T14:01:00.000Z'))).toBe(true);
     });
 
     it('uses one Ready eligibility rule for status and availability while keeping snooze NOW-only', () => {
@@ -66,6 +68,15 @@ describe('task time semantics', () => {
         expect(isTaskReadyForNow(snoozed, now)).toBe(false);
     });
 
+    it('keeps a future time block out of NOW until its scheduled time', () => {
+        const now = new Date('2026-08-25T12:00:00.000Z');
+        const futureBlock = task({ scheduledAt: '2026-08-25T14:00:00.000Z' });
+
+        expect(isTaskAttentionEligible(futureBlock, now)).toBe(true);
+        expect(isTaskReadyForNow(futureBlock, now)).toBe(false);
+        expect(isTaskReadyForNow(futureBlock, new Date('2026-08-25T14:00:00.000Z'))).toBe(true);
+    });
+
     it('clears a timed legacy schedule without erasing date-only legacy availability', () => {
         expect(getTaskUnschedulePatch(task({
             scheduledAt: '2026-08-25T14:00:00.000Z',
@@ -80,5 +91,21 @@ describe('task time semantics', () => {
             scheduledAt: '2026-08-25T14:00:00.000Z',
             startTime: '2026-08-25',
         }))).toEqual({ scheduledAt: undefined });
+    });
+
+    it('centralizes semantic writes and retires only the matching legacy fallback', () => {
+        expect(getTaskSchedulePatch(task({ startTime: '2026-08-25T13:00:00.000Z' }), '2026-08-25T14:00:00.000Z')).toEqual({
+            scheduledAt: '2026-08-25T14:00:00.000Z',
+            startTime: undefined,
+            relativeStartOffset: undefined,
+        });
+        expect(getTaskAvailabilityPatch(task({ startTime: '2026-08-25' }), '2026-08-26')).toEqual({
+            availableAt: '2026-08-26',
+            startTime: undefined,
+            relativeStartOffset: undefined,
+        });
+        expect(getTaskAvailabilityPatch(task({ startTime: '2026-08-25T13:00:00.000Z' }), '2026-08-26')).toEqual({
+            availableAt: '2026-08-26',
+        });
     });
 });

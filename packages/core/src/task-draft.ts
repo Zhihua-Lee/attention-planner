@@ -10,6 +10,10 @@ import {
     getRecurrenceUntilValue,
     parseRRuleString,
 } from './recurrence';
+import {
+    getTaskAvailableAt,
+    getTaskScheduledAt,
+} from './task-time-semantics';
 import type {
     Attachment,
     Recurrence,
@@ -36,6 +40,9 @@ export type TaskDraft = {
     title: string;
     dueDate: string;
     startTime: string;
+    availableAt: string;
+    scheduledAt: string;
+    snoozedUntil: string;
     relativeStartOffset: Task['relativeStartOffset'];
     projectId: string;
     sectionId: string;
@@ -119,6 +126,19 @@ const TASK_DRAFT_FIELDS: { [K in TaskDraftField]: FieldSpec<K> } = {
     title: { fromTask: (task) => task.title },
     dueDate: { fromTask: (task) => toTaskDraftDateTimeLocalValue(task.dueDate) },
     startTime: { fromTask: (task) => toTaskDraftDateTimeLocalValue(task.startTime) },
+    availableAt: {
+        fromTask: (task) => toTaskDraftDateTimeLocalValue(getTaskAvailableAt(task)),
+        onSet: (draft) => draft.startTime && !hasTimeComponent(draft.startTime)
+            ? { ...draft, startTime: '', relativeStartOffset: undefined }
+            : draft,
+    },
+    scheduledAt: {
+        fromTask: (task) => toTaskDraftDateTimeLocalValue(getTaskScheduledAt(task)),
+        onSet: (draft) => draft.startTime && hasTimeComponent(draft.startTime)
+            ? { ...draft, startTime: '', relativeStartOffset: undefined }
+            : draft,
+    },
+    snoozedUntil: { fromTask: (task) => toTaskDraftDateTimeLocalValue(task.snoozedUntil) },
     relativeStartOffset: {
         fromTask: (task) => task.relativeStartOffset,
         isDirty: (value, task) =>
@@ -291,6 +311,9 @@ export function taskDraftToUpdatePatch(
         isFocusedToday: draft.focusedToday,
         dueDate: draft.dueDate || undefined,
         startTime: draft.startTime || undefined,
+        availableAt: draft.availableAt || undefined,
+        scheduledAt: draft.scheduledAt || undefined,
+        snoozedUntil: draft.snoozedUntil || undefined,
         relativeStartOffset: draft.relativeStartOffset,
         projectId: resolvedProjectId,
         // Container exclusivity: a project home clears the direct area, and a

@@ -116,6 +116,46 @@ describe('task-draft', () => {
         expect(isTaskDraftDirty({ ...draft, relativeStartOffset: undefined }, withOffset)).toBe(true);
     });
 
+    it('owns the split time semantics and migrates a legacy timed schedule when edited', () => {
+        const semanticTask: Task = {
+            ...baseTask,
+            availableAt: '2026-07-14',
+            scheduledAt: '2026-07-14T09:00:00',
+            snoozedUntil: '2026-07-14T08:30:00',
+        };
+        const semanticDraft = createTaskDraft(semanticTask);
+        expect(semanticDraft).toMatchObject({
+            availableAt: '2026-07-14',
+            scheduledAt: '2026-07-14T09:00',
+            snoozedUntil: '2026-07-14T08:30',
+        });
+        expect(isTaskDraftDirty(semanticDraft, semanticTask)).toBe(false);
+        expect(taskDraftToUpdatePatch(semanticDraft, semanticTask)).toMatchObject({
+            availableAt: '2026-07-14',
+            scheduledAt: '2026-07-14T09:00',
+            snoozedUntil: '2026-07-14T08:30',
+        });
+
+        const legacyTask: Task = {
+            ...baseTask,
+            startTime: '2026-07-14T09:00:00',
+            relativeStartOffset: { amount: -1, unit: 'day' },
+        };
+        const legacyDraft = createTaskDraft(legacyTask);
+        expect(legacyDraft.scheduledAt).toBe('2026-07-14T09:00');
+        const rescheduled = setTaskDraftField(legacyDraft, 'scheduledAt', '2026-07-14T11:00');
+        expect(rescheduled).toMatchObject({
+            scheduledAt: '2026-07-14T11:00',
+            startTime: '',
+            relativeStartOffset: undefined,
+        });
+        expect(taskDraftToUpdatePatch(rescheduled, legacyTask)).toMatchObject({
+            scheduledAt: '2026-07-14T11:00',
+            startTime: undefined,
+            relativeStartOffset: undefined,
+        });
+    });
+
     it('counts attachment record changes as dirty', () => {
         const withAttachment: Task = {
             ...baseTask,

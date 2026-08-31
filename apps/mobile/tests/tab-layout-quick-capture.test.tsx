@@ -49,9 +49,11 @@ vi.mock('expo-router', () => {
         index: 0,
         key: 'tabs',
         routes: [
+          { key: 'now-key', name: 'now' },
           { key: 'focus-key', name: 'focus' },
           { key: 'inbox-key', name: 'inbox' },
           { key: 'capture-key', name: 'capture' },
+          { key: 'plan-key', name: 'plan' },
           { key: 'projects-key', name: 'projects' },
           { key: 'calendar-key', name: 'calendar-tab' },
           { key: 'contexts-key', name: 'contexts-tab' },
@@ -60,9 +62,11 @@ vi.mock('expo-router', () => {
         ],
       },
       descriptors: {
+        'now-key': { options: { title: 'NOW' } },
         'inbox-key': { options: { title: 'Inbox' } },
         'focus-key': { options: { title: 'Focus' } },
         'capture-key': { options: { title: 'Add task' } },
+        'plan-key': { options: { title: 'Plan' } },
         'projects-key': { options: { title: 'Projects' } },
         'calendar-key': { options: { title: 'Calendar' } },
         'contexts-key': { options: { title: 'Contexts' } },
@@ -153,18 +157,21 @@ vi.mock('../contexts/language-context', () => ({
   useLanguage: () => ({
     t: (key: string) => ({
       'nav.addTask': 'Add task',
+      'nav.agenda': 'NOW',
       'nav.archived': 'Archived',
       'nav.board': 'Board View',
       'nav.calendar': 'Calendar',
       'nav.contexts': 'Contexts',
       'nav.done': 'Done',
       'nav.projects': 'Projects',
+      'nav.plan': 'Plan',
       'nav.reference': 'Reference',
       'nav.review': 'Review',
       'nav.settings': 'Settings',
       'nav.sectionArchive': 'Archive',
       'nav.sectionLists': 'Lists',
       'nav.sectionOrganize': 'Organize',
+      'nav.sectionFocus': 'Focus',
       'nav.someday': 'Someday',
       'nav.trash': 'Trash',
       'nav.waiting': 'Waiting For',
@@ -268,7 +275,7 @@ const getTabButton = (tree: ReturnType<typeof create>, label: string) => {
 };
 
 const getBottomTabLabels = (tree: ReturnType<typeof create>) => {
-  const tabLabels = new Set(['Focus', 'Inbox', 'Add task', 'Projects', 'Calendar', 'Contexts', 'Review', 'Menu']);
+  const tabLabels = new Set(['NOW', 'Inbox', 'Add task', 'Plan', 'Menu']);
   return tree.root
     .findAllByType(TouchableOpacity)
     .map((node) => node.props.accessibilityLabel)
@@ -276,7 +283,7 @@ const getBottomTabLabels = (tree: ReturnType<typeof create>) => {
 };
 
 const getBottomTabTextLabels = (tree: ReturnType<typeof create>) => {
-  const labels = new Set(['Focus', 'Inbox', 'Add task', 'Projects', 'Calendar', 'Contexts', 'Review', 'Menu']);
+  const labels = new Set(['NOW', 'Inbox', 'Add task', 'Plan', 'Menu']);
   return tree.root
     .findAll((node) => String(node.type) === 'Text')
     .map((node) => node.children.join(''))
@@ -310,6 +317,7 @@ const moreDestinationLabels = [
   'Done',
   'Reference',
   'Settings',
+  'Focus',
   'Waiting For',
   'Board View',
   'Projects',
@@ -435,7 +443,7 @@ describe('mobile tab quick capture', () => {
     expect(sheets[0]?.props.initialProps).toEqual({ areaId: 'area-work' });
   });
 
-  it('defaults cold tab startup to Focus', () => {
+  it('defaults cold tab startup to NOW with Inbox and Plan as the other primary concepts', () => {
     let tree!: ReturnType<typeof create>;
 
     act(() => {
@@ -443,9 +451,9 @@ describe('mobile tab quick capture', () => {
     });
 
     const tabs = tree.root.find((node) => String(node.type) === 'Tabs');
-    expect(tabs.props.initialRouteName).toBe('focus');
-    expect(getBottomTabLabels(tree).slice(0, 2)).toEqual(['Focus', 'Inbox']);
-    expect(getBottomTabTextLabels(tree)).toEqual(['Focus', 'Inbox', 'Review', 'Menu']);
+    expect(tabs.props.initialRouteName).toBe('now');
+    expect(getBottomTabLabels(tree)).toEqual(['NOW', 'Inbox', 'Add task', 'Plan', 'Menu']);
+    expect(getBottomTabTextLabels(tree)).toEqual(['NOW', 'Inbox', 'Plan', 'Menu']);
   });
 
   it('anchors restored stack screens above tabs so Back stays available', () => {
@@ -470,7 +478,7 @@ describe('mobile tab quick capture', () => {
     expect(headerTitle.props.maxFontSizeMultiplier).toBe(1.15);
   });
 
-  it('redirects root cold launch to Focus when no recent session is stored', async () => {
+  it('redirects root cold launch to NOW when no recent session is stored', async () => {
     let tree!: ReturnType<typeof create>;
 
     // Session restore reads storage asynchronously before redirecting.
@@ -479,7 +487,7 @@ describe('mobile tab quick capture', () => {
     });
 
     const redirect = tree.root.find((node) => String(node.type) === 'Redirect');
-    expect(redirect.props.href).toBe('/focus');
+    expect(redirect.props.href).toBe('/now');
     expect(redirect.props.withAnchor).toBe(true);
   });
 
@@ -610,7 +618,7 @@ describe('mobile tab quick capture', () => {
       tree = create(<TabLayout />);
     });
 
-    expect(getTabButton(tree, 'Projects')).toBeTruthy();
+    expect(getTabButton(tree, 'Plan')).toBeTruthy();
 
     act(() => {
       getMenuButton(tree).props.onPress();
@@ -622,6 +630,7 @@ describe('mobile tab quick capture', () => {
       'Done',
       'Reference',
       'Settings',
+      'Focus',
       'Waiting For',
       'Board View',
       'Review',

@@ -15,7 +15,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { CALENDAR_TIME_ESTIMATE_OPTIONS, getCalendarDayOfMonth, getShortWeekdayLabels, getTaskCalendarOccurrenceDate, isProjectedRecurringTask, safeFormatDate, safeParseDate, type Task } from '@mindwtr/core';
+import { CALENDAR_TIME_ESTIMATE_OPTIONS, getCalendarDayOfMonth, getShortWeekdayLabels, getTaskCalendarOccurrenceDate, getTaskScheduledAt, isProjectedRecurringTask, safeFormatDate, safeParseDate, type Task } from '@mindwtr/core';
 import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -234,7 +234,7 @@ function ScheduledTaskBlock({
     zIndex: zIndex.value,
   }));
 
-  const start = task.startTime ? safeParseDate(task.startTime) : null;
+  const start = safeParseDate(getTaskScheduledAt(task));
   const label = start ? formatTimeRange(start, durationMinutes) : '';
   const compact = height < 48;
   const showTime = height >= 44;
@@ -437,7 +437,7 @@ export function CalendarView() {
     }
 
     for (const task of selectedDayScheduledTasks) {
-      const start = task.startTime ? safeParseDate(task.startTime) : null;
+      const start = safeParseDate(getTaskScheduledAt(task));
       if (!start) continue;
       const durationMinutes = timeEstimateToMinutes(task.timeEstimate);
       const endMs = start.getTime() + durationMinutes * 60_000;
@@ -1060,7 +1060,7 @@ export function CalendarView() {
                   })}
 
                   {selectedDayScheduledTasks.map((task) => {
-                    const start = task.startTime ? safeParseDate(task.startTime) : null;
+                    const start = safeParseDate(getTaskScheduledAt(task));
                     if (!start) return null;
                     const durationMinutes = timeEstimateToMinutes(task.timeEstimate);
                     const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
@@ -1324,7 +1324,7 @@ export function CalendarView() {
                       continue;
                     }
 
-                    const start = item.task.startTime ? safeParseDate(item.task.startTime) : null;
+                    const start = safeParseDate(getTaskScheduledAt(item.task));
                     if (!start) continue;
                     const durationMinutes = timeEstimateToMinutes(item.task.timeEstimate);
                     const endMs = start.getTime() + durationMinutes * 60_000;
@@ -1407,7 +1407,7 @@ export function CalendarView() {
                           }
 
                           const projected = isProjectedRecurringTask(item.task);
-                          const start = item.task.startTime ? safeParseDate(item.task.startTime) : null;
+                          const start = safeParseDate(getTaskScheduledAt(item.task));
                           if (!start) return null;
                           const projectedDisplayLabel = projected
                             ? getProjectedRecurrenceDisplayLabel(item.task, tr('calendar.projectedRecurrence'))
@@ -1624,7 +1624,7 @@ export function CalendarView() {
                   }
 
                   const projected = isProjectedRecurringTask(item.task);
-                  const start = item.task.startTime ? safeParseDate(item.task.startTime) : null;
+                  const start = safeParseDate(getTaskScheduledAt(item.task));
                   const timeLabel = start
                     ? formatTimeRange(start, timeEstimateToMinutes(item.task.timeEstimate))
                     : t('calendar.deadline');
@@ -2040,7 +2040,7 @@ export function CalendarView() {
                       </Text>
                       <Text style={[styles.taskItemTime, { color: tc.secondaryText }]}>
                         {(() => {
-                          const start = safeParseDate(task.startTime);
+                          const start = safeParseDate(getTaskScheduledAt(task));
                           if (!start) return '';
                           const durMs = timeEstimateToMinutes(task.timeEstimate) * 60 * 1000;
                           const end = new Date(start.getTime() + durMs);

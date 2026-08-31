@@ -9,8 +9,10 @@ const LAST_ROUTE_STORAGE_KEY = 'mindwtr:session:lastRoute';
 // Capture surfaces, review flows, and settings are transient destinations;
 // they fall back to the home route instead of restoring.
 const RESTORABLE_PATHS = new Set([
+    '/now',
     '/focus',
     '/inbox',
+    '/plan',
     '/projects',
     '/calendar-tab',
     '/contexts-tab',

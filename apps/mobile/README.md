@@ -1,12 +1,17 @@
-# Mindwtr Mobile
+# Attention Planner Mobile
 
-React Native mobile app for the Mindwtr productivity system.
+React Native client for Attention Planner. It shares storage, sync, recurrence, and compatibility code with the Mindwtr upstream, but its default product model is NOW → Inbox → Plan.
 
 ## Features
 
-### GTD Workflow
-- **Inbox Processing** - Guided clarify workflow with 2-minute rule
-- **Context Filtering** - Slash-delimited contexts with parent matching (@work/meetings)
+### Attention Planner workflow
+- **NOW** - One current event or task, followed by a short list of today's commitments
+- **Inbox** - Capture first; ordinary processing defaults to Ready, Later, Someday, or Trash
+- **Plan** - Today commitments, time blocks, Ready, Calendar, Projects, Later, and Recurring
+- **Capture action** - The center button remains a fast action without becoming a fourth product concept
+- **More** - Legacy Focus, Review, Contexts, Board, and other inherited utilities
+- **Split time semantics** - Available, Time block (`scheduledAt`), Snooze, and Due remain independent on every client
+- **Cross-client Calendar** - Mobile and desktop both read/write the shared semantic schedule adapter; legacy `startTime` is read-only compatibility for ordinary flows
 - **Dark Mode** - Full dark theme support with system preference
 - **Swipe Actions** - Quick task management gestures
 - **Smart Tags** - Frequent and recommended context tags
@@ -14,7 +19,7 @@ React Native mobile app for the Mindwtr productivity system.
 - **Auto-Archive** - Automatically archive completed tasks
 - **Android Widget** - Home screen focus/next widget (adaptive, 2x2 default)
 - **iOS Widget** - Home screen focus/next widget with quick capture
-- **iOS Quick Actions** - Long-press app icon shortcuts for Add task, Focus, Calendar
+- **iOS Quick Actions** - Long-press app icon shortcuts remain backward compatible with Add task, legacy Focus, and Calendar deep links
 - **AI Assistant (Optional)** - Clarify, break down, and review with BYOK AI
 - **Copilot Suggestions** - Context/tag/time hints while typing
 
@@ -37,11 +42,12 @@ React Native mobile app for the Mindwtr productivity system.
 ### Screens
 | Screen        | Description                        |
 | ------------- | ---------------------------------- |
-| Inbox         | Capture and process incoming items |
-| Next Actions  | Context-filtered actionable tasks  |
-| Agenda        | Daily focus and upcoming tasks     |
+| NOW           | One current recommendation and today's commitments |
+| Inbox         | Capture and clarify incoming items |
+| Plan          | Today, Calendar, Projects, Later, and Recurring |
+| Capture       | Center action for immediate text or audio capture |
+| More          | Legacy Focus, Board, Review, Contexts, and Settings |
 | Projects      | Multi-step outcomes                |
-| Menu          | Board, Review, Calendar, Settings  |
 | Contexts      | Hierarchical filtering (menu)      |
 | Waiting For   | Delegated items (menu)             |
 | Someday/Maybe | Deferred ideas (menu)              |
@@ -49,6 +55,8 @@ React Native mobile app for the Mindwtr productivity system.
 | Calendar      | Tasks + external events (menu)     |
 | Review        | Daily + weekly review (menu)       |
 | Settings      | Theme, sync, notifications         |
+
+The Cloudflare Pages deployment publishes the PWA, not this native bundle. Shipping these native screens to iPhone still requires an iOS build and TestFlight/App Store distribution.
 
 ## Tech Stack
 
