@@ -10,7 +10,8 @@ import { timeEstimateToMinutes } from './calendar-scheduling';
 import { TASK_STATUS_ORDER } from './task-status';
 import { isTaskInActiveProject } from './project-utils';
 import type { Language } from './i18n/i18n-types';
-import { getTaskAvailableAt } from './task-time-semantics';
+import { getTaskAvailableAt, getTaskScheduledAt } from './task-time-semantics';
+import { isTaskPlanningCandidate } from './task-domain';
 
 export function buildTasksByProjectId(tasks: readonly Task[]): Map<string, Task[]> {
     const tasksByProjectId = new Map<string, Task[]>();
@@ -964,35 +965,10 @@ export function getCalendarPlanningCandidates<T extends Task>(
 ): T[] {
     const now = options.now ?? new Date();
     const projectMap = options.projects ? getFocusEligibilityProjectMap(options.projects) : null;
-    const derivedSequential = projectMap && (!options.sequentialProjectIds || !options.sectionScopedProjectIds)
-        ? getFocusEligibilitySequentialProjectIds(projectMap)
-        : null;
-    const sequentialProjectIds = options.sequentialProjectIds
-        ?? derivedSequential?.sequentialProjectIds
-        ?? new Set<string>();
-    const sectionScopedProjectIds = options.sectionScopedProjectIds
-        ?? derivedSequential?.sectionScopedProjectIds
-        ?? new Set<string>();
-
-    const activeFocusTasks = tasks.filter((task) => (
-        !task.deletedAt
-        && FOCUS_ELIGIBILITY_ACTIVE_STATUS_SET.has(task.status)
-        && (!projectMap || isTaskInActiveProject(task, projectMap))
-    ));
-    const sequentialFirstTaskIds = getFocusSequentialFirstTaskIds(
-        activeFocusTasks,
-        sequentialProjectIds,
-        { now, sectionScopedProjectIds },
-    );
-
     const candidates = tasks.filter((task) => {
-        if (task.deletedAt) return false;
-        if (task.status !== 'next') return false;
-        if (task.isFocusedToday) return false;
-        if (task.startTime) return false;
-        if (projectMap && !isTaskInActiveProject(task, projectMap)) return false;
-        if (task.projectId && sequentialProjectIds.has(task.projectId) && !sequentialFirstTaskIds.has(task.id)) return false;
-        return true;
+        if (projectMap ? !isTaskPlanningCandidate(task, projectMap) : task.deletedAt || task.status !== 'next') return false;
+        // A dated availability or a Today selection is not a calendar reservation.
+        return !getTaskScheduledAt(task);
     });
 
     const sortProjects = Array.isArray(options.projects) ? options.projects : undefined;

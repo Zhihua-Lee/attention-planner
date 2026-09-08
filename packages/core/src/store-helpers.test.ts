@@ -552,7 +552,7 @@ describe('derived store state helpers', () => {
             }),
         ]);
 
-        expect(derived.focusedCount).toBe(1);
+        expect(derived.focusedCount).toBe(4);
     });
 
     it('derives transient date-coherence issues without mutating tasks', () => {
@@ -809,7 +809,7 @@ describe('completion timestamp updates', () => {
         expect(updatedTask.focusOrder).toBeUndefined();
     });
 
-    it('clears a Today commitment when its status leaves Ready', () => {
+    it('retains planning intent when its task becomes Waiting', () => {
         const task = createTask('t-waiting', undefined, 0, {
             status: 'next',
             isFocusedToday: true,
@@ -818,8 +818,8 @@ describe('completion timestamp updates', () => {
         const normalizedUpdates = normalizeTaskUpdate(task, { status: 'waiting' });
         const { updatedTask } = applyTaskUpdates(task, normalizedUpdates, now);
         expect(updatedTask.status).toBe('waiting');
-        expect(updatedTask.isFocusedToday).toBe(false);
-        expect(updatedTask.focusOrder).toBeUndefined();
+        expect(updatedTask.isFocusedToday).toBe(true);
+        expect(updatedTask.focusOrder).toBe(task.focusOrder);
     });
 
     it('preserves an explicit focusOrder supplied in the same completion update', () => {

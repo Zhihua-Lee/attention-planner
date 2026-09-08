@@ -5,8 +5,10 @@ import {
     getFocusStarBlockedText,
     getTaskScheduledAt,
     getTaskUnschedulePatch,
-    isTaskInActiveProject,
-    isTaskAttentionEligible,
+    createPlanningPolicy,
+    getPlanningBlockLabel,
+    getTaskAvailableAt,
+    getTaskSchedulePatch,
     normalizeFocusTaskLimit,
     safeFormatDate,
     safeParseDate,
@@ -65,24 +67,17 @@ export function TodayPlanView() {
     const [showAllReady, setShowAllReady] = useState(false);
     const now = new Date();
     const focusTaskLimit = normalizeFocusTaskLimit(settings?.gtd?.focusTaskLimit);
-    const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
-    const activeTasks = useMemo(() => tasks.filter((task) => (
-        !task.deletedAt
-        && task.status !== 'done'
-        && task.status !== 'archived'
-        && task.status !== 'reference'
-        && isTaskInActiveProject(task, projectMap)
-    )), [projectMap, tasks]);
+    const policy = useMemo(() => createPlanningPolicy(tasks, projects, now), [tasks, projects, now]);
+    const activeTasks = useMemo(() => tasks.filter(policy.isVisible), [policy, tasks]);
     const commitments = useMemo(
         () => sortTasksByFocusOrder(activeTasks.filter((task) => (
-            task.isFocusedToday && isTaskAttentionEligible(task, now)
+            task.isFocusedToday
         ))),
         [activeTasks, now],
     );
     const scheduledToday = useMemo(() => activeTasks
         .filter((task) => (
-            isTaskAttentionEligible(task, now)
-            && isSameLocalDay(getTaskScheduledAt(task), now)
+            isSameLocalDay(getTaskScheduledAt(task), now)
         ))
         .sort((left, right) => (
             (safeParseDate(getTaskScheduledAt(left))?.getTime() ?? Number.MAX_SAFE_INTEGER)
@@ -93,13 +88,13 @@ export function TodayPlanView() {
         .filter((task) => (
             !task.isFocusedToday
             && !scheduledTodayIds.has(task.id)
-            && isTaskAttentionEligible(task, now)
+            && policy.isCandidate(task)
         ))
         .sort((left, right) => {
             const leftDue = safeParseDate(left.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
             const rightDue = safeParseDate(right.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
             return leftDue - rightDue || left.createdAt.localeCompare(right.createdAt);
-        }), [activeTasks, now, scheduledTodayIds]);
+        }), [activeTasks, policy, scheduledTodayIds]);
     const focusedCount = commitments.length;
     const visibleReadyTasks = showAllReady ? readyTasks : readyTasks.slice(0, READY_PREVIEW_LIMIT);
 
@@ -152,6 +147,7 @@ export function TodayPlanView() {
                 {commitments.length > 0 ? (
                     <div className="divide-y divide-border/40 border-y border-border/60">
                         {commitments.map((task) => (
+                            <div key={task.id}>
                             <StoreTaskItem
                                 key={task.id}
                                 taskId={task.id}
@@ -160,6 +156,8 @@ export function TodayPlanView() {
                                 enableDoubleClickEdit
                                 showProjectBadgeInActions={false}
                             />
+                            {policy.executionBlock(task) && <p className="pb-2 text-xs text-muted-foreground">{getPlanningBlockLabel(policy.executionBlock(task), t)}</p>}
+                            </div>
                         ))}
                     </div>
                 ) : (
@@ -195,6 +193,7 @@ export function TodayPlanView() {
                                         className="min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                                     >
                                         {task.title}
+                                        {policy.executionBlock(task) && <span className="block text-xs font-normal text-muted-foreground">{getPlanningBlockLabel(policy.executionBlock(task), t)}</span>}
                                     </button>
                                     <button
                                         type="button"
@@ -234,6 +233,7 @@ export function TodayPlanView() {
                                         enableDoubleClickEdit
                                         showProjectBadgeInActions={false}
                                     />
+                                    {policy.executionBlock(task) && <p className="text-xs text-muted-foreground">{getPlanningBlockLabel(policy.executionBlock(task), t)}{getTaskAvailableAt(task) ? ` · ${safeFormatDate(getTaskAvailableAt(task), 'Pp')}` : ''}</p>}
                                 </div>
                                 <button
                                     type="button"
@@ -297,7 +297,12 @@ export function TodayPlanView() {
                     if (!scheduleTask || !value) return;
                     const parsed = new Date(value);
                     if (Number.isNaN(parsed.getTime())) return;
-                    void updateTask(scheduleTask.id, { scheduledAt: parsed.toISOString() });
+                    const available = safeParseDate(getTaskAvailableAt(scheduleTask));
+                    if (available && parsed < available) {
+                        showToast(`${tFallback(t, 'planning.available', 'Available from')}: ${safeFormatDate(available, 'Pp')}`, 'info');
+                        return;
+                    }
+                    void updateTask(scheduleTask.id, getTaskSchedulePatch(scheduleTask, parsed.toISOString()));
                     setScheduleTaskId(null);
                 }}
             />

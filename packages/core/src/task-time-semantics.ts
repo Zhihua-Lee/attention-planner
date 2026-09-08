@@ -83,7 +83,7 @@ export function isTaskScheduledInFuture(task: TaskTimeFields, now: Date = new Da
     return Boolean(scheduled && scheduled.getTime() > now.getTime());
 }
 
-/** Shared qualification for Today commitments, time blocks, Ready, and NOW. */
+/** Legacy execution predicate. Planning must use createPlanningPolicy instead. */
 export function isTaskAttentionEligible(task: TaskAttentionFields, now: Date = new Date()): boolean {
     return task.status === 'next' && isTaskAvailable(task, now);
 }

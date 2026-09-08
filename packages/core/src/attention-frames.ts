@@ -1,8 +1,9 @@
 import { timeEstimateToMinutes } from './calendar-scheduling';
 import { safeParseDate, safeParseDueDate } from './date';
 import type { ExternalCalendarEvent } from './ics';
-import type { Task, TaskPriority } from './types';
-import { getTaskScheduledAt, isTaskAttentionEligible, isTaskReadyForNow } from './task-time-semantics';
+import type { Project, Task, TaskPriority } from './types';
+import { getTaskScheduledAt, isTaskReadyForNow } from './task-time-semantics';
+import { createPlanningPolicy } from './planning-policy';
 
 export type AttentionFrameDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -27,6 +28,7 @@ type SelectNowOptions = {
     frames?: readonly AttentionFrame[];
     now?: Date;
     tasks: readonly Task[];
+    projects?: readonly Project[];
     timeEstimatesEnabled?: boolean;
 };
 
@@ -165,10 +167,11 @@ export function selectNow(options: SelectNowOptions): NowSelection | null {
     if (currentEvent) return { kind: 'event', event: currentEvent, reason: 'calendar-event' };
 
     const excluded = options.excludedTaskIds ?? new Set<string>();
+    const policy = createPlanningPolicy(options.tasks, options.projects ?? [], now);
     const actionable = options.tasks.filter((task) => (
         !task.deletedAt
         && !excluded.has(task.id)
-        && isTaskAttentionEligible(task, now)
+        && policy.executionBlock(task) === null
     ));
     if (actionable.length === 0) return null;
 

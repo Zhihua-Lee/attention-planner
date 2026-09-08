@@ -246,7 +246,7 @@ describe('task-utils', () => {
     });
 
     describe('getCalendarPlanningCandidates', () => {
-        it('returns visible unscheduled next actions without sequentially blocked tasks', () => {
+        it('permits planning focused and later sequential actions, but not an existing reservation', () => {
             const projects = [
                 {
                     id: 'sequential-project',
@@ -324,7 +324,9 @@ describe('task-utils', () => {
 
             expect(candidates.map((task) => task.id)).toEqual([
                 'deadline-only',
+                'focused',
                 'sequential-first',
+                'sequential-second',
             ]);
         });
     });

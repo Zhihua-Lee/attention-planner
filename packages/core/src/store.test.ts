@@ -843,7 +843,7 @@ describe('TaskStore', () => {
         expect(starWaiting).toEqual({ success: true });
         task = useTaskStore.getState()._tasksById.get(id);
         expect(task?.status).toBe('waiting');
-        expect(task?.isFocusedToday).toBe(false);
+        expect(task?.isFocusedToday).toBe(true);
     });
 
     it('resolves the focus star action from store state', async () => {
@@ -981,7 +981,7 @@ describe('TaskStore', () => {
         expect(useTaskStore.getState()._tasksById.get(taskIds[3])?.isFocusedToday).toBe(true);
     });
 
-    it('clears today focus when a focused task is deferred to a future start date', async () => {
+    it('retains planning intent when availability moves into the future', async () => {
         vi.setSystemTime(new Date('2026-05-02T10:00:00.000Z'));
         const { addTask, updateTask } = useTaskStore.getState();
         const result = await addTask('Focused later', { status: 'next', isFocusedToday: true });
@@ -993,11 +993,11 @@ describe('TaskStore', () => {
 
         const task = useTaskStore.getState()._tasksById.get(taskId!);
         expect(task?.startTime).toBe('2026-05-03');
-        expect(task?.isFocusedToday).toBe(false);
-        expect(useTaskStore.getState().getDerivedState().focusedCount).toBe(0);
+        expect(task?.isFocusedToday).toBe(true);
+        expect(useTaskStore.getState().getDerivedState().focusedCount).toBe(1);
     });
 
-    it('clears today focus when a schedule edit defers a starred recurring task on its due date', async () => {
+    it('retains a recurring task plan when its legacy start is cleared', async () => {
         vi.setSystemTime(new Date('2026-05-02T10:00:00.000Z'));
         const { addTask, updateTask } = useTaskStore.getState();
         const result = await addTask('Weekly chore', {
@@ -1011,14 +1011,13 @@ describe('TaskStore', () => {
         const taskId = result.id;
         expect(taskId).toBeTruthy();
 
-        // Clearing the start defers the recurring task on its due date (#843);
-        // the Today star must not survive invisibly until then.
+        // Changing a time constraint must not silently discard planning intent.
         await expect(updateTask(taskId!, { startTime: undefined })).resolves.toEqual({ success: true });
 
         const task = useTaskStore.getState()._tasksById.get(taskId!);
         expect(task?.startTime).toBeUndefined();
-        expect(task?.isFocusedToday).toBe(false);
-        expect(useTaskStore.getState().getDerivedState().focusedCount).toBe(0);
+        expect(task?.isFocusedToday).toBe(true);
+        expect(useTaskStore.getState().getDerivedState().focusedCount).toBe(1);
     });
 
     it('promotes an inbox task to next when a start date is set', async () => {
@@ -2265,6 +2264,7 @@ describe('TaskStore', () => {
     });
 
     it('clears project archive metadata from deleted task tombstones during fetch', async () => {
+        vi.setSystemTime(new Date('2026-05-12T00:00:00Z'));
         const archivedAt = '2026-05-10T00:00:00.000Z';
         mockStorage.getData = vi.fn().mockResolvedValue({
             tasks: [

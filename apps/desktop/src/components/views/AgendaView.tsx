@@ -397,8 +397,9 @@ export function AgendaView({ mode = 'plan', embedded = false }: AgendaViewProps 
         frames: attentionFrames,
         now,
         tasks: baseActiveTasks,
+        projects,
         timeEstimatesEnabled,
-    }), [attentionFrames, baseActiveTasks, excludedNowTaskIds, externalEvents, now, timeEstimatesEnabled]);
+    }), [attentionFrames, baseActiveTasks, excludedNowTaskIds, externalEvents, now, projects, timeEstimatesEnabled]);
     const inboxCount = useMemo(
         () => baseActiveTasks.filter((task) => task.status === 'inbox').length,
         [baseActiveTasks],

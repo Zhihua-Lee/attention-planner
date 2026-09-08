@@ -23,8 +23,8 @@ Attention Planner is a quiet scheduling workspace, not a GTD dashboard. It shoul
 ## Semantic rules
 
 - Content, status, time, and attention are separate layers.
-- `availableAt` controls when a task may surface; `scheduledAt` creates a time block; `snoozedUntil` temporarily hides a NOW suggestion; `dueDate` is a deadline.
-- Today commitments, Today time blocks, Today Ready, and NOW share one eligibility rule: the task is Ready and already available. Snooze suppresses only NOW; a future `scheduledAt` block also waits until its clock time before NOW may recommend it.
+- `availableAt` controls earliest execution, never planning visibility. `scheduledAt` is the transitional single-block representation; `snoozedUntil` suppresses NOW only; `dueDate` is a deadline.
+- Planning and execution consume different shared queries. Future Ready tasks can be planned; blocked existing plans remain visible with a reason. NOW additionally requires an active project, sequential prerequisites, availability and the current clock time.
 - Area → Project → Task is the content hierarchy, but a Task may belong directly to an Area.
 - Flexible Frames are background selection rules configured in Settings; they are not containers or a daily planning panel.
 
@@ -33,6 +33,6 @@ Attention Planner is a quiet scheduling workspace, not a GTD dashboard. It shoul
 - Dashboard grids of equal-weight panels.
 - Requiring project, area, context, tag, priority, energy, or estimate during ordinary Inbox processing.
 - Mixing Pomodoro, review queues, saved filters, Frame editing, and Today planning on one screen.
-- Writing default scheduling or deferral actions to legacy `startTime`; advanced import/editor compatibility remains until a later migration.
+- Writing default scheduling or deferral actions to legacy `startTime`. The desktop editor exposes separate availability and reservation controls; legacy imports remain a compatibility boundary.
 - Hiding the rest of a truncated planning list without an explicit, reversible “view all” control.
 - Letting native mobile restore the old Focus cockpit as its home screen; the mobile primary shell follows NOW, Inbox, and Plan, with Capture as an action and inherited utilities in More.

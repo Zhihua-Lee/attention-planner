@@ -5,7 +5,8 @@ import {
     getUsedTaskTokensFromUsage,
 } from './task-token-usage';
 import { resolveRelativeStartUpdates } from './task-relative-start';
-import { compareTasksByProjectOrder, isTaskFutureStart, rescheduleTask } from './task-utils';
+import { compareTasksByProjectOrder, rescheduleTask } from './task-utils';
+import { isTaskPlanningVisible } from './task-domain';
 import { safeParseDate } from './date';
 import { filterNotDeleted } from './sync-helpers';
 import { nextRevision, normalizeRevision } from './sync-revision';
@@ -175,26 +176,11 @@ export const normalizeTaskUpdate = (task: Task, updates: Partial<Task>): Partial
             orderNum: normalizedOrder,
         };
     }
-    // A schedule edit that defers the task (future start, or a recurring task
-    // hidden until its due/review date, #843) drops the Today star with it:
-    // the row leaves Focus either way, and a star surviving invisibly would
-    // resurface unasked when the deferral ends. Evaluated on the merged task so
-    // e.g. clearing the start of a recurring due-later task also unstars.
-    const editsSchedule = hasOwnField(updates, 'startTime')
-        || hasOwnField(updates, 'availableAt')
-        || hasOwnField(updates, 'dueDate')
-        || hasOwnField(updates, 'reviewAt')
-        || hasOwnField(updates, 'recurrence');
-    if (editsSchedule && isTaskFutureStart({ ...task, ...adjustedUpdates })) {
-        adjustedUpdates = {
-            ...adjustedUpdates,
-            isFocusedToday: false,
-        };
-    }
-    // Star ↔ status invariant: a Today commitment is always Ready (`next`).
-    // Starring an unprocessed Inbox task promotes it to Ready; moving a starred
-    // task to any other status removes the commitment. Creation-side promotion
-    // lives in resolveCaptureStatusForStart, where eligibility is checked first.
+    // Planning intent survives availability and schedule changes. NOW separately
+    // computes whether the retained plan can be executed at the current instant.
+    // Legacy Inbox clarification adapter. Existing callers still use star/date
+    // patches as combined clarify actions; explicit commands replace this in
+    // the next migration stage. Waiting/Someday plans are retained, not executed.
     // Setting a start date on an Inbox task is itself a clarify decision ("I
     // decided when I can act on this") and promotes it to next, mirroring the
     // star promotion below. An Inbox task with a start date is invisible in
@@ -247,7 +233,7 @@ export const normalizeTaskUpdate = (task: Task, updates: Partial<Task>): Partial
     const resolvedFocus = hasOwnField(adjustedUpdates, 'isFocusedToday')
         ? adjustedUpdates.isFocusedToday
         : task.isFocusedToday;
-    if (resolvedStatus !== 'next' && resolvedFocus === true) {
+    if (['done', 'archived', 'reference'].includes(resolvedStatus ?? '') && resolvedFocus === true) {
         adjustedUpdates = {
             ...adjustedUpdates,
             isFocusedToday: false,
@@ -746,9 +732,9 @@ export const computeTaskDerivedState = (
         if (dateCoherenceIssues.length > 0) {
             dateCoherenceIssuesByTaskId.set(task.id, dateCoherenceIssues);
         }
-        // Only Ready tasks can be Today commitments. Legacy stars on other
-        // statuses remain harmless historical data and do not consume the cap.
-        if (task.isFocusedToday && task.status === 'next') {
+        // Retained blocked plans consume the same cap on every surface; hiding
+        // their execution eligibility must not create extra commitment slots.
+        if (task.isFocusedToday && isTaskPlanningVisible(task)) {
             focusedCount += 1;
             focusedTasks.push(task);
         }

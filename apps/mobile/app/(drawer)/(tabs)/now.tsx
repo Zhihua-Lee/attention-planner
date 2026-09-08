@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Check, Clock3, RefreshCw } from 'lucide-react-native';
 import {
   getTaskScheduledAt,
-  isTaskAttentionEligible,
+  createPlanningPolicy,
   normalizeAttentionFrames,
   safeFormatDate,
   selectNow,
@@ -36,8 +36,9 @@ export default function NowScreen() {
   const router = useRouter();
   const tc = useThemeColors();
   const { t } = useLanguage();
-  const { tasks, settings, updateTask } = useTaskStore((state) => ({
+  const { tasks, projects, settings, updateTask } = useTaskStore((state) => ({
     tasks: state.tasks,
+    projects: state.projects,
     settings: state.settings,
     updateTask: state.updateTask,
   }), shallow);
@@ -77,11 +78,13 @@ export default function NowScreen() {
     frames: attentionFrames,
     now,
     tasks,
+    projects,
     timeEstimatesEnabled: settings.features?.timeEstimates !== false,
-  }), [attentionFrames, excludedTaskIds, externalEvents, now, settings.features?.timeEstimates, tasks]);
+  }), [attentionFrames, excludedTaskIds, externalEvents, now, projects, settings.features?.timeEstimates, tasks]);
+  const planningPolicy = useMemo(() => createPlanningPolicy(tasks, projects, now), [tasks, projects, now]);
   const commitments = useMemo(() => tasks
-    .filter((task) => !task.deletedAt && task.isFocusedToday && isTaskAttentionEligible(task, now))
-    .sort(compareCommitments), [now, tasks]);
+    .filter((task) => task.isFocusedToday && planningPolicy.isVisible(task))
+    .sort(compareCommitments), [planningPolicy, tasks]);
   const inboxCount = tasks.filter((task) => !task.deletedAt && task.status === 'inbox').length;
 
   const currentTask = selection?.kind === 'task' ? selection.task : null;

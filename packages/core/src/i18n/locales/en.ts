@@ -1,5 +1,13 @@
 // Split from i18n-translations.ts to make community translation contributions easier.
 export const en: Record<string, string> = {
+        'planning.available': 'Available from',
+        'planning.availableTime': 'Available time',
+        'planning.timeBlock': 'Time block',
+        'planning.block.lifecycle': 'Closed task',
+        'planning.block.workflow': 'Waiting for activation',
+        'planning.block.project': 'Project is inactive',
+        'planning.block.sequential': 'Waiting for an earlier step',
+        'planning.block.unavailable': 'Not available yet',
         // App
         'app.name': 'Attention Planner',
         'app.closeStillSavingTitle': 'Mindwtr is still saving',

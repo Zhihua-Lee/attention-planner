@@ -65,13 +65,27 @@ describe('TodayPlanView', () => {
         expect(getByText('Write results')).toBeInTheDocument();
         expect(getByText('Office hours')).toBeInTheDocument();
         expect(getByText('Read paper')).toBeInTheDocument();
-        expect(queryByText('Waiting commitment')).not.toBeInTheDocument();
-        expect(queryByText('Someday commitment')).not.toBeInTheDocument();
-        expect(queryByText('Inbox commitment')).not.toBeInTheDocument();
+        expect(getByText('Waiting commitment')).toBeInTheDocument();
+        expect(getByText('Someday commitment')).toBeInTheDocument();
+        expect(getByText('Inbox commitment')).toBeInTheDocument();
         expect(queryByRole('button', { name: /^Filters$/i })).not.toBeInTheDocument();
         expect(queryByText(/Pomodoro/i)).not.toBeInTheDocument();
         expect(queryByText(/Review Due/i)).not.toBeInTheDocument();
         expect(queryByText(/Attention rules/i)).not.toBeInTheDocument();
+    });
+
+    it('T01/T12: retains future and blocked plans while excluding inactive new candidates', () => {
+        const tasks = [
+            task('future', 'Tomorrow available', { availableAt: '2099-01-01' }),
+            task('blocked', 'Existing blocked plan', { status: 'waiting', scheduledAt: todayAt(14) }),
+            task('candidate', 'Paused candidate', { projectId: 'paused' }),
+        ];
+        useTaskStore.setState({ tasks, _allTasks: tasks, projects: [{ id: 'paused', status: 'waiting' } as never] });
+        const { getByText, queryByText } = renderView();
+        expect(getByText('Tomorrow available')).toBeInTheDocument();
+        expect(getByText('Existing blocked plan')).toBeInTheDocument();
+        expect(queryByText('Paused candidate')).not.toBeInTheDocument();
+        expect(getByText(/Not available yet/)).toBeInTheDocument();
     });
 
     it('writes a distinct scheduledAt value from the Ready list', () => {

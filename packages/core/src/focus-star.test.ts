@@ -64,10 +64,11 @@ describe('resolveFocusStarAction', () => {
         expect(action).toMatchObject({ canToggle: false, blockedReason: 'limit' });
     });
 
-    it('blocks deferred tasks with the deferred reason', () => {
+    it('allows planning future tasks without changing their availability', () => {
         const deferred = makeTask({ availableAt: '2099-01-01T00:00:00.000Z' });
         const action = resolveFocusStarAction(deferred, baseContext());
-        expect(action).toMatchObject({ canToggle: false, blockedReason: 'deferred' });
+        expect(action).toMatchObject({ canToggle: true, blockedReason: null });
+        expect(action.patch).not.toHaveProperty('availableAt');
     });
 
     it('does not turn a review-due Waiting task into a Today commitment', () => {

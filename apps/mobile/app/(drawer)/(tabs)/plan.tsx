@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CalendarDays, ChevronRight, Folder, Hourglass, Repeat2, Star } from 'lucide-react-native';
 import {
   formatI18nTemplate,
   getTaskScheduledAt,
-  isTaskAttentionEligible,
+  createPlanningPolicy,
+  getPlanningBlockLabel,
+  getTaskAvailableAt,
+  getFocusStarBlockedText,
+  normalizeFocusTaskLimit,
   safeFormatDate,
   safeParseDate,
   shallow,
@@ -52,15 +56,16 @@ export default function PlanScreen() {
     return () => clearInterval(interval);
   }, []);
   const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+  const policy = useMemo(() => createPlanningPolicy(tasks, projects, now), [tasks, projects, now]);
 
   const visibleTasks = useMemo(() => tasks.filter((task) => (
-    !task.deletedAt && taskMatchesAreaFilter(task, resolvedAreaFilter, projectById, areaById)
-  )), [areaById, projectById, resolvedAreaFilter, tasks]);
+    policy.isVisible(task) && taskMatchesAreaFilter(task, resolvedAreaFilter, projectById, areaById)
+  )), [areaById, policy, projectById, resolvedAreaFilter, tasks]);
   const eligible = useMemo(() => visibleTasks
-    .filter((task) => isTaskAttentionEligible(task, now))
-    .sort(taskSort), [now, visibleTasks]);
-  const commitments = eligible.filter((task) => task.isFocusedToday);
-  const timeBlocks = eligible
+    .filter(policy.isCandidate)
+    .sort(taskSort), [policy, visibleTasks]);
+  const commitments = visibleTasks.filter((task) => task.isFocusedToday).sort(taskSort);
+  const timeBlocks = visibleTasks
     .filter((task) => isSameLocalDay(getTaskScheduledAt(task), now))
     .sort((left, right) => (
       (safeParseDate(getTaskScheduledAt(left))?.getTime() ?? Number.MAX_SAFE_INTEGER)
@@ -86,7 +91,13 @@ export default function PlanScreen() {
           {safeFormatDate(getTaskScheduledAt(task), 'p')}
         </Text>
       ) : null}
-      <Text style={[styles.taskTitle, { color: tc.text }]} numberOfLines={2}>{task.title}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.taskTitle, { color: tc.text }]} numberOfLines={2}>{task.title}</Text>
+        {policy.executionBlock(task) && <Text style={[styles.hint, { color: tc.secondaryText }]}>
+          {getPlanningBlockLabel(policy.executionBlock(task), t)}
+          {getTaskAvailableAt(task) ? ` · ${safeFormatDate(getTaskAvailableAt(task), 'Pp')}` : ''}
+        </Text>}
+      </View>
       {options.showStar ? (
         <Pressable
           accessibilityRole="button"
@@ -94,7 +105,13 @@ export default function PlanScreen() {
           hitSlop={8}
           onPress={(event) => {
             event.stopPropagation();
-            void updateTask(task.id, { isFocusedToday: !task.isFocusedToday });
+            const state = useTaskStore.getState();
+            const action = state.getFocusStarAction(task);
+            if (!action.canToggle) {
+              Alert.alert(t('plan.title'), getFocusStarBlockedText(t, action, normalizeFocusTaskLimit(state.settings.gtd?.focusTaskLimit)) ?? '');
+              return;
+            }
+            void updateTask(task.id, action.patch);
           }}
           style={styles.starButton}
         >

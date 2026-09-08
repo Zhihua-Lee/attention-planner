@@ -1,8 +1,8 @@
 import type { Project, Task } from './types';
 import {
     FOCUS_ELIGIBILITY_ACTIVE_STATUSES,
-    getTaskFocusEligibility,
 } from './task-utils';
+import { createPlanningPolicy } from './planning-policy';
 import { formatFocusTaskLimitText } from './focus-utils';
 import { tFallback } from './i18n';
 
@@ -50,18 +50,14 @@ export function resolveFocusStarAction(task: Task, context: FocusStarContext): F
         };
     }
 
-    const eligibility = getTaskFocusEligibility(task, {
-        tasks: context.tasks,
-        projects: context.projects,
-        now: context.now,
-        sequentialProjectIds: context.sequentialProjectIds,
-        sectionScopedProjectIds: context.sectionScopedProjectIds,
-    });
-    const eligible = eligibility.eligible
-        || (context.allowUnclarified === true && eligibility.reason === 'clarify');
+    const projects = context.projects instanceof Map ? [...context.projects.values()] : context.projects;
+    const policy = createPlanningPolicy(context.tasks, projects, context.now ?? new Date());
+    const eligible = policy.isCandidate(task)
+        || (context.allowUnclarified === true && task.status === 'inbox'
+            && policy.isCandidate({ ...task, status: 'next' }));
 
     const blockedReason: FocusStarBlockedReason = !eligible
-        ? (eligibility.reason === 'eligible' ? 'clarify' : eligibility.reason)
+        ? 'clarify'
         : context.focusedCount >= context.focusTaskLimit
             ? 'limit'
             : null;

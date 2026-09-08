@@ -18,7 +18,8 @@ import {
     getWeekStartsOnIndex,
     findFreeSlotForDay as findCalendarFreeSlotForDay,
     isSlotFreeForDay as isCalendarSlotFreeForDay,
-    isTaskInActiveProject,
+    isTaskPlanningCandidate,
+    isTaskPlanningVisible,
     isProjectedRecurringTask,
     hasTimeComponent,
     resolveAreaFilter,
@@ -145,18 +146,17 @@ export function useDesktopCalendarController() {
     const { getExternalEventsForDay } = external;
 
     const isSchedulableTask = useCallback((task: Task) => {
-        if (task.deletedAt) return false;
-        if (task.status === 'done' || task.status === 'archived' || task.status === 'reference') return false;
-        if (!isTaskInActiveProject(task, projectMap)) return false;
+        if (!isTaskPlanningCandidate(task, projectMap)) return false;
         if (!taskMatchesAreaFilter(task, resolvedAreaFilter, projectMap, areaById)) return false;
         return true;
     }, [projectMap, resolvedAreaFilter, areaById]);
 
     const isCalendarTaskVisible = useCallback((task: Task) => {
-        if (!isSchedulableTask(task)) return false;
+        if (!isTaskPlanningVisible(task)) return false;
+        if (!taskMatchesAreaFilter(task, resolvedAreaFilter, projectMap, areaById)) return false;
         if (normalizedViewFilterQuery && !task.title.toLowerCase().includes(normalizedViewFilterQuery)) return false;
         return true;
-    }, [isSchedulableTask, normalizedViewFilterQuery]);
+    }, [resolvedAreaFilter, projectMap, areaById, normalizedViewFilterQuery]);
 
     const calendarTaskData = useMemo(() => {
         const visibleTasks: Task[] = [];

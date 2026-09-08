@@ -1,5 +1,13 @@
 // Split from i18n-translations.ts to make community translation contributions easier.
 export const zhHans: Record<string, string> = {
+        'planning.available': '最早可用日期',
+        'planning.availableTime': '最早可用时间',
+        'planning.timeBlock': '时间块',
+        'planning.block.lifecycle': '任务已关闭',
+        'planning.block.workflow': '等待激活或解除阻塞',
+        'planning.block.project': '项目未激活',
+        'planning.block.sequential': '等待前面的步骤',
+        'planning.block.unavailable': '尚未到可用时间',
         'app.name': 'Attention Planner · 注意力计划',
         'app.closeStillSavingTitle': "Mindwtr 仍在保存",
         'app.closeStillSavingBody': "Mindwtr 尚未保存完最近的更改。仍要关闭吗？未保存的更改将会丢失。",
