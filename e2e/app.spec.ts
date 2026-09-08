@@ -32,7 +32,7 @@ const deleteInboxTask = async (page: import('@playwright/test').Page, title: str
     await expect(taskItem).toHaveCount(0);
 };
 
-test('loads the default focus view', async ({ page }) => {
+test('loads NOW as the default view', async ({ page }) => {
     await page.goto('/');
     const focusNav = page.locator('[data-sidebar-item][data-view="agenda"]');
     await expect(focusNav).toBeVisible();
@@ -41,7 +41,8 @@ test('loads the default focus view', async ({ page }) => {
 
 test('navigates between sidebar views', async ({ page }) => {
     await page.goto('/');
-    const projectsNav = page.locator('[data-sidebar-item][data-view="projects"]');
+    await page.locator('[data-sidebar-item][data-view="plan"]').click();
+    const projectsNav = page.getByRole('navigation', { name: 'Planning sections' }).getByRole('button', { name: 'Projects', exact: true });
     await projectsNav.click();
     await expect(projectsNav).toHaveAttribute('aria-current', 'page');
 
@@ -64,6 +65,7 @@ test('restores a deleted task from trash', async ({ page }) => {
     await createInboxTask(page, title);
     await deleteInboxTask(page, title);
 
+    await page.getByRole('button', { name: 'Archive', exact: true }).click();
     const trashNav = page.locator('[data-sidebar-item][data-view="trash"]');
     await trashNav.click();
     await expect(trashNav).toHaveAttribute('aria-current', 'page');
@@ -87,6 +89,7 @@ test('filters trashed tasks by search query', async ({ page }) => {
     await deleteInboxTask(page, 'Trash Keep Alpha');
     await deleteInboxTask(page, 'Trash Keep Beta');
 
+    await page.getByRole('button', { name: 'Archive', exact: true }).click();
     const trashNav = page.locator('[data-sidebar-item][data-view="trash"]');
     await trashNav.click();
     await expect(trashNav).toHaveAttribute('aria-current', 'page');
