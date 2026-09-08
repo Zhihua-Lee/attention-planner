@@ -130,11 +130,10 @@ describe('task-draft', () => {
             snoozedUntil: '2026-07-14T08:30',
         });
         expect(isTaskDraftDirty(semanticDraft, semanticTask)).toBe(false);
-        expect(taskDraftToUpdatePatch(semanticDraft, semanticTask)).toMatchObject({
-            availableAt: '2026-07-14',
-            scheduledAt: '2026-07-14T09:00',
-            snoozedUntil: '2026-07-14T08:30',
-        });
+        const untouched = taskDraftToUpdatePatch(semanticDraft, semanticTask);
+        expect(untouched).not.toHaveProperty('availableAt');
+        expect(untouched).not.toHaveProperty('scheduledAt');
+        expect(untouched).not.toHaveProperty('snoozedUntil');
 
         const legacyTask: Task = {
             ...baseTask,
@@ -150,10 +149,27 @@ describe('task-draft', () => {
             relativeStartOffset: undefined,
         });
         expect(taskDraftToUpdatePatch(rescheduled, legacyTask)).toMatchObject({
-            scheduledAt: '2026-07-14T11:00',
+            scheduledAt: new Date('2026-07-14T11:00').toISOString(),
             startTime: undefined,
             relativeStartOffset: undefined,
         });
+    });
+
+    it('T16: a title-only edit does not overwrite another device time update', () => {
+        const original: Task = { ...baseTask, scheduledAt: '2026-09-07T09:00:00Z' };
+        const draft = setTaskDraftField(createTaskDraft(original), 'title', 'Revised');
+        const current = { ...original, scheduledAt: '2026-09-07T11:00:00Z' };
+        const patch = taskDraftToUpdatePatch(draft, current);
+        expect(patch).not.toHaveProperty('scheduledAt');
+        expect({ ...current, ...patch }.scheduledAt).toBe(current.scheduledAt);
+    });
+
+    it('T15: explicit schedule clearing retires the legacy fallback and is not omitted', () => {
+        const original: Task = { ...baseTask, scheduledAt: '2026-09-07T11:00:00Z', startTime: '2026-09-07T09:00:00Z' };
+        const draft = setTaskDraftField(createTaskDraft(original), 'scheduledAt', '');
+        const patch = taskDraftToUpdatePatch(draft, original);
+        expect(patch).toHaveProperty('scheduledAt', undefined);
+        expect(patch).toHaveProperty('startTime', undefined);
     });
 
     it('counts attachment record changes as dirty', () => {

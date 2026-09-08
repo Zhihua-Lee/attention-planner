@@ -727,7 +727,7 @@ export function TaskItemFieldRenderer({
     // editors below were written against.
     const {
         description: editDescription,
-        startTime: editStartTime,
+        availableAt: editStartTime,
         relativeStartOffset: editRelativeStartOffset,
         dueDate: editDueDate,
         reviewAt: editReviewAt,
@@ -748,7 +748,7 @@ export function TaskItemFieldRenderer({
         location: editLocation,
     } = draft;
     const setEditDescription = (value: string) => setField('description', value);
-    const setEditStartTime = (value: string) => setField('startTime', value);
+    const setEditStartTime = (value: string) => setField('availableAt', value);
     const setEditRelativeStartOffset = (value: Task['relativeStartOffset']) => setField('relativeStartOffset', value);
     const setEditDueDate = (value: string) => setField('dueDate', value);
     const setEditReviewAt = (value: string) => setField('reviewAt', value);
@@ -1322,126 +1322,41 @@ export function TaskItemFieldRenderer({
                 />
             );
         case 'startTime':
-            {
-                const { date: dateValue, time: timeValue } = splitDateTime(editStartTime);
-                const hasTime = Boolean(timeValue);
-                const parsed = editStartTime ? safeParseDate(editStartTime) : null;
-                const handleDateChange = (value: string) => {
-                    setEditRelativeStartOffset(undefined);
-                    const normalizedDate = normalizeDateInputValue(value);
-                    setEditStartTime(joinDateTime(normalizedDate, timeValue, { defaultTime: defaultScheduleTime }));
-                };
-                const handleTimeChange = (value: string) => {
-                    setEditRelativeStartOffset(undefined);
-                    const datePart = dateValue || (value ? safeFormatDate(new Date(), 'yyyy-MM-dd') : '');
-                    setEditStartTime(joinDateTime(datePart, value));
-                };
-                const dueDateHasTime = hasTimeComponent(editDueDate);
-                const relativeUnit = editRelativeStartOffset?.unit ?? 'day';
-                const relativeUnitForDueDate = !dueDateHasTime && (relativeUnit === 'minute' || relativeUnit === 'hour')
-                    ? 'day'
-                    : relativeUnit;
-                const relativeAmount = editRelativeStartOffset ? Math.abs(editRelativeStartOffset.amount) : 3;
-                const relativeUnitOptions: Array<{ value: NonNullable<Task['relativeStartOffset']>['unit']; label: string }> = dueDateHasTime
-                    ? [
-                        { value: 'minute', label: t('taskEdit.relativeStartMinutes') },
-                        { value: 'hour', label: t('taskEdit.relativeStartHours') },
-                        { value: 'day', label: t('taskEdit.relativeStartDays') },
-                        { value: 'week', label: t('taskEdit.relativeStartWeeks') },
-                    ]
-                    : [
-                        { value: 'day', label: t('taskEdit.relativeStartDays') },
-                        { value: 'week', label: t('taskEdit.relativeStartWeeks') },
-                    ];
-                const applyRelativeStartOffset = (amountValue: number, unitValue: NonNullable<Task['relativeStartOffset']>['unit']) => {
-                    if (!editDueDate || !Number.isFinite(amountValue)) return;
-                    // 0 is valid: start on the due date itself.
-                    const magnitude = Math.max(0, Math.floor(amountValue));
-                    const offset = { amount: magnitude === 0 ? 0 : -magnitude, unit: unitValue };
-                    const computedStart = computeRelativeStartTime(editDueDate, offset);
-                    if (!computedStart) {
-                        setEditRelativeStartOffset(undefined);
-                        return;
-                    }
-                    setEditRelativeStartOffset(offset);
-                    setEditStartTime(computedStart);
-                };
-                return (
-                    <>
-                        {renderDateField({
-                            label: t('taskEdit.startDateLabel'),
-                            labelToken: QUICK_ADD_FIELD_TOKENS.startTime,
-                            dateAriaLabel: t('task.aria.startDate'),
-                            dateValue,
-                            selectedDate: parsed,
-                            onDateChange: handleDateChange,
-                            timeInput: (
-                                <input
-                                    type="time"
-                                    onClick={openNativePickerOnClick}
-                                    lang={nativeDateInputLocale}
-                                    aria-label={t('task.aria.startTime')}
-                                    value={timeValue}
-                                    onChange={(event) => handleTimeChange(event.target.value)}
-                                    className={timeInputClassName}
-                                />
-                            ),
-                            onClear: () => {
-                                setEditRelativeStartOffset(undefined);
-                                setEditStartTime('');
-                            },
-                            onDateOnly: hasTime ? () => handleTimeChange('') : undefined,
-                            hasValue: Boolean(editStartTime),
-                            warning: dateIssueLabel,
-                        })}
-                        {editDueDate && (
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <div className="inline-flex rounded-md border border-border bg-muted/40 p-0.5" aria-label={t('taskEdit.startModeLabel')}>
-                                    <button
-                                        type="button"
-                                        aria-pressed={!editRelativeStartOffset}
-                                        onClick={() => setEditRelativeStartOffset(undefined)}
-                                        className={`rounded px-2 py-1 ${!editRelativeStartOffset ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                                    >
-                                        {t('taskEdit.startModeAbsolute')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        aria-pressed={Boolean(editRelativeStartOffset)}
-                                        onClick={() => applyRelativeStartOffset(relativeAmount, relativeUnitForDueDate)}
-                                        className={`rounded px-2 py-1 ${editRelativeStartOffset ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                                    >
-                                        {t('taskEdit.startModeRelative')}
-                                    </button>
-                                </div>
-                                {editRelativeStartOffset && (
-                                    <>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            max={10000}
-                                            value={relativeAmount}
-                                            onChange={(event) => applyRelativeStartOffset(Number(event.target.value), relativeUnitForDueDate)}
-                                            className="h-8 w-16 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-                                            aria-label={t('taskEdit.relativeStartAmount')}
-                                        />
-                                        <select
-                                            value={relativeUnitForDueDate}
-                                            onChange={(event) => applyRelativeStartOffset(relativeAmount, event.target.value as NonNullable<Task['relativeStartOffset']>['unit'])}
-                                            className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-                                            aria-label={t('taskEdit.relativeStartUnit')}
-                                        >
-                                            {relativeUnitOptions.map((option) => (
-                                                <option key={option.value} value={option.value}>{option.label}</option>
-                                            ))}
-                                        </select>
-                                    </>
-                                )}
-                            </div>
-                        )}
-                    </>
-                );
-            }
+            return (
+                <div className="space-y-4">
+                    {renderDateField({
+                        label: tFallback(t, 'planning.available', 'Available from'),
+                        dateAriaLabel: tFallback(t, 'planning.available', 'Available from'),
+                        dateValue: splitDateTime(editStartTime).date,
+                        selectedDate: safeParseDate(editStartTime),
+                        onDateChange: (value) => setEditStartTime(joinDateTime(normalizeDateInputValue(value), splitDateTime(editStartTime).time)),
+                        timeInput: (
+                            <input type="time" aria-label={tFallback(t, 'planning.availableTime', 'Available time')}
+                                value={splitDateTime(editStartTime).time}
+                                onChange={(event) => setEditStartTime(joinDateTime(splitDateTime(editStartTime).date || safeFormatDate(new Date(), 'yyyy-MM-dd'), event.target.value))}
+                                className={timeInputClassName} />
+                        ),
+                        onClear: () => setEditStartTime(''),
+                        onDateOnly: splitDateTime(editStartTime).time ? () => setEditStartTime(splitDateTime(editStartTime).date) : undefined,
+                        hasValue: Boolean(editStartTime),
+                        warning: dateIssueLabel,
+                    })}
+                    <label className="block space-y-1 text-sm text-muted-foreground">
+                        <span>{tFallback(t, 'planning.timeBlock', 'Time block')}</span>
+                        <input type="datetime-local"
+                            aria-label={tFallback(t, 'planning.timeBlock', 'Time block')}
+                            value={draft.scheduledAt}
+                            onChange={(event) => setField('scheduledAt', event.target.value)}
+                            className="min-h-11 w-full rounded-md border border-border bg-background px-3 text-foreground" />
+                    </label>
+                    {draft.scheduledAt && (
+                        <button type="button" onClick={() => setField('scheduledAt', '')}
+                            className="min-h-11 text-sm text-muted-foreground hover:text-foreground">
+                            {t('calendar.unschedule')}
+                        </button>
+                    )}
+                </div>
+            );
         case 'dueDate':
             {
                 const { date: dateValue, time: timeValue } = splitDateTime(editDueDate);

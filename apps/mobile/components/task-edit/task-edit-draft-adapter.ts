@@ -79,7 +79,8 @@ export function buildTaskEditUpdatePatch(
     }) ?? {};
     const narrowed: Partial<Task> = { ...patch };
     for (const key of Object.keys(narrowed) as (keyof Task)[]) {
-        const baselineValue = RAW_CONTAINER_FIELDS.has(key) ? task[key] : baseline[key];
+        const baselineValue = RAW_CONTAINER_FIELDS.has(key) || !Object.prototype.hasOwnProperty.call(baseline, key)
+            ? task[key] : baseline[key];
         if (areTaskFieldValuesEqual(narrowed[key], baselineValue)) {
             delete narrowed[key];
         }

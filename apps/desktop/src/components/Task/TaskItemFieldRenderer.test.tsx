@@ -271,6 +271,20 @@ describe('TaskItemFieldRenderer date clear buttons', () => {
         cleanup();
     });
 
+    it('R2: edits the explicit reservation independently from availability and legacy start', () => {
+        const setField = vi.fn();
+        const { getByLabelText } = render(<TaskItemFieldRenderer fieldId="startTime" {...createProps({
+            task: { ...baseTask, availableAt: '2026-09-07', scheduledAt: '2026-09-07T11:00:00', startTime: '2026-09-07T09:00:00' },
+            setField,
+        })} />);
+        const input = getByLabelText('Time block');
+        expect(input).toHaveValue('2026-09-07T11:00');
+        fireEvent.change(input, { target: { value: '2026-09-07T13:00' } });
+        expect(setField).toHaveBeenCalledWith('scheduledAt', '2026-09-07T13:00');
+        expect(setField).not.toHaveBeenCalledWith('startTime', expect.anything());
+        expect(setField).not.toHaveBeenCalledWith('availableAt', expect.anything());
+    });
+
     it('edits the location field through the configurable renderer', () => {
         const setField = vi.fn();
 
@@ -312,7 +326,7 @@ describe('TaskItemFieldRenderer date clear buttons', () => {
     it('shows a date-coherence note on conflicting start and due date fields', () => {
         const props = createProps({
             draft: {
-                startTime: '2026-04-25',
+                availableAt: '2026-04-25',
                 dueDate: '2026-04-24',
             },
         });
@@ -339,9 +353,9 @@ describe('TaskItemFieldRenderer date clear buttons', () => {
     it.each([
         {
             fieldId: 'startTime' as const,
-            draftValue: { startTime: '2026-04-18T09:30' },
-            clearLabel: 'Clear Start Date',
-            draftKey: 'startTime' as const,
+            draftValue: { availableAt: '2026-04-18T09:30' },
+            clearLabel: 'Clear Available from',
+            draftKey: 'availableAt' as const,
         },
         {
             fieldId: 'dueDate' as const,
@@ -384,9 +398,9 @@ describe('TaskItemFieldRenderer date clear buttons', () => {
     it.each([
         {
             fieldId: 'startTime' as const,
-            draftValue: { startTime: '2026-04-18T09:30' },
-            dateOnlyLabel: 'Date only: Start Date',
-            draftKey: 'startTime' as const,
+            draftValue: { availableAt: '2026-04-18T09:30' },
+            dateOnlyLabel: 'Date only: Available from',
+            draftKey: 'availableAt' as const,
             expected: '2026-04-18',
         },
         {
@@ -529,9 +543,9 @@ describe('TaskItemFieldRenderer date clear buttons', () => {
     it.each([
         {
             fieldId: 'startTime' as const,
-            draftValue: { startTime: '2026-04-18' },
+            draftValue: { availableAt: '2026-04-18' },
             inputLabel: 'Start date',
-            dialogLabel: 'Start Date Calendar',
+            dialogLabel: 'Available from Calendar',
         },
         {
             fieldId: 'dueDate' as const,
@@ -681,8 +695,8 @@ describe('TaskItemFieldRenderer date clear buttons', () => {
     it.each([
         {
             fieldId: 'startTime' as const,
-            calendarLabel: 'Start Date',
-            draftKey: 'startTime' as const,
+            calendarLabel: 'Available from',
+            draftKey: 'availableAt' as const,
         },
         {
             fieldId: 'dueDate' as const,
@@ -1434,7 +1448,6 @@ describe('TaskItemFieldRenderer quick-add token hints (#918)', () => {
     afterEach(cleanup);
 
     it.each([
-        ['startTime' as const, '/start:'],
         ['dueDate' as const, '/due:'],
         ['reviewAt' as const, '/review:'],
         ['energyLevel' as const, '/energy:'],
@@ -1451,7 +1464,7 @@ describe('TaskItemFieldRenderer quick-add token hints (#918)', () => {
         expect(getByTitle(`Quick add: ${token}`)).toHaveTextContent(token);
     });
 
-    it.each(['status' as const, 'priority' as const, 'location' as const])(
+    it.each(['startTime' as const, 'status' as const, 'priority' as const, 'location' as const])(
         'leaves the %s field without a token badge',
         (fieldId) => {
             const { queryByTitle } = render(

@@ -36,7 +36,10 @@ import type {
  * areDraftAttachmentsDirty · taskDraftToUpdatePatch. Everything else is
  * implementation.
  */
+const DRAFT_BASELINE = Symbol('task-draft-baseline');
+
 export type TaskDraft = {
+    [DRAFT_BASELINE]?: Task;
     title: string;
     dueDate: string;
     startTime: string;
@@ -68,7 +71,7 @@ export type TaskDraft = {
     suppressMindwtrReminders: boolean;
 };
 
-export type TaskDraftField = keyof TaskDraft;
+export type TaskDraftField = Extract<keyof TaskDraft, string>;
 
 /** The one write path surfaces get: bind this to setTaskDraftField. */
 export type TaskDraftSetter = <K extends TaskDraftField>(field: K, value: TaskDraft[K]) => void;
@@ -210,6 +213,7 @@ export const TASK_DRAFT_FIELD_KEYS = Object.keys(TASK_DRAFT_FIELDS) as TaskDraft
 
 export function createTaskDraft(task: Task): TaskDraft {
     const draft = {} as TaskDraft;
+    draft[DRAFT_BASELINE] = task;
     for (const key of TASK_DRAFT_FIELD_KEYS) {
         (draft as Record<TaskDraftField, unknown>)[key] = TASK_DRAFT_FIELDS[key].fromTask(task);
     }
@@ -304,7 +308,7 @@ export function taskDraftToUpdatePatch(
         ? { attachments: options.attachments }
         : {};
 
-    return {
+    const patch: Partial<Task> = {
         title: cleanedTitle,
         status: options.statusOverride ?? draft.status,
         completedAt: draft.status === 'done' ? (draft.completedAt || undefined) : undefined,
@@ -336,4 +340,23 @@ export function taskDraftToUpdatePatch(
         suppressMindwtrReminders: draft.suppressMindwtrReminders ? true : undefined,
         ...attachmentsPatch,
     };
+    // Only edited temporal fields may cross the write boundary. Keeping a
+    // baseline on the draft (also preserved by object spread) prevents a title
+    // edit from re-saving local datetime strings over another device's schedule.
+    const baseline = draft[DRAFT_BASELINE] ?? task;
+    const dateFields = ['dueDate', 'startTime', 'availableAt', 'scheduledAt', 'snoozedUntil', 'reviewAt'] as const;
+    for (const field of dateFields) {
+        if (draft[field] === TASK_DRAFT_FIELDS[field].fromTask(baseline)) {
+            delete patch[field];
+        } else {
+            const value = draft[field];
+            patch[field] = value && hasTimeComponent(value)
+                ? safeParseDate(value)?.toISOString() ?? value
+                : value || undefined;
+        }
+    }
+    if (!TASK_DRAFT_FIELDS.relativeStartOffset.isDirty?.(draft.relativeStartOffset, baseline)) {
+        delete patch.relativeStartOffset;
+    }
+    return patch;
 }

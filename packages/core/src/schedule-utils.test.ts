@@ -42,6 +42,20 @@ const buildProject = (overrides: Partial<Project>): Project => ({
 });
 
 describe('schedule-utils', () => {
+    it('R1: schedules and reschedules semantic start reminders without startTime', () => {
+        const now = new Date('2026-09-07T08:00:00Z');
+        const task = buildTask({ scheduledAt: '2026-09-07T09:00:00Z' });
+        expect(getTaskReminderPlan(task, now).next).toMatchObject({ kind: 'start', scheduledAt: new Date(task.scheduledAt!) });
+        const moved = { ...task, scheduledAt: '2026-09-07T11:00:00Z' };
+        expect(getTaskReminderPlan(moved, now).next?.dedupeKey).toBe('2026-09-07T11:00:00.000Z');
+        expect(getTaskReminderPlan({ ...moved, scheduledAt: undefined }, now).next).toBeNull();
+        expect(getTaskReminderPlan({ ...task, suppressMindwtrReminders: true }, now).next).toBeNull();
+        expect(getTaskReminderPlan({ ...task, status: 'done' }, now).next).toBeNull();
+    });
+
+    it('does not treat timed availability as a start reminder', () => {
+        expect(getTaskReminderPlan(buildTask({ availableAt: '2099-09-07T09:00:00Z' })).next).toBeNull();
+    });
     it('skips date-only start reminders', () => {
         const task = buildTask({ startTime: '2026-03-17' });
         const now = new Date(2026, 2, 16, 20, 0, 0, 0);

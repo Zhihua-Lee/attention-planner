@@ -2,6 +2,7 @@ import { isAfter } from 'date-fns';
 import { hasTimeComponent, safeParseDate } from './date';
 import { stripMarkdown } from './markdown';
 import type { NotificationSettings, Project, Task } from './types';
+import { getTaskScheduledAt } from './task-time-semantics';
 
 export type ScheduleOptions = {
     includeStartTime?: boolean;
@@ -91,7 +92,7 @@ function getNextTaskReminderIntent(
 
     addCandidate(
         'start',
-        task.startTime,
+        getTaskScheduledAt(task),
         includeTaskReminders && options.includeStartTime !== false,
     );
     addCandidate(
@@ -457,8 +458,9 @@ export function buildReminderSchedule(input: ReminderScheduleInput): ReminderSch
             // actual request both read this same task/now/options, in the same iteration, so
             // they cannot disagree with each other the way two separate traversals could.
             const suppressTaskReminders = task.suppressMindwtrReminders === true;
+            const scheduledStart = getTaskScheduledAt(task);
             const hasSuppressibleReminder = (includeDueDate && hasTimeComponent(task.dueDate))
-                || (includeStartTime && hasTimeComponent(task.startTime));
+                || (includeStartTime && hasTimeComponent(scheduledStart));
             if (suppressTaskReminders && hasSuppressibleReminder) {
                 suppressedTaskReminderCount += 1;
             }
@@ -471,9 +473,9 @@ export function buildReminderSchedule(input: ReminderScheduleInput): ReminderSch
                     dateOnlyDueDateCount += 1;
                 }
             }
-            if (!suppressTaskReminders && includeStartTime && task.startTime) {
-                if (hasTimeComponent(task.startTime)) {
-                    const startAtMs = safeParseDate(task.startTime)?.getTime() ?? NaN;
+            if (!suppressTaskReminders && includeStartTime && (scheduledStart || task.startTime)) {
+                if (hasTimeComponent(scheduledStart)) {
+                    const startAtMs = safeParseDate(scheduledStart)?.getTime() ?? NaN;
                     if (Number.isFinite(startAtMs) && startAtMs > nowMs) futureStartTimeReminderCount += 1;
                     else if (Number.isFinite(startAtMs)) pastStartTimeReminderCount += 1;
                 } else {

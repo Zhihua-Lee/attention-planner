@@ -97,10 +97,17 @@ describe('mobile task edit draft', () => {
         const draft = setTaskDraftField(state.draft, 'scheduledAt', '2026-07-14T15:30');
 
         expect(buildTaskEditUpdatePatch({ ...state, draft }, scheduledTask)).toMatchObject({
-            scheduledAt: '2026-07-14T15:30',
-            startTime: undefined,
-            relativeStartOffset: undefined,
+            scheduledAt: new Date('2026-07-14T15:30').toISOString(),
         });
+    });
+
+    it('keeps explicit clearing distinct from an untouched omitted time field', () => {
+        const task: Task = { ...baseTask, scheduledAt: '2026-09-07T11:00:00Z', startTime: '2026-09-07T09:00:00Z' };
+        const state = createTaskEditDraft(task);
+        const draft = setTaskDraftField(state.draft, 'scheduledAt', '');
+        const patch = buildTaskEditUpdatePatch({ ...state, draft }, task);
+        expect(patch).toHaveProperty('scheduledAt', undefined);
+        expect(patch).toHaveProperty('startTime', undefined);
     });
 
     it('serializes recurrence and Container changes through the shared TaskDraft patch', () => {
