@@ -1,0 +1,51 @@
+import { test, expect } from '@playwright/test';
+
+test('separates title, body and optional steps across edit, promotion and reload', async ({ page }, testInfo) => {
+    await page.addInitScript(() => localStorage.setItem('mindwtr:desktop:first-run-onboarding:v1', 'dismissed'));
+    await page.goto('/');
+    await page.locator('[data-sidebar-item][data-view="inbox"]').click();
+    const title = 'Revise Figure 3';
+    const body = 'Background for this revision\n\n- Plot labels\n  - Keep SI units\n\nhttps://example.com/reference';
+    await page.getByPlaceholder(/add task/i).fill(title);
+    await page.getByPlaceholder(/add task/i).press('Enter');
+    const row = page.locator('[data-task-id]', { hasText: title });
+    await row.locator('[data-task-view-toggle]').dblclick();
+    const content = page.getByRole('textbox', { name: 'Task description', exact: true });
+    await expect(content).toBeVisible();
+    await content.fill(body);
+    const steps = page.locator('summary').filter({ hasText: 'Checklist' });
+    await expect(steps).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add Item', exact: true })).not.toBeVisible();
+    await steps.click();
+    await page.getByRole('button', { name: 'Add Item', exact: true }).click();
+    await page.getByPlaceholder('Item name', { exact: true }).fill('Check units');
+    await page.getByRole('button', { name: 'Add Item', exact: true }).click();
+    await page.getByPlaceholder('Item name', { exact: true }).nth(1).fill('Ask colleague');
+    await page.getByRole('button', { name: 'Checklist 1', exact: true }).click();
+
+    // The same PWA editor must remain usable on an iPhone-sized viewport.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(content).toBeVisible();
+    const promote = page.getByRole('button', { name: 'Move step to Inbox: Ask colleague', exact: true });
+    await expect(promote).toBeEnabled();
+    await promote.click();
+    await expect(page.getByRole('status').filter({ hasText: 'Moved to Inbox' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('content-mobile.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.reload();
+    await page.locator('[data-sidebar-item][data-view="inbox"]').click();
+    await expect(page.locator('[data-task-id]', { hasText: 'Ask colleague' })).toHaveCount(1);
+    await expect(row).toHaveCount(1);
+    await expect(row).not.toContainText('Background for this revision');
+    await row.locator('[data-task-view-toggle]').dblclick();
+    await expect(page.getByRole('combobox', { name: 'Title', exact: true })).toHaveValue(title);
+    await page.getByRole('button', { name: 'Edit Content', exact: true }).click();
+    await expect(content).toHaveValue(body);
+    await expect(page.getByPlaceholder('Item name', { exact: true })).not.toBeVisible();
+    await page.locator('summary').filter({ hasText: 'Checklist' }).click();
+    await expect(page.getByPlaceholder('Item name', { exact: true })).toHaveValue('Check units');
+    await expect(page.getByRole('button', { name: 'Move step to Inbox: Check units' })).toBeDisabled();
+    await page.screenshot({ path: testInfo.outputPath('content-desktop.png'), fullPage: true });
+});

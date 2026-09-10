@@ -521,6 +521,7 @@ const STORE_WRITE_ACTION_KEYS = [
     'duplicateTask',
     'promoteTaskToProject',
     'resetTaskChecklist',
+    'promoteChecklistItem',
     'moveTask',
     'batchUpdateTasks',
     'batchMoveTasks',

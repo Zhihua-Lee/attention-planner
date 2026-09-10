@@ -35,6 +35,25 @@ function ChecklistHarness({
 }
 
 describe('ChecklistField', () => {
+    it('moves a step to Inbox without overwriting the remaining checklist', async () => {
+        const promote = vi.fn().mockResolvedValue({ success: true, id: 'new-task' });
+        useTaskStore.setState({ promoteChecklistItem: promote });
+        const { getByRole, queryByDisplayValue } = render(<ChecklistHarness />);
+        fireEvent.click(getByRole('button', { name: 'Move step to Inbox: Item 1' }));
+        await waitFor(() => expect(queryByDisplayValue('Item 1')).not.toBeInTheDocument());
+        expect(promote).toHaveBeenCalledWith('task-1', '1');
+        expect(queryByDisplayValue('Item 2')).toBeInTheDocument();
+        expect(getByRole('status', { name: 'taskEdit.checklist' })).toHaveTextContent('No dates or reminders copied');
+    });
+
+    it('retains the step and shows an error when promotion fails', async () => {
+        useTaskStore.setState({ promoteChecklistItem: vi.fn().mockResolvedValue({ success: false }) });
+        const { getByRole, getByDisplayValue } = render(<ChecklistHarness />);
+        fireEvent.click(getByRole('button', { name: 'Move step to Inbox: Item 1' }));
+        await waitFor(() => expect(getByRole('status', { name: 'taskEdit.checklist' })).toHaveTextContent('Could not move this step'));
+        expect(getByDisplayValue('Item 1')).toBeInTheDocument();
+    });
+
     afterEach(() => {
         useTaskStore.setState(initialTaskState, true);
     });

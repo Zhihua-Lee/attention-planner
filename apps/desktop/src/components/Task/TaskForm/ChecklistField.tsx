@@ -14,7 +14,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Check, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
     applyMarkdownKeyboardShortcut,
@@ -22,13 +22,13 @@ import {
     generateUUID,
     isMarkdownEditorAssistEnabled,
     parsePastedChecklistItems,
+    tFallback,
     useTaskStore,
     type MarkdownSelection,
     type MarkdownToolbarResult,
     type Task,
 } from '@mindwtr/core';
 import { cn } from '../../../lib/utils';
-import { taskEditorLabelClassName } from '../task-editor-label';
 import {
     captureScrollSnapshot,
     focusElementWithoutScroll,
@@ -153,6 +153,9 @@ export function ChecklistField({
     resetTaskChecklist,
 }: ChecklistFieldProps) {
     const markdownEditorAssist = useTaskStore((state) => isMarkdownEditorAssistEnabled(state.settings));
+    const promoteChecklistItem = useTaskStore((state) => state.promoteChecklistItem);
+    const [promotionMessage, setPromotionMessage] = useState('');
+    const [promoting, setPromoting] = useState(false);
     const [checklistDraft, setChecklistDraft] = useState<Task['checklist']>(checklist || []);
     const checklistDraftRef = useRef<Task['checklist']>(checklist || []);
     const checklistDirtyRef = useRef(false);
@@ -325,8 +328,9 @@ export function ChecklistField({
     const canReorderChecklist = checklistItems.length > 1;
 
     return (
-        <div className="flex flex-col gap-2 w-full pt-2 border-t border-border/50">
-            <label className={taskEditorLabelClassName}>{t('taskEdit.checklist')}</label>
+        <div className="flex flex-col gap-2 w-full pb-2">
+            <p className="text-xs text-muted-foreground">{tFallback(t, 'taskEdit.stepsHint', 'Steps save immediately, even if you cancel editing. Move a step to Inbox when it needs its own schedule.')}</p>
+            {promotionMessage && <p role="status" aria-label={t('taskEdit.checklist')} className="text-xs text-muted-foreground">{promotionMessage}</p>}
             <div className="space-y-2 pr-3">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleChecklistDragEnd}>
                     <SortableContext items={checklistItems.map((item) => item.id)} strategy={verticalListSortingStrategy}>
@@ -343,6 +347,7 @@ export function ChecklistField({
                                         <button
                                             type="button"
                                             aria-label={`${t('taskEdit.checklist')} ${index + 1}`}
+                                            aria-pressed={item.isCompleted}
                                             onClick={() => {
                                                 const newList = checklistItems.map((entry, i) =>
                                                     i === index ? { ...entry, isCompleted: !entry.isCompleted } : entry
@@ -352,14 +357,11 @@ export function ChecklistField({
                                                 checklistDirtyRef.current = false;
                                                 commitChecklistUpdate(newList);
                                             }}
-                                            className={cn(
-                                                'w-4 h-4 border rounded flex items-center justify-center transition-colors',
-                                                item.isCompleted
-                                                    ? 'bg-primary border-primary text-primary-foreground'
-                                                    : 'border-muted-foreground hover:border-primary'
-                                            )}
+                                            className="h-11 w-11 sm:h-5 sm:w-5 shrink-0 flex items-center justify-center rounded focus-visible:ring-2 focus-visible:ring-primary"
                                         >
-                                            {item.isCompleted && <Check className="w-3 h-3" />}
+                                            <span className={cn('w-4 h-4 border rounded flex items-center justify-center', item.isCompleted ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground')}>
+                                                {item.isCompleted && <Check className="w-3 h-3" />}
+                                            </span>
                                         </button>
                                         <input
                                             type="text"
@@ -476,11 +478,40 @@ export function ChecklistField({
                                                 }
                                             }}
                                             className={cn(
-                                                'flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-primary/50 px-1',
+                                                'min-w-0 flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-primary/50 px-1',
                                                 item.isCompleted && 'text-muted-foreground line-through'
                                             )}
                                             placeholder={t('taskEdit.itemNamePlaceholder')}
                                         />
+                                        <button
+                                            type="button"
+                                            disabled={promoting || item.isCompleted || !item.title.trim()}
+                                            aria-label={`${tFallback(t, 'taskEdit.promoteStep', 'Move step to Inbox')}: ${item.title}`}
+                                            title={tFallback(t, 'taskEdit.promoteStep', 'Move step to Inbox')}
+                                            onClick={async () => {
+                                                setPromoting(true);
+                                                commitChecklistDraft();
+                                                try {
+                                                    const result = await promoteChecklistItem(taskId, item.id);
+                                                    if (result.success) {
+                                                        const remaining = (checklistDraftRef.current || []).filter((entry) => entry.id !== item.id);
+                                                        setChecklistDraft(remaining);
+                                                        checklistDraftRef.current = remaining;
+                                                        checklistDirtyRef.current = false;
+                                                    }
+                                                    setPromotionMessage(result.success
+                                                        ? tFallback(t, 'taskEdit.stepPromoted', 'Moved to Inbox as an independent task. No dates or reminders copied.')
+                                                        : tFallback(t, 'taskEdit.stepPromoteFailed', 'Could not move this step. Refresh the task and try again.'));
+                                                } catch {
+                                                    setPromotionMessage(tFallback(t, 'taskEdit.stepPromoteFailed', 'Could not move this step. Refresh the task and try again.'));
+                                                } finally {
+                                                    setPromoting(false);
+                                                }
+                                            }}
+                                            className="inline-flex min-h-11 min-w-11 sm:min-h-7 sm:min-w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30"
+                                        >
+                                            <ArrowUpRight className="h-4 w-4" />
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -491,7 +522,7 @@ export function ChecklistField({
                                                 commitChecklistUpdate(newList);
                                             }}
                                             aria-label={t('common.delete')}
-                                            className="p-1 text-muted-foreground opacity-0 group-hover/item:opacity-100 group-focus-within/item:opacity-100 focus-visible:opacity-100 hover:text-destructive [@media(hover:none)]:opacity-100"
+                                            className="min-h-11 min-w-11 sm:min-h-7 sm:min-w-7 inline-flex items-center justify-center p-1 text-muted-foreground opacity-100 sm:opacity-0 group-hover/item:opacity-100 group-focus-within/item:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary hover:text-destructive [@media(hover:none)]:opacity-100"
                                         >
                                             <Trash2 className="w-3 h-3" />
                                         </button>

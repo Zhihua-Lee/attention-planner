@@ -137,7 +137,7 @@ describe('useTaskItemFieldLayout', () => {
         expect(result.current.organizationFields).toContain('tags');
         expect(result.current.organizationFields).not.toContain('priority');
         expect(result.current.organizationFields).not.toContain('timeEstimate');
-        expect(result.current.detailsFields).toContain('description');
+        expect(result.current.detailsFields).not.toContain('description');
         expect(result.current.detailsFields).toContain('attachments');
         expect(result.current.detailsFields).not.toContain('checklist');
     });
@@ -158,7 +158,7 @@ describe('useTaskItemFieldLayout', () => {
         expect(result.current.basicFields).toContain('contexts');
         expect(result.current.organizationFields).toContain('priority');
         expect(result.current.organizationFields).toContain('timeEstimate');
-        expect(result.current.detailsFields).toContain('checklist');
+        expect(result.current.detailsFields).not.toContain('checklist');
     });
 
     it('splits basic fields around the organizer row following the configured order', () => {

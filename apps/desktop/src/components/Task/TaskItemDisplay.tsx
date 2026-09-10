@@ -1,6 +1,6 @@
 import { AlertTriangle, Calendar as CalendarIcon, Tag, Trash2, ArrowRight, Repeat, Check, Clock, Timer, Link2, Paperclip, RotateCcw, Copy, MapPin, History, Hourglass, Play, Zap, MoreHorizontal } from 'lucide-react';
 import type { Area, Attachment, Project, RangeSelectionOptions, Task, TaskStatus, RecurrenceRule, RecurrenceStrategy, Language } from '@mindwtr/core';
-import { DEFAULT_AREA_COLOR, formatRecurrenceLabel, formatTimeEstimateLabel, formatTimeSpentLabel, getChecklistProgress, getContextColor, getInlineMarkdownPreview, getRecurringTaskPreviewDate, getTaskAgeLabel, getTaskDateCoherenceIssues, getTaskStaleness, getTaskUrgency, hasTimeComponent, safeFormatDate, resolveTaskTextDirection, tFallback } from '@mindwtr/core';
+import { DEFAULT_AREA_COLOR, formatRecurrenceLabel, formatTimeEstimateLabel, formatTimeSpentLabel, getChecklistProgress, getContextColor, getRecurringTaskPreviewDate, getTaskAgeLabel, getTaskDateCoherenceIssues, getTaskStaleness, getTaskUrgency, hasTimeComponent, safeFormatDate, resolveTaskTextDirection, tFallback } from '@mindwtr/core';
 import { cn } from '../../lib/utils';
 import { useBareFileReferenceCheck } from '../../lib/attachment-reference';
 import { getAttachmentDisplayTitle } from '../../lib/attachment-utils';
@@ -9,7 +9,7 @@ import { AttachmentProgressIndicator } from '../AttachmentProgressIndicator';
 import { RichMarkdown } from '../RichMarkdown';
 import { InlineMarkdown } from '../Markdown';
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { isImageAttachment } from './task-item-attachment-utils';
 import { AttachmentImage } from './AttachmentImage';
 import { FocusStarIcon } from '../FocusStarIcon';
@@ -154,10 +154,6 @@ export const TaskItemDisplay = memo(function TaskItemDisplay({
     const ageLabel = getTaskAgeLabel(task.createdAt, language);
     const isBareFileReference = useBareFileReferenceCheck();
     const showCompactMeta = compactMetaEnabled && !isViewOpen;
-    const descriptionPreview = useMemo(
-        () => getInlineMarkdownPreview(task.description ?? ''),
-        [task.description],
-    );
     const showAgeBadge = showTaskAge && task.status !== 'done' && Boolean(ageLabel);
     const completionTimestamp = task.status === 'done' || task.status === 'archived'
         ? task.completedAt || task.updatedAt
@@ -693,18 +689,6 @@ export const TaskItemDisplay = memo(function TaskItemDisplay({
                             )}
                         </div>
                     </button>
-                    )}
-                    {showCompactMeta && descriptionPreview && (
-                        <div
-                            className={cn(
-                                "task-item-display__description-preview mt-0.5 truncate text-xs font-normal text-muted-foreground",
-                                (overlayDragHandle || overlayQuickDone) && "pl-12",
-                                isRtl && "text-right"
-                            )}
-                            dir={resolvedDirection}
-                        >
-                            <InlineMarkdown markdown={descriptionPreview} interactiveLinks={false} />
-                        </div>
                     )}
                     {showCompactMeta && hasMetadata && renderMetadataRow(cn(
                         "gap-2 text-muted-foreground",

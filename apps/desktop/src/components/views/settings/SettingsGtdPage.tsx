@@ -551,6 +551,8 @@ export function SettingsGtdPage({
         id: sectionId,
         title: taskEditorSectionLabel(sectionId),
         fields: taskEditorOrder.filter((fieldId) => {
+            // Title/body/steps are fixed content, not configurable metadata.
+            if (fieldId === 'description' || fieldId === 'checklist') return false;
             if (sectionId === 'basic' && TASK_EDITOR_FIXED_FIELDS.includes(fieldId)) return true;
             return isTaskEditorSectionableField(fieldId) && taskEditorSections[fieldId] === sectionId;
         }),

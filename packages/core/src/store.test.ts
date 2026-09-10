@@ -119,6 +119,57 @@ describe('TaskStore', () => {
         expect(tasks[0].status).toBe('inbox');
     });
 
+    it('promotes one checklist step atomically without inheriting execution metadata', async () => {
+        const source = createStoreTask('parent', {
+            title: 'Figure 3', description: 'Background\n- A nested thought', status: 'next',
+            scheduledAt: '2026-09-10T12:00:00Z', dueDate: '2026-09-12', availableAt: '2026-09-09',
+            isFocusedToday: true, recurrence: { rule: 'daily' },
+            checklist: [{ id: 'step-a', title: ' Fix legend ', isCompleted: false }, { id: 'step-b', title: 'Check units', isCompleted: true }],
+        });
+        useTaskStore.setState({ tasks: [source], _allTasks: [source] });
+        const result = await useTaskStore.getState().promoteChecklistItem(source.id, 'step-a');
+        expect(result.success).toBe(true);
+        const tasks = useTaskStore.getState().tasks;
+        expect(tasks).toHaveLength(2);
+        expect(tasks.find((task) => task.id === source.id)).toMatchObject({
+            title: source.title, description: source.description, status: 'next', scheduledAt: source.scheduledAt,
+            checklist: [{ id: 'step-b', title: 'Check units', isCompleted: true }],
+        });
+        const promoted = tasks.find((task) => task.id === result.id)!;
+        expect(promoted).toMatchObject({ title: 'Fix legend', status: 'inbox', taskMode: 'task', rev: 1 });
+        for (const key of ['description', 'scheduledAt', 'availableAt', 'dueDate', 'startTime', 'snoozedUntil', 'recurrence', 'reminderTime', 'isFocusedToday', 'completedAt', 'checklist']) {
+            expect(promoted).not.toHaveProperty(key);
+        }
+        expect((await useTaskStore.getState().promoteChecklistItem(source.id, 'step-a')).success).toBe(false);
+        expect(useTaskStore.getState().tasks).toHaveLength(2);
+        await flushPendingSave();
+        const snapshot = vi.mocked(mockStorage.saveData).mock.calls.at(-1)?.[0];
+        expect(snapshot?.tasks).toEqual(useTaskStore.getState()._allTasks);
+    });
+
+    it('keeps checklist steps intact when promotion cannot be performed', async () => {
+        const source = createStoreTask('parent', {
+            checklist: [{ id: 'done', title: 'Done', isCompleted: true }, { id: 'empty', title: ' ', isCompleted: false }],
+        });
+        useTaskStore.setState({ tasks: [source], _allTasks: [source] });
+        for (const id of ['done', 'empty', 'missing']) {
+            expect((await useTaskStore.getState().promoteChecklistItem(source.id, id)).success).toBe(false);
+        }
+        expect(useTaskStore.getState().tasks).toEqual([source]);
+        expect(mockStorage.saveData).not.toHaveBeenCalled();
+    });
+
+    it('retains the source project when promoting a step', async () => {
+        const project = createStoreProject('project-1');
+        useTaskStore.setState({ projects: [project], _allProjects: [project] });
+        const result = await useTaskStore.getState().addTask('Source', {
+            projectId: project.id, checklist: [{ id: 'step', title: 'Standalone', isCompleted: false }],
+        });
+        const promoted = await useTaskStore.getState().promoteChecklistItem(result.id!, 'step');
+        expect(promoted.success).toBe(true);
+        expect(useTaskStore.getState().tasks.find((task) => task.id === promoted.id)?.projectId).toBe(project.id);
+    });
+
     it('adds multiple tasks in one store update and one save', async () => {
         const project = createStoreProject('project-1');
         useTaskStore.setState({

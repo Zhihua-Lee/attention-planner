@@ -169,6 +169,7 @@ type TaskActions = Pick<
     | 'duplicateTask'
     | 'promoteTaskToProject'
     | 'resetTaskChecklist'
+    | 'promoteChecklistItem'
     | 'moveTask'
     | 'batchUpdateTasks'
     | 'batchMoveTasks'
@@ -1034,8 +1035,51 @@ export const createTaskActions = ({ set, get, getStorage, debouncedSave, trackIm
     },
 
     /**
-     * Reset checklist items to unchecked (useful for reusable lists).
+     * Move an unfinished step into Inbox in the same snapshot as its removal.
      */
+    promoteChecklistItem: async (taskId: string, itemId: string) => {
+        let snapshot: AppData | null = null;
+        let createdId: string | undefined;
+        let error = 'Checklist item is no longer available';
+        const now = new Date().toISOString();
+        set((state) => {
+            const source = state._tasksById.get(taskId);
+            const item = source?.checklist?.find((entry) => entry.id === itemId);
+            if (!source || source.deletedAt || !item || item.isCompleted || !item.title.trim()) return state;
+            const container = resolveTaskContainerAssignment({
+                projectId: source.projectId, sectionId: source.sectionId, areaId: source.areaId,
+                allProjects: state._allProjects, allSections: state._allSections, allAreas: state._allAreas,
+            });
+            if (!container.ok) { error = container.error; return state; }
+            const device = ensureDeviceId(state.settings);
+            const order = container.projectId ? createProjectOrderReserver(state._allTasks)(container.projectId) : 0;
+            // Deliberately copy only content/container identity, never timing,
+            // recurrence, focus or completion. The new action starts in Inbox.
+            const promoted: Task = {
+                id: uuidv4(), title: item.title.trim(), status: 'inbox', taskMode: 'task',
+                tags: [], contexts: [], createdAt: now, updatedAt: now, rev: 1, revBy: device.deviceId,
+                projectId: container.projectId, sectionId: container.sectionId, areaId: container.areaId,
+                order, orderNum: order,
+            };
+            const updatedSource: Task = {
+                ...source, checklist: source.checklist?.filter((entry) => entry.id !== itemId),
+                updatedAt: now, rev: nextRevision(source.rev), revBy: device.deviceId,
+            };
+            const tasks = [...replaceEntityInArray(state._allTasks, taskId, updatedSource), promoted];
+            snapshot = buildSaveSnapshot(state, { tasks, ...(device.updated ? { settings: device.settings } : {}) });
+            createdId = promoted.id;
+            return {
+                _allTasks: tasks,
+                tasks: [...updateVisibleTasks(state.tasks, source, updatedSource), promoted],
+                lastDataChangeAt: getNextDataChangeAt(state.lastDataChangeAt, Date.now()),
+                ...(device.updated ? { settings: device.settings } : {}),
+            };
+        });
+        if (snapshot) debouncedSave(snapshot, (message) => set({ error: message }));
+        return createdId ? actionOk({ id: createdId }) : actionFail(error);
+    },
+
+    /** Reset checklist items to unchecked (useful for reusable lists). */
     resetTaskChecklist: async (id: string) => {
         return mutateTasks({ set, debouncedSave }, {
             selectTasks: (state) => {

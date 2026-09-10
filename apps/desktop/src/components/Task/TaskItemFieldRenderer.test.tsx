@@ -309,7 +309,6 @@ describe('TaskItemFieldRenderer date clear buttons', () => {
         ['description' as const, 'Description'],
         ['recurrence' as const, 'Recurrence'],
         ['attachments' as const, 'Attachments'],
-        ['checklist' as const, 'Checklist'],
         ['location' as const, 'Location'],
     ])('uses stronger weight for the %s field label without changing label size', (fieldId, label) => {
         const { getByText } = render(

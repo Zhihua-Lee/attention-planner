@@ -156,6 +156,8 @@ export function useTaskItemFieldLayout({
 
     const isFieldVisible = useCallback(
         (fieldId: TaskEditorFieldId) => {
+            // Content is a fixed primary editor surface, not optional metadata.
+            if (fieldId === 'description' || fieldId === 'checklist') return false;
             if (isReference && referenceHiddenFields.has(fieldId)) return false;
             return !hiddenSet.has(fieldId) || hasValue(fieldId);
         },

@@ -77,6 +77,7 @@ export interface TaskStore {
     promoteTaskToProject: (id: string, options?: { title?: string; color?: string; areaId?: string }) => Promise<StoreActionResult>;
     /** Reset checklist items to unchecked */
     resetTaskChecklist: (id: string) => Promise<StoreActionResult>;
+    promoteChecklistItem: (taskId: string, itemId: string) => Promise<StoreActionResult>;
     /** Move task to a different status */
     moveTask: (id: string, newStatus: TaskStatus) => Promise<StoreActionResult>;
     /** Batch update multiple tasks */

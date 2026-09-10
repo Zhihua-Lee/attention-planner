@@ -97,7 +97,7 @@ const baseProps: Parameters<typeof TaskItemEditor>[0] = {
     basicFieldsAfterOrganizers: [],
     schedulingFields: ['recurrence'],
     organizationFields: ['contexts'],
-    detailsFields: ['description'],
+    detailsFields: ['attachments'],
     sectionCounts: {
         scheduling: 1,
         organization: 1,
@@ -127,7 +127,9 @@ describe('TaskItemEditor', () => {
 
         expect(queryByText('field:recurrence')).not.toBeInTheDocument();
         expect(queryByText('field:contexts')).not.toBeInTheDocument();
-        expect(queryByText('field:description')).not.toBeInTheDocument();
+        expect(queryByText('field:description')).toBeVisible();
+        expect(queryByText('field:checklist')).not.toBeVisible();
+        expect(queryByText('field:attachments')).not.toBeInTheDocument();
         expect(queryByText('Location')).not.toBeInTheDocument();
     });
 

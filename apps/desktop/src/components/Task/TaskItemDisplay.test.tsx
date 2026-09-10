@@ -472,8 +472,8 @@ describe('TaskItemDisplay', () => {
         expect(getByText(longTitle)).not.toHaveClass('truncate');
     });
 
-    it('renders a one-line markdown description preview in collapsed rows', () => {
-        const { getByText, queryByText, container } = render(
+    it('keeps body content out of collapsed task rows', () => {
+        const { queryByText, container } = render(
             <LanguageProvider>
                 <TaskItemDisplay
                     task={{ ...baseTask, description: '- [ ] **Call** the vendor\nSecond line' }}
@@ -502,9 +502,8 @@ describe('TaskItemDisplay', () => {
         );
 
         const preview = container.querySelector('.task-item-display__description-preview');
-        expect(preview).not.toBeNull();
-        expect(preview).toHaveClass('truncate');
-        expect(getByText('Call').tagName).toBe('STRONG');
+        expect(preview).toBeNull();
+        expect(queryByText('Call')).toBeNull();
         expect(queryByText(/\*\*Call\*\*/)).toBeNull();
         expect(queryByText(/\[ \]/)).toBeNull();
         expect(queryByText('Second line')).toBeNull();
@@ -862,7 +861,7 @@ describe('TaskItemDisplay', () => {
         );
     });
 
-    it('shows a truncated description preview collapsed and the full description expanded', () => {
+    it('shows the full body only when the task is expanded', () => {
         const taskWithDescription: Task = {
             ...baseTask,
             description: 'Expanded task note\nSecond note line',
@@ -896,8 +895,8 @@ describe('TaskItemDisplay', () => {
             </LanguageProvider>
         );
 
-        expect(queryByText(/Expanded task note/)).toBeInTheDocument();
-        expect(container.querySelector('.task-item-display__description-preview')).toHaveClass('truncate');
+        expect(queryByText(/Expanded task note/)).not.toBeInTheDocument();
+        expect(container.querySelector('.task-item-display__description-preview')).toBeNull();
         expect(queryByText(/Second note line/)).not.toBeInTheDocument();
 
         rerender(
