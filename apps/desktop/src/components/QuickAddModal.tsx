@@ -55,6 +55,7 @@ import {
 } from '../lib/quick-add-native-event';
 import { QUICK_ADD_MAIN_WINDOW_LABEL, QUICK_ADD_SAVED_EVENT } from '../lib/quick-add-saved-event';
 import { TaskInput } from './Task/TaskInput';
+import { CaptureContentFields } from './Task/CaptureContentFields';
 import { AreaSelector } from './ui/AreaSelector';
 import { QuickAddSyntaxHint } from './ui/QuickAddSyntaxHint';
 import { FocusStarIcon } from './FocusStarIcon';
@@ -74,6 +75,7 @@ type QuickAddModalProps = {
 };
 
 type QuickAddOpenDetail = {
+    expandContent?: boolean;
     initialProps?: Partial<Task>;
     initialValue?: string;
     captureMode?: 'text' | 'audio';
@@ -169,6 +171,11 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
     const { t } = useLanguage();
     const [isOpen, setIsOpen] = useState(false);
     const [value, setValue] = useState('');
+    const [contentOpen, setContentOpen] = useState(false);
+    const [contentDraft, setContentDraft] = useState<Partial<Pick<Task, 'description' | 'checklist'>>>({});
+    const updateContentDraft = useCallback((patch: Partial<Pick<Task, 'description' | 'checklist'>>) => {
+        setContentDraft((current) => ({ ...current, ...patch }));
+    }, []);
     const [selectedAreaId, setSelectedAreaId] = useState('');
     const [initialProps, setInitialProps] = useState<Partial<Task> | null>(null);
     const [focusNewTask, setFocusNewTask] = useState(false);
@@ -310,6 +317,8 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
             setInitialProps(detail?.initialProps ?? null);
             setFocusNewTask(Boolean(detail?.initialProps?.isFocusedToday));
             setValue(detail?.initialValue ?? '');
+            setContentDraft({});
+            setContentOpen(Boolean(detail?.expandContent || detail?.initialProps?.description || detail?.initialProps?.checklist?.length));
             setForcedCaptureMode(detail?.captureMode ?? null);
             setBulkQuickAddLines(null);
             setBulkQuickAddError(null);
@@ -458,6 +467,8 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
         setInitialProps(null);
         setFocusNewTask(false);
         setValue('');
+        setContentDraft({});
+        setContentOpen(false);
         setSelectedAreaId('');
         setForcedCaptureMode(null);
         setBulkQuickAddLines(null);
@@ -926,11 +937,15 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
             fallbackTitle: extraAttachments?.[0]?.title || tFallback(t, 'quickAdd.pastedImageTitle', 'Screenshot'),
             projects: currentProjects,
             initialProps: initialProps ?? undefined,
-            extraProps: mergedAttachments ? { attachments: mergedAttachments } : undefined,
+            extraProps: {
+                ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
+                ...contentDraft,
+                ...(contentDraft.checklist ? { checklist: contentDraft.checklist.filter((item) => item.title.trim()).map((item) => ({ ...item, title: item.title.trim() })) } : {}),
+            },
             selectedAreaId,
             starNewTask: focusNewTask && canFocusNewTask,
         };
-    }, [canFocusNewTask, focusNewTask, initialProps, selectedAreaId, t]);
+    }, [canFocusNewTask, contentDraft, focusNewTask, initialProps, selectedAreaId, t]);
 
     const createTaskFromParsedQuickAdd = useCallback(async ({
         currentAreas,
@@ -1010,6 +1025,7 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
             // Shift+Enter batch capture: clear per-task state but keep the
             // dialog (and the picked area) for the next entry.
             setValue('');
+            setContentDraft({});
             setFocusNewTask(false);
             setPastedImageError(null);
             resetPastedImageAttachments(false);
@@ -1028,6 +1044,10 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
     };
 
     const confirmBulkQuickAdd = async () => {
+        if (contentDraft.description?.trim() || contentDraft.checklist?.some((item) => item.title.trim())) {
+            setBulkQuickAddError(tFallback(t, 'quickAdd.bulkWithContent', 'Cancel bulk capture and save this content as one task first.'));
+            return;
+        }
         if (!bulkQuickAddLines || bulkQuickAddLines.length === 0 || isPastingImage) return;
         try {
             await createDesktopRecoverySnapshot();
@@ -1132,7 +1152,7 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
         <div
             className={cn(
                 'fixed inset-0 flex items-start justify-center z-50',
-                standaloneWindow ? 'bg-popover' : 'bg-black/50 pt-[20vh]',
+                standaloneWindow ? 'bg-popover' : 'bg-black/50 px-2 pt-[5dvh] sm:pt-[10dvh]',
             )}
             role="presentation"
             onClick={handleClose}
@@ -1140,7 +1160,7 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
             <div
                 ref={modalRef}
                 className={cn(
-                    'w-full bg-popover text-popover-foreground overflow-visible flex flex-col',
+                    'w-full max-h-[90dvh] overflow-y-auto bg-popover text-popover-foreground flex flex-col',
                     standaloneWindow ? 'max-w-none' : 'max-w-lg rounded-xl border shadow-2xl'
                 )}
                 role="dialog"
@@ -1152,9 +1172,10 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
                     if (!container) return;
                     const focusable = Array.from(
                         container.querySelectorAll<HTMLElement>(
-                            'button, [href], input, select, textarea, [tabindex]'
+                            'button, [href], input, select, textarea, summary, [tabindex]'
                         )
-                    ).filter((el) => el.tabIndex >= 0 && !el.hasAttribute('disabled'));
+                    ).filter((el) => el.tabIndex >= 0 && !el.hasAttribute('disabled') && !el.closest('[hidden]')
+                        && (el.tagName === 'SUMMARY' || !el.closest('details:not([open])')));
                     if (focusable.length === 0) return;
                     const first = focusable[0];
                     const last = focusable[focusable.length - 1];
@@ -1270,6 +1291,16 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
                             >
                                 <FocusStarIcon filled={focusNewTask} className="h-[18px] w-[18px]" />
                             </button>
+                        </div>
+                        <button type="button" aria-expanded={contentOpen} onClick={() => setContentOpen((open) => !open)}
+                            className="min-h-11 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-primary">
+                            {tFallback(t, 'quickAdd.contentAndSteps', 'Content and steps')}
+                        </button>
+                        <div hidden={!contentOpen}>
+                            <CaptureContentFields t={t}
+                                description={contentDraft.description ?? parsedInput.props.description ?? initialProps?.description ?? ''}
+                                checklist={contentDraft.checklist ?? parsedInput.props.checklist ?? initialProps?.checklist}
+                                onChange={updateContentDraft} />
                         </div>
                         {isPastingImage ? (
                             <p className="text-xs text-muted-foreground">

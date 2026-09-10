@@ -1095,6 +1095,13 @@ export const ListView = memo(function ListView({ title, statusFilter, recurringO
                     onChangeQuickAdd={setNewTaskTitle}
                     onSubmitQuickAdd={handleAddTask}
                     onOpenAudioQuickAdd={() => openQuickAdd(statusFilter, 'audio')}
+                    onOpenContentQuickAdd={() => {
+                        window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+                            detail: { initialValue: newTaskTitle, initialProps: { status: statusFilter === 'all' ? 'inbox' : statusFilter }, captureMode: 'text', expandContent: true },
+                        }));
+                        setNewTaskTitle('');
+                        resetCopilot();
+                    }}
                     onResetCopilot={resetCopilot}
                     quickAddFooter={(
                         <>

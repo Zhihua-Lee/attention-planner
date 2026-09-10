@@ -36,6 +36,7 @@ import {
 } from '../../../lib/scroll-preservation';
 
 type ChecklistFieldProps = {
+    draftOnly?: boolean;
     t: (key: string) => string;
     taskId: string;
     checklist: Task['checklist'];
@@ -146,6 +147,7 @@ function SortableChecklistRow({
 }
 
 export function ChecklistField({
+    draftOnly = false,
     t,
     taskId,
     checklist,
@@ -187,8 +189,9 @@ export function ChecklistField({
     const updateChecklistDraft = useCallback((next: Task['checklist']) => {
         setChecklistDraft(next);
         checklistDraftRef.current = next;
-        checklistDirtyRef.current = true;
-    }, []);
+        checklistDirtyRef.current = !draftOnly;
+        if (draftOnly) updateTask(taskId, { checklist: next });
+    }, [draftOnly, taskId, updateTask]);
 
     const commitChecklistUpdate = useCallback((nextChecklist: Task['checklist']) => {
         updateTask(taskId, { checklist: nextChecklist });
@@ -329,7 +332,9 @@ export function ChecklistField({
 
     return (
         <div className="flex flex-col gap-2 w-full pb-2">
-            <p className="text-xs text-muted-foreground">{tFallback(t, 'taskEdit.stepsHint', 'Steps save immediately, even if you cancel editing. Move a step to Inbox when it needs its own schedule.')}</p>
+            <p className="text-xs text-muted-foreground">{draftOnly
+                ? tFallback(t, 'quickAdd.contentDraftHint', 'Nothing is saved until you add the task.')
+                : tFallback(t, 'taskEdit.stepsHint', 'Steps save immediately, even if you cancel editing. Move a step to Inbox when it needs its own schedule.')}</p>
             {promotionMessage && <p role="status" aria-label={t('taskEdit.checklist')} className="text-xs text-muted-foreground">{promotionMessage}</p>}
             <div className="space-y-2 pr-3">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleChecklistDragEnd}>
@@ -483,7 +488,7 @@ export function ChecklistField({
                                             )}
                                             placeholder={t('taskEdit.itemNamePlaceholder')}
                                         />
-                                        <button
+                                        {!draftOnly && <button
                                             type="button"
                                             disabled={promoting || item.isCompleted || !item.title.trim()}
                                             aria-label={`${tFallback(t, 'taskEdit.promoteStep', 'Move step to Inbox')}: ${item.title}`}
@@ -511,7 +516,7 @@ export function ChecklistField({
                                             className="inline-flex min-h-11 min-w-11 sm:min-h-7 sm:min-w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30"
                                         >
                                             <ArrowUpRight className="h-4 w-4" />
-                                        </button>
+                                        </button>}
                                         <button
                                             type="button"
                                             onClick={() => {

@@ -22,6 +22,7 @@ import { cn } from '../../lib/utils';
 import { QUICK_ADD_FIELD_TOKENS, QuickAddTokenBadge, taskEditorLabelClassName } from './task-editor-label';
 import { findAttachmentsSection } from './task-item-helpers';
 import { FocusStarIcon } from '../FocusStarIcon';
+import { TaskContentSection } from './TaskContentSection';
 
 interface TaskItemEditorProps {
     t: (key: string) => string;
@@ -442,17 +443,7 @@ export function TaskItemEditor({
                         </div>
                     )}
                 </div>
-            <section aria-label={t('taskEdit.descriptionLabel')} className="space-y-3">
-                {renderField('description')}
-                {draft.status !== 'reference' && (
-                    <details className="border-t border-border/50 pt-2">
-                        <summary className="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-                            {t('taskEdit.checklist')}
-                        </summary>
-                        {renderField('checklist')}
-                    </details>
-                )}
-            </section>
+            <TaskContentSection t={t} body={renderField('description')} steps={draft.status !== 'reference' ? renderField('checklist') : undefined} />
             {aiEnabled && copilotSuggestion && !copilotApplied && (
                 <button
                     type="button"

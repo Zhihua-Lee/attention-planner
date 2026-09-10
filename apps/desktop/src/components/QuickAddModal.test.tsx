@@ -114,6 +114,64 @@ beforeEach(() => {
 });
 
 describe('QuickAddModal', () => {
+    it('keeps body and steps in a draft until creating one complete task', async () => {
+        const addTask = vi.fn(async () => ({ success: true, id: 'created' }));
+        const updateTask = vi.fn();
+        act(() => useTaskStore.setState({ addTask, updateTask }));
+        renderQuickAddModal();
+        await act(async () => {
+            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { initialValue: 'Prepare report', expandContent: true } }));
+        });
+        fireEvent.change(screen.getByRole('textbox', { name: 'Content' }), { target: { value: 'Background\n- Nested thought' } });
+        fireEvent.click(screen.getByText('Checklist', { selector: 'summary' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
+        fireEvent.change(screen.getByPlaceholderText('Item name'), { target: { value: 'Review figures' } });
+        expect(addTask).not.toHaveBeenCalled();
+        expect(updateTask).not.toHaveBeenCalled();
+        expect(screen.queryByRole('button', { name: /Move step to Inbox/ })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(addTask).toHaveBeenCalledTimes(1));
+        expect(addTask).toHaveBeenCalledWith('Prepare report', expect.objectContaining({
+            description: 'Background\n- Nested thought',
+            checklist: [expect.objectContaining({ title: 'Review figures', isCompleted: false })],
+        }));
+    });
+
+    it('discards a cancelled content draft without creating or updating a task', async () => {
+        const addTask = vi.fn();
+        const updateTask = vi.fn();
+        act(() => useTaskStore.setState({ addTask, updateTask }));
+        renderQuickAddModal();
+        await act(async () => window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { initialValue: 'Cancelled', expandContent: true } })));
+        fireEvent.change(screen.getByRole('textbox', { name: 'Content' }), { target: { value: 'Do not save' } });
+        fireEvent.click(screen.getByText('Checklist', { selector: 'summary' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
+        fireEvent.change(screen.getByPlaceholderText('Item name'), { target: { value: 'Discard step' } });
+        fireEvent.keyDown(window, { key: 'Escape' });
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        expect(addTask).not.toHaveBeenCalled();
+        expect(updateTask).not.toHaveBeenCalled();
+        await act(async () => window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { expandContent: true } })));
+        expect(screen.getByRole('textbox', { name: 'Content' })).toHaveValue('');
+        expect(screen.queryByPlaceholderText('Item name')).not.toBeInTheDocument();
+    });
+
+    it('preserves content after a failed save and clears it for add-another', async () => {
+        const addTask = vi.fn().mockResolvedValueOnce({ success: false }).mockResolvedValue({ success: true, id: 'created' });
+        act(() => useTaskStore.setState({ addTask }));
+        renderQuickAddModal();
+        await act(async () => window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { initialValue: 'Retry task', expandContent: true } })));
+        fireEvent.change(screen.getByRole('textbox', { name: 'Content' }), { target: { value: 'Keep this draft' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => expect(addTask).toHaveBeenCalledTimes(1));
+        expect(screen.getByRole('textbox', { name: 'Content' })).toHaveValue('Keep this draft');
+        fireEvent.keyDown(screen.getByPlaceholderText('Add Task'), { key: 'Enter', shiftKey: true });
+        await waitFor(() => expect(screen.getByPlaceholderText('Add Task')).toHaveValue(''));
+        expect(addTask).toHaveBeenCalledTimes(2);
+        expect(addTask).toHaveBeenLastCalledWith('Retry task', expect.objectContaining({ description: 'Keep this draft' }));
+        expect(screen.getByRole('textbox', { name: 'Content' })).toHaveValue('');
+    });
+
     it('ignores duplicate open requests while the first open is still committing', async () => {
         renderQuickAddModal();
 

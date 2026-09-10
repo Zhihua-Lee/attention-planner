@@ -7,7 +7,7 @@ import type {
     TaskStatus,
     TimeEstimate,
 } from '@mindwtr/core';
-import { DEFAULT_AREA_COLOR } from '@mindwtr/core';
+import { DEFAULT_AREA_COLOR, tFallback } from '@mindwtr/core';
 import { AlertTriangle, Folder } from 'lucide-react';
 
 import { ListBulkActions } from './ListBulkActions';
@@ -56,6 +56,7 @@ type ListControlsPanelProps = {
     onDeleteSelection: () => Promise<void>;
     onMoveToStatus: (status: TaskStatus) => Promise<void>;
     onOpenAudioQuickAdd: () => void;
+    onOpenContentQuickAdd: () => void;
     onOpenProject: (projectId: string) => void;
     onReactivateProject: (projectId: string) => void;
     onRemoveContext: () => void;
@@ -140,6 +141,7 @@ export function ListControlsPanel({
     onDeleteSelection,
     onMoveToStatus,
     onOpenAudioQuickAdd,
+    onOpenContentQuickAdd,
     onOpenProject,
     onReactivateProject,
     onRemoveContext,
@@ -391,6 +393,10 @@ export function ListControlsPanel({
                         onOpenAudio={onOpenAudioQuickAdd}
                         onResetCopilot={onResetCopilot}
                     />
+                    <button type="button" onClick={onOpenContentQuickAdd}
+                        className="min-h-11 text-left text-sm text-muted-foreground hover:text-foreground focus-visible:outline-primary">
+                        {tFallback(t, 'quickAdd.contentAndSteps', 'Content and steps')}
+                    </button>
                     {quickAddFooter}
                 </>
             )}
