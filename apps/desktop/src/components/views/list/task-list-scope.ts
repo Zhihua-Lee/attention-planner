@@ -8,16 +8,14 @@ import { registerUndoableAction } from '../../../lib/undo-registry';
 import { undoTaskCompletion } from '../../../lib/undo-task-completion';
 import { requestTaskRowAction, type TaskRowAction } from '../../../lib/task-row-actions';
 import { useUiStore } from '../../../store/ui-store';
+import { formatTaskMarkedDoneMessage } from '../../../lib/complete-task-with-undo';
+export { formatTaskMarkedDoneMessage } from '../../../lib/complete-task-with-undo';
 
 type TranslateFn = (key: string) => string;
 
 // One copy of the completion/move toast text for every surface that completes a
 // task: keyboard scopes, the row's own done button, and the status chord. Three
 // hand-rolled copies had already drifted apart, one of them untranslated.
-export function formatTaskMarkedDoneMessage(t: TranslateFn, title: string): string {
-    return translateWithFallback(t, 'task.markedDone', '{title} marked Done').replace('{title}', title);
-}
-
 export function formatTaskMovedMessage(t: TranslateFn, title: string, status: TaskStatus): string {
     return translateWithFallback(t, 'task.movedToStatus', '{{title}} moved to {{status}}')
         .replace('{{title}}', title)

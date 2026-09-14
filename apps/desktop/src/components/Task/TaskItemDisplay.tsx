@@ -583,6 +583,20 @@ export const TaskItemDisplay = memo(function TaskItemDisplay({
 
     return (
         <div className={cn("task-item-display flex-1 min-w-0 flex items-start gap-3", actionsOverlay && "relative")}>
+            {!selectionMode && (task.status === 'done' || task.status === 'archived') && (
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onStatusChange('next');
+                    }}
+                    aria-label={tFallback(t, 'task.reopen', 'Reopen task')}
+                    title={tFallback(t, 'task.reopen', 'Reopen task')}
+                    className="min-h-11 min-w-11 shrink-0 inline-flex items-center justify-center rounded text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                    <RotateCcw className="h-4 w-4" />
+                </button>
+            )}
             {overlayDragHandle && (
                 <div
                     className="absolute left-0 top-2 flex items-center -translate-x-2 z-10"
@@ -933,15 +947,6 @@ export const TaskItemDisplay = memo(function TaskItemDisplay({
                                 className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                             >
                                 <Copy className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onStatusChange('next')}
-                                aria-label={t('waiting.moveToNext')}
-                                title={t('waiting.moveToNext')}
-                                className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                            >
-                                <RotateCcw className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={onDelete}

@@ -49,4 +49,12 @@ describe('undo-registry', () => {
 
         expect(takeUndoableAction()).not.toBeNull();
     });
+
+    it('does not repeat a keyboard undo when its toast is clicked afterwards', () => {
+        const action = vi.fn();
+        const toastUndo = registerUndoableAction(action);
+        takeUndoableAction()?.();
+        toastUndo();
+        expect(action).toHaveBeenCalledTimes(1);
+    });
 });

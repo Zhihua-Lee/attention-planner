@@ -131,6 +131,8 @@ export const zhHans: Record<string, string> = {
         'list.confirmBatchDelete': '删除选中的任务？',
         'list.taskDeleted': '任务已删除',
         'task.markedDone': '{title} 已标记为完成',
+        'task.completionFailed': '未能完成任务，请重试。',
+        'task.reopen': '恢复为待办',
         'task.movedToStatus': '{{title}} 已移至{{status}}',
         'list.tasksDeleted': '已删除 {{count}} 项任务',
         'list.noTasks': '未找到任务',

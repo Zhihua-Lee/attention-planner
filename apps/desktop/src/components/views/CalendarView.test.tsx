@@ -1,4 +1,4 @@
-import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Area, Project, Task } from '@mindwtr/core';
 
@@ -8,6 +8,7 @@ import { CalendarView } from './CalendarView';
 import { combineDateAndTime, DESKTOP_HOUR_HEIGHT } from './calendar/calendar-primitives';
 import { fetchExternalCalendarEvents } from '../../lib/external-calendar-events';
 import { setCalendarTaskDragData } from '../../lib/calendar-task-drag';
+import { useDesktopCalendarController } from './calendar/useDesktopCalendarController';
 
 const storeMocks = vi.hoisted(() => {
     const taskStoreState = {
@@ -167,6 +168,23 @@ const createTaskDragDataTransfer = (taskId: string, itemKind?: 'scheduled' | 'de
 };
 
 describe('CalendarView', () => {
+    it('registers a visible undo action when the selected-day panel completes a task', async () => {
+        storeMocks.taskStoreState.tasks = [makeTask({ id: 'calendar-undo', title: 'Calendar task', scheduledAt: '2026-04-03T12:00:00Z' })];
+        useUiStore.setState({ toasts: [] });
+        const { result } = renderHook(() => useDesktopCalendarController(), {
+            wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
+        });
+        await act(async () => {
+            result.current.markTaskDone('calendar-undo');
+            await Promise.resolve();
+        });
+        expect(storeMocks.taskStoreState.updateTask).toHaveBeenCalledWith('calendar-undo', { status: 'done', isFocusedToday: false });
+        const toast = useUiStore.getState().toasts.slice(-1)[0];
+        expect(toast?.message).toContain('Calendar task');
+        expect(toast?.action?.label).toBe('Undo');
+        useUiStore.getState().toasts.forEach(item => useUiStore.getState().dismissToast(item.id));
+    });
+
     beforeEach(() => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-04-03T14:48:00.000Z'));

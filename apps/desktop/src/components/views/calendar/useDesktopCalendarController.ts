@@ -43,6 +43,7 @@ import { checkBudget } from '../../../config/performanceBudgets';
 import { useLanguage } from '../../../contexts/language-context';
 import { usePerformanceMonitor } from '../../../hooks/usePerformanceMonitor';
 import { reportError } from '../../../lib/report-error';
+import { completeTaskWithUndo } from '../../../lib/complete-task-with-undo';
 import { resolveCalendarLocale } from '../calendar-locale';
 import {
     DESKTOP_DAY_END_HOUR,
@@ -227,9 +228,8 @@ export function useDesktopCalendarController() {
     const markTaskDone = useCallback((taskId: string) => {
         const task = calendarTaskData.visibleTasks.find((candidate) => candidate.id === taskId);
         if (isProjectedRecurringTask(task)) return;
-        updateTask(taskId, { status: 'done', isFocusedToday: false })
-            .catch((error) => reportError('Failed to mark task done', error));
-    }, [calendarTaskData.visibleTasks, updateTask]);
+        void completeTaskWithUndo(taskId, t);
+    }, [calendarTaskData.visibleTasks, t]);
 
     const createTaskFromExternalEvent = useCallback(async (event: ExternalCalendarEvent) => {
         try {

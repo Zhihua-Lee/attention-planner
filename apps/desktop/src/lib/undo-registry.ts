@@ -5,7 +5,10 @@
 let lastUndoableAction: (() => void) | null = null;
 
 export function registerUndoableAction(action: () => void): () => void {
+    let consumed = false;
     const run = () => {
+        if (consumed) return;
+        consumed = true;
         if (lastUndoableAction === run) lastUndoableAction = null;
         action();
     };

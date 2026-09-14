@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react';
 import { useTaskStore, type Project, type Task } from '@mindwtr/core';
 import { LanguageProvider } from '../../contexts/language-context';
 import { AgendaView } from './AgendaView';
 import { useUiStore } from '../../store/ui-store';
 import { MINDWTR_NAVIGATE_EVENT } from '../../lib/navigation-events';
 import { selectToolbarOption } from '../../test/toolbar-select';
+import { ToastHost } from '../ToastHost';
 
 // Capture the focus-drag handler so tests can drive a drop without a real
 // pointer gesture; dnd-kit contexts render as passthroughs (see BoardView.test).
@@ -80,6 +81,7 @@ describe('AgendaView', () => {
             highlightTaskId: null,
         });
         useUiStore.setState({
+            toasts: [],
             listOptions: {
                 showDetails: false,
                 nextGroupBy: 'none',
@@ -103,6 +105,21 @@ describe('AgendaView', () => {
         expect(queryByRole('button', { name: /^Filters$/i })).not.toBeInTheDocument();
         expect(queryByRole('heading', { name: /ready tasks/i })).not.toBeInTheDocument();
         expect(queryByRole('button', { name: /attention rules/i })).not.toBeInTheDocument();
+    });
+
+    it('offers undo after completing the NOW task and restores its Today commitment', async () => {
+        const { getByRole, getByTestId } = render(
+            <LanguageProvider><AgendaView mode="now" /><ToastHost /></LanguageProvider>
+        );
+        const nowCard = within(getByTestId('now-card'));
+        fireEvent.click(nowCard.getByRole('button', { name: 'Done' }));
+        await waitFor(() => expect(useTaskStore.getState().tasks.find(task => task.id === focusedTask.id)?.status).toBe('done'));
+        expect(nowCard.queryByText('Focused task')).not.toBeInTheDocument();
+        fireEvent.click(getByRole('button', { name: 'Undo' }));
+        await waitFor(() => expect(useTaskStore.getState().tasks.find(task => task.id === focusedTask.id)).toMatchObject({
+            status: 'next', isFocusedToday: true,
+        }));
+        expect(nowCard.queryByText('Focused task')).toBeInTheDocument();
     });
 
     it('keeps focus task details open when checklist items are toggled', async () => {

@@ -126,7 +126,7 @@ export const useUiStore = createWithEqualityFn<UiState>()((set) => ({
         const timeoutId = window.setTimeout(() => {
             toastTimeouts.delete(id);
             set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) }));
-        }, durationMs);
+        }, action ? Math.max(durationMs, 12000) : durationMs);
         toastTimeouts.set(id, timeoutId);
     },
     dismissToast: (id) => {

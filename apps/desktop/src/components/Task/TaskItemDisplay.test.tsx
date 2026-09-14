@@ -1228,6 +1228,7 @@ describe('TaskItemDisplay', () => {
 
     it('keeps the completion timestamp clickable on read-only done rows', () => {
         const onEditCompletedAt = vi.fn();
+        const onReopen = vi.fn();
         const doneTask: Task = {
             ...baseTask,
             title: 'Finished task',
@@ -1247,9 +1248,9 @@ describe('TaskItemDisplay', () => {
                         onEdit: vi.fn(),
                         onDelete: vi.fn(),
                         onDuplicate: vi.fn(),
-                        onStatusChange: vi.fn(),
                         openAttachment: vi.fn(),
                         onEditCompletedAt,
+                        onStatusChange: onReopen,
                     }}
                     visibleAttachments={[]}
                     recurrenceRule=""
@@ -1267,5 +1268,7 @@ describe('TaskItemDisplay', () => {
         fireEvent.click(getByLabelText('Edit completion time'));
 
         expect(onEditCompletedAt).toHaveBeenCalled();
+        fireEvent.click(getByLabelText('Reopen task'));
+        expect(onReopen).toHaveBeenCalledWith('next');
     });
 });

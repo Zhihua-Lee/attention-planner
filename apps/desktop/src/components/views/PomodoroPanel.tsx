@@ -14,6 +14,7 @@ import { useLanguage } from '../../contexts/language-context';
 import { sendDesktopPomodoroCompletionAlert } from '../../lib/pomodoro-alert';
 import { reconcilePomodoroSnapshot, usePomodoroStore } from '../../store/pomodoro-store';
 import { PomodoroTaskPicker } from './PomodoroTaskPicker';
+import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
 
 export { DESKTOP_POMODORO_SESSION_STORAGE_KEY } from '../../store/pomodoro-store';
 
@@ -22,7 +23,6 @@ interface PomodoroPanelProps {
 }
 
 export function PomodoroPanel({ tasks }: PomodoroPanelProps) {
-    const updateTask = useTaskStore((state) => state.updateTask);
     const notificationsEnabled = useTaskStore((state) => state.settings.notificationsEnabled !== false);
     const customDurations = useTaskStore((state) => state.settings.gtd?.pomodoro?.customDurations);
     const linkTaskEnabled = useTaskStore((state) => state.settings.gtd?.pomodoro?.linkTask === true);
@@ -174,8 +174,9 @@ export function PomodoroPanel({ tasks }: PomodoroPanelProps) {
 
     const handleMarkTaskDone = async () => {
         if (!selectedTask) return;
-        await updateTask(selectedTask.id, { status: 'done', isFocusedToday: false });
-        commitSnapshot((prev) => ({ ...prev, lastEvent: null }));
+        if (await completeTaskWithUndo(selectedTask.id, t)) {
+            commitSnapshot((prev) => ({ ...prev, lastEvent: null }));
+        }
     };
 
     const phaseBadgeClass = cn(

@@ -47,6 +47,7 @@ import { dispatchNavigateEvent } from '../../lib/navigation-events';
 import { FocusStarIcon } from '../FocusStarIcon';
 import { useLocalDayKey } from '../../hooks/useLocalDayKey';
 import { fetchExternalCalendarEvents } from '../../lib/external-calendar-events';
+import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
 
 const AGENDA_VIRTUALIZATION_THRESHOLD = 25;
 const NO_PROJECT_FILTER_ID = SAVED_FILTER_NO_PROJECT_ID;
@@ -243,11 +244,10 @@ type AgendaViewProps = {
 
 export function AgendaView({ mode = 'plan', embedded = false }: AgendaViewProps = {}) {
     const perf = usePerformanceMonitor('AgendaView');
-    const { projects, areas, moveTask, updateTask, updateSettings, reorderFocusedTasks, settings, error, highlightTaskId, setHighlightTask, taskChangeToken, hasAnyTasks } = useTaskStore(
+    const { projects, areas, updateTask, updateSettings, reorderFocusedTasks, settings, error, highlightTaskId, setHighlightTask, taskChangeToken, hasAnyTasks } = useTaskStore(
         (state) => ({
             projects: state.projects,
             areas: state.areas,
-            moveTask: state.moveTask,
             updateTask: state.updateTask,
             updateSettings: state.updateSettings,
             reorderFocusedTasks: state.reorderFocusedTasks,
@@ -405,8 +405,8 @@ export function AgendaView({ mode = 'plan', embedded = false }: AgendaViewProps 
         [baseActiveTasks],
     );
     const handleCompleteNowTask = useCallback((taskId: string) => {
-        void moveTask(taskId, 'done').catch(() => undefined);
-    }, [moveTask]);
+        void completeTaskWithUndo(taskId, t);
+    }, [t]);
     const handleSnoozeNowTask = useCallback((taskId: string) => {
         const snoozedUntil = new Date(Date.now() + 30 * 60_000).toISOString();
         void updateTask(taskId, { snoozedUntil }).catch(() => undefined);

@@ -151,6 +151,8 @@ export const en: Record<string, string> = {
         'list.confirmBatchDelete': 'Delete selected tasks?',
         'list.taskDeleted': 'Task deleted',
         'task.markedDone': '{title} marked Done',
+        'task.completionFailed': 'Could not complete the task. Please try again.',
+        'task.reopen': 'Reopen task',
         'task.movedToStatus': '{{title}} moved to {{status}}',
         'list.tasksDeleted': '{{count}} tasks deleted',
         'list.noTasks': 'No tasks found',

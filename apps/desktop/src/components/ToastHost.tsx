@@ -13,12 +13,12 @@ export function ToastHost() {
     if (toasts.length === 0) return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-3 right-3 z-[100] flex flex-col gap-2 sm:left-auto sm:right-4 sm:w-[360px]">
             {toasts.map((toast) => (
                 <div
                     key={toast.id}
                     className={cn(
-                        "min-w-[220px] max-w-[360px] rounded-md border px-3 py-2 shadow-lg text-sm flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2",
+                        "w-full min-w-0 rounded-md border px-3 py-2 shadow-lg text-sm flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2",
                         toast.tone === 'success' && "border-success/40 bg-success/10 text-success",
                         toast.tone === 'error' && "border-destructive/40 bg-destructive/10 text-destructive",
                         toast.tone === 'info' && "border-border bg-card text-foreground"
@@ -26,7 +26,7 @@ export function ToastHost() {
                     role="status"
                     aria-live="polite"
                 >
-                    <span className="flex-1">{toast.message}</span>
+                    <span className="min-w-0 flex-1 break-words">{toast.message}</span>
                     {toast.action && (
                         <button
                             type="button"
@@ -34,7 +34,7 @@ export function ToastHost() {
                                 toast.action?.onClick();
                                 dismissToast(toast.id);
                             }}
-                            className="text-xs font-medium text-primary hover:underline cursor-pointer"
+                            className="min-h-11 min-w-11 shrink-0 rounded px-2 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
                         >
                             {toast.action.label}
                         </button>
@@ -42,7 +42,7 @@ export function ToastHost() {
                     <button
                         type="button"
                         onClick={() => dismissToast(toast.id)}
-                        className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors -mr-1"
+                        className="min-h-11 min-w-11 shrink-0 flex items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary cursor-pointer transition-colors -mr-1"
                         aria-label={dismissText}
                     >
                         <X className="w-3.5 h-3.5" />
