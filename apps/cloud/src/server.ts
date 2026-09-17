@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import {
     applyTaskUpdates,
     areSyncPayloadsEqual,
@@ -1036,10 +1036,10 @@ export async function startCloudServer(options: CloudServerOptions = {}): Promis
                     if (groupResponse) return groupResponse;
                 }
 
-                if (pathname === '/v1/data') {
+                if (pathname === '/v1/data' || pathname === '/v2/data') {
                     const dataResponse = await withNamespace(req, url, dataServerConfig, async (ctx) => {
                     const key = ctx.key;
-                    const filePath = ctx.filePath;
+                    const filePath = pathname === '/v2/data' ? join(dirname(ctx.filePath), 'attention-planner-v2.json') : ctx.filePath;
 
                     if (req.method === 'HEAD') {
                         return await withWriteLock(key, async () => {

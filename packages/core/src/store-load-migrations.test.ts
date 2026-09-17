@@ -108,7 +108,7 @@ describe('runLoadMigrations', () => {
         expect(result.projects[0].areaId).toBe('area-a');
     });
 
-    it('archive-descendants-of-archived-projects: completes active tasks and archives sections under an archived project', () => {
+    it('archive-descendants-of-archived-projects: archives tasks and sections without fabricating completion', () => {
         const data = settledData({
             projects: [{ id: 'p1', title: 'P', status: 'archived', color: '#000', order: 0, tagIds: [], createdAt: NOW_ISO, updatedAt: NOW_ISO } as unknown as Project],
             sections: [{ id: 's1', projectId: 'p1', title: 'S', order: 0, createdAt: NOW_ISO, updatedAt: NOW_ISO } as Section],
@@ -116,7 +116,8 @@ describe('runLoadMigrations', () => {
         });
         const { data: result, applied } = runLoadMigrations(data, ctxFor(data));
         expect(applied).toEqual(['archive-descendants-of-archived-projects']);
-        expect(result.tasks[0].status).toBe('done');
+        expect(result.tasks[0].status).toBe('archived');
+        expect(result.tasks[0].completedAt).toBeUndefined();
         expect(result.sections[0].deletedAt).toBeTruthy();
     });
 

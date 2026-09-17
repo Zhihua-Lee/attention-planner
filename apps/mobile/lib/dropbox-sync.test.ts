@@ -92,7 +92,22 @@ describe('dropbox-sync', () => {
 
         await expect(getDropboxAppDataMetadata('token', fetcher as typeof fetch)).resolves.toEqual({ rev: 'rev-fast' });
         expect(requestInit?.method).toBe('POST');
-        expect(JSON.parse(String(requestInit?.body))).toMatchObject({ path: '/data.json' });
+        expect(JSON.parse(String(requestInit?.body))).toMatchObject({ path: '/attention-planner-v2.json' });
+    });
+
+    it('uses the isolated planner generation for downloads and uploads', async () => {
+        const payload = { tasks: [], projects: [], sections: [], areas: [], settings: {} };
+        const paths: string[] = [];
+        const fetcher = async (_input: RequestInfo | URL, init?: RequestInit) => {
+            const headers = init?.headers as Record<string, string>;
+            const args = JSON.parse(headers['Dropbox-API-Arg']);
+            paths.push(args.path);
+            return buildResponse(200, JSON.stringify(payload), { 'dropbox-api-result': '{"rev":"planner-rev"}' });
+        };
+
+        await downloadDropboxAppData('token', fetcher as typeof fetch);
+        await uploadDropboxAppData('token', payload, 'planner-rev', fetcher as typeof fetch);
+        expect(paths).toEqual(['/attention-planner-v2.json', '/attention-planner-v2.json']);
     });
 
     it('throws DropboxFileNotFoundError when attachment download returns 409', async () => {

@@ -1,5 +1,7 @@
 # September 2026 architecture iteration
 
+> Implementation update: [Lifecycle UX and planner generation](./lifecycle-implementation-2026-09-17.md) supersedes the single-block and three-entry UI limitations below. Older stage notes are retained as history, not the current branch capability.
+
 ## Stage 0: observed baseline
 
 Read-only audit: remote and clean local HEAD `b9cdb39d281445ca57e90d2454565b8215843190`.

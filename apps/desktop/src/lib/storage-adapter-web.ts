@@ -1,12 +1,14 @@
 import { AppData, StorageAdapter } from '@mindwtr/core';
 import { reportError } from './report-error';
 
-const DATA_KEY = 'mindwtr-data';
+const DATA_KEY = 'attention-planner-data-v2';
+const LEGACY_DATA_KEY = 'mindwtr-data';
 
 export const webStorage: StorageAdapter = {
     getData: async (): Promise<AppData> => {
         if (typeof window === 'undefined') return { tasks: [], projects: [], sections: [], areas: [], settings: {} };
-        const jsonValue = localStorage.getItem(DATA_KEY);
+        const currentValue = localStorage.getItem(DATA_KEY);
+        const jsonValue = currentValue ?? localStorage.getItem(LEGACY_DATA_KEY);
         if (jsonValue == null) return { tasks: [], projects: [], sections: [], areas: [], settings: {} };
 
         try {
@@ -16,6 +18,10 @@ export const webStorage: StorageAdapter = {
             }
             data.areas = Array.isArray(data.areas) ? data.areas : [];
             data.sections = Array.isArray(data.sections) ? data.sections : [];
+            if (currentValue === null) {
+                localStorage.setItem(DATA_KEY, JSON.stringify(data));
+                if (localStorage.getItem(DATA_KEY) !== JSON.stringify(data)) throw new Error('Migration backup verification failed');
+            }
             return data;
         } catch (error) {
             reportError('Failed to load local data', error);

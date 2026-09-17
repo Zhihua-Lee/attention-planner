@@ -75,6 +75,7 @@ type QuickAddModalProps = {
 };
 
 type QuickAddOpenDetail = {
+    advanced?: boolean;
     expandContent?: boolean;
     initialProps?: Partial<Task>;
     initialValue?: string;
@@ -377,11 +378,12 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
     useEffect(() => {
         const handler: EventListener = (event) => {
             const detail = (event as CustomEvent<QuickAddOpenDetail>).detail;
+            if (!standaloneWindow && !detail?.advanced && detail?.captureMode !== 'audio') return;
             openQuickAdd(detail).catch((error) => reportError('Failed to open quick add', error));
         };
         window.addEventListener('mindwtr:quick-add', handler);
         return () => window.removeEventListener('mindwtr:quick-add', handler);
-    }, [openQuickAdd]);
+    }, [openQuickAdd, standaloneWindow]);
 
     useEffect(() => {
         if (!isOpen) return;

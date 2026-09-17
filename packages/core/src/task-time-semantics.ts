@@ -1,7 +1,8 @@
 import { hasTimeComponent, safeParseDate } from './date';
+import { blockEnd } from './planner';
 import type { Task } from './types';
 
-type TaskTimeFields = Pick<Task, 'availableAt' | 'scheduledAt' | 'snoozedUntil' | 'startTime'>;
+type TaskTimeFields = Pick<Task, 'availableAt' | 'scheduledAt' | 'snoozedUntil' | 'startTime' | 'planner'>;
 type TaskAttentionFields = TaskTimeFields & Pick<Task, 'status'>;
 type TaskUnschedulePatch = Pick<Partial<Task>, 'scheduledAt' | 'startTime' | 'relativeStartOffset'>;
 type TaskAvailabilityPatch = Pick<Partial<Task>, 'availableAt' | 'startTime' | 'relativeStartOffset'>;
@@ -18,6 +19,8 @@ export function getTaskAvailableAt(task: TaskTimeFields): string | undefined {
 }
 
 export function getTaskScheduledAt(task: TaskTimeFields): string | undefined {
+    if (task.planner) return task.planner.blocks.filter(b => b.state === 'scheduled' && b.completedMinutes < b.allocatedMinutes)
+        .sort((a,b) => a.startAt.localeCompare(b.startAt))[0]?.startAt;
     if (task.scheduledAt) return task.scheduledAt;
     if (task.startTime && hasTimeComponent(task.startTime)) return task.startTime;
     return undefined;
@@ -79,6 +82,11 @@ export function isTaskSnoozed(task: TaskTimeFields, now: Date = new Date()): boo
 }
 
 export function isTaskScheduledInFuture(task: TaskTimeFields, now: Date = new Date()): boolean {
+    if (task.planner) {
+        const active = task.planner.blocks.filter(b => b.state === 'scheduled');
+        if (active.some(b => Date.parse(b.startAt) <= now.getTime() && blockEnd(b) > now.getTime())) return false;
+        return active.some(b => Date.parse(b.startAt) > now.getTime());
+    }
     const scheduled = safeParseDate(getTaskScheduledAt(task));
     return Boolean(scheduled && scheduled.getTime() > now.getTime());
 }

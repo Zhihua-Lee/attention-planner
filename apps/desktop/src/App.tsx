@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useTransition, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Layout } from './components/Layout';
 import { ListView } from './components/views/ListView';
-import { CalendarView } from './components/views/CalendarView';
+import { PlannerView } from './components/planner/PlannerView';
 const BoardView = lazy(() => import('./components/views/BoardView').then((m) => ({ default: m.BoardView })));
 const ObsidianView = lazy(() => import('./components/views/ObsidianView').then((m) => ({ default: m.ObsidianView })));
 import { ContextsView } from './components/views/ContextsView';
@@ -11,7 +11,6 @@ import { ArchiveView } from './components/views/ArchiveView';
 import { TrashView } from './components/views/TrashView';
 import { AgendaView } from './components/views/AgendaView';
 import { LaterView, PlanShell } from './components/views/PlanShell';
-import { TodayPlanView } from './components/views/TodayPlanView';
 import { SearchView } from './components/views/SearchView';
 import {
     ACTIVE_APP_ANNOUNCEMENT,
@@ -1183,15 +1182,15 @@ function App() {
         }
         switch (activeView) {
             case 'inbox':
-                return <ListView title={t('list.inbox')} statusFilter="inbox" />;
+                return <PlannerView mode="inbox" />;
             case 'agenda':
-                return <AgendaView mode="now" />;
+                return <PlannerView mode="now" />;
             case 'next':
                 return <AgendaView mode="now" />;
             case 'plan':
                 return (
                     <PlanShell activeSection="today" onNavigate={handleViewChange}>
-                        <TodayPlanView />
+                        <PlannerView mode="day" />
                     </PlanShell>
                 );
             case 'someday':
@@ -1212,9 +1211,7 @@ function App() {
                 return <ListView title={t('list.done')} statusFilter="done" />;
             case 'calendar':
                 return (
-                    <PlanShell activeSection="calendar" onNavigate={handleViewChange}>
-                        <CalendarView />
-                    </PlanShell>
+                    <PlannerView mode="calendar" />
                 );
             case 'board':
                 return <BoardView />;
@@ -1249,7 +1246,7 @@ function App() {
             case 'trash':
                 return <TrashView />;
             default:
-                return <ListView title={t('list.inbox')} statusFilter="inbox" />;
+                return <PlannerView mode="inbox" />;
         }
     };
 
@@ -1260,7 +1257,7 @@ function App() {
             setSettingsOnboardingHintPage(undefined);
         }
         persistLastView(nextView, useUiStore.getState().projectView.selectedProjectId);
-        writeViewToUrl(nextView);
+        writeViewToUrl(nextView, true);
         setCurrentView(nextView);
         if (nextView === 'settings') {
             beginSettingsOpenTrace('handleViewChange');
@@ -1271,6 +1268,12 @@ function App() {
             setActiveView(nextView);
         });
     }, [startTransition]);
+
+    useEffect(() => {
+        const pop = () => { const view = readViewFromUrl(); if (view) { setCurrentView(view); setActiveView(view); } };
+        window.addEventListener('popstate', pop);
+        return () => window.removeEventListener('popstate', pop);
+    }, []);
 
     useEffect(() => {
         if (isObsidianEnabled || currentView !== 'obsidian') return;

@@ -47,7 +47,7 @@ describe('desktop dropbox-sync conflict parsing', () => {
 
         await expect(getDropboxAppDataMetadata('token', fetcher as typeof fetch)).resolves.toEqual({ rev: 'rev-fast' });
         expect(requestInit?.method).toBe('POST');
-        expect(JSON.parse(String(requestInit?.body))).toMatchObject({ path: '/data.json' });
+        expect(JSON.parse(String(requestInit?.body))).toMatchObject({ path: '/attention-planner-v2.json' });
     });
 
     it('uploads attachment files as binary octet-stream regardless of source mime type', async () => {

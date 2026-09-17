@@ -194,7 +194,7 @@ describe('Layout product navigation', () => {
         expect(getByRole('heading', { name: 'Attention Planner' })).toBeInTheDocument();
     });
 
-    it('shows NOW, Inbox, and Plan as the only always-visible destinations', () => {
+    it('shows NOW, Inbox, Calendar, and Plan as first-class destinations', () => {
         const { container, getByRole, queryByRole } = renderLayout('agenda');
 
         expect(getByRole('button', { name: 'NOW' })).toHaveAttribute('aria-current', 'page');
@@ -205,9 +205,10 @@ describe('Layout product navigation', () => {
         expect(queryByRole('button', { name: 'Board View' })).not.toBeInTheDocument();
     });
 
-    it('keeps Plan selected across its calendar, project, and later sections', () => {
-        const { getByRole, rerender } = renderLayout('calendar');
-        expect(getByRole('button', { name: 'Plan' })).toHaveAttribute('aria-current', 'page');
+    it('keeps calendar independent of Plan and still groups waiting under Plan', () => {
+        const { getByRole, rerender, container } = renderLayout('calendar');
+        expect(container.querySelector('[data-sidebar-item][data-view="calendar"]')).toHaveAttribute('aria-current', 'page');
+        expect(getByRole('button', { name: 'Plan' })).not.toHaveAttribute('aria-current');
 
         rerender(
             <LanguageProvider>

@@ -1061,10 +1061,10 @@ export const createTaskActions = ({ set, get, getStorage, debouncedSave, trackIm
                 projectId: container.projectId, sectionId: container.sectionId, areaId: container.areaId,
                 order, orderNum: order,
             };
-            const updatedSource: Task = {
-                ...source, checklist: source.checklist?.filter((entry) => entry.id !== itemId),
-                updatedAt: now, rev: nextRevision(source.rev), revBy: device.deviceId,
-            };
+            const { updatedTask: updatedSource } = applyTaskUpdates(source, {
+                checklist: source.checklist?.filter((entry) => entry.id !== itemId),
+                rev: nextRevision(source.rev), revBy: device.deviceId,
+            }, now);
             const tasks = [...replaceEntityInArray(state._allTasks, taskId, updatedSource), promoted];
             snapshot = buildSaveSnapshot(state, { tasks, ...(device.updated ? { settings: device.settings } : {}) });
             createdId = promoted.id;

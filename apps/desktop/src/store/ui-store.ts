@@ -122,7 +122,18 @@ export const useUiStore = createWithEqualityFn<UiState>()((set) => ({
     toasts: [],
     showToast: (message, tone = 'info', durationMs = 3000, action) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        set((state) => ({ toasts: [...state.toasts, { id, message, tone, action }] }));
+        set((state) => {
+            // Routine confirmations replace one another; errors and Undo/View
+            // actions remain reachable instead of being cleared by later saves.
+            const previous = state.toasts.filter((toast) => {
+                if (tone === 'error' || toast.tone === 'error' || toast.action) return true;
+                const timeout = toastTimeouts.get(toast.id);
+                if (timeout !== undefined) window.clearTimeout(timeout);
+                toastTimeouts.delete(toast.id);
+                return false;
+            });
+            return { toasts: [...previous, { id, message, tone, action }] };
+        });
         const timeoutId = window.setTimeout(() => {
             toastTimeouts.delete(id);
             set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) }));

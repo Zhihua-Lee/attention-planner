@@ -1,3 +1,4 @@
+import { isCommittedOn, localPlanDate, currentWorkBlock } from './planner';
 import { timeEstimateToMinutes } from './calendar-scheduling';
 import { safeParseDate, safeParseDueDate } from './date';
 import type { ExternalCalendarEvent } from './ics';
@@ -14,6 +15,8 @@ export interface AttentionFrame {
     endTime: string;
     days: AttentionFrameDay[];
     matchTokens?: string[];
+    areaIds?: string[];
+    projectIds?: string[];
     color?: string;
     enabled?: boolean;
 }
@@ -84,6 +87,8 @@ export function normalizeAttentionFrames(value: unknown): AttentionFrame[] {
             startTime,
             endTime,
             days,
+            ...(Array.isArray(raw.areaIds) ? { areaIds: raw.areaIds.filter((id): id is string => typeof id === 'string') } : {}),
+            ...(Array.isArray(raw.projectIds) ? { projectIds: raw.projectIds.filter((id): id is string => typeof id === 'string') } : {}),
             ...(matchTokens.length > 0 ? { matchTokens } : {}),
             ...(color ? { color } : {}),
             ...(raw.enabled === false ? { enabled: false } : {}),
@@ -114,6 +119,7 @@ export function resolveActiveAttentionFrame(
 }
 
 function taskTokenMatchesFrame(task: Task, frame: AttentionFrame): boolean {
+    if (frame.areaIds?.length || frame.projectIds?.length) return Boolean(task.areaId && frame.areaIds?.includes(task.areaId) || task.projectId && frame.projectIds?.includes(task.projectId));
     const required = frame.matchTokens ?? [];
     if (required.length === 0) return true;
     const taskTokens = new Set([...(task.contexts ?? []), ...(task.tags ?? [])].map(normalizeToken));
@@ -139,6 +145,7 @@ function compareTasks(left: Task, right: Task): number {
 }
 
 function isCurrentScheduledTask(task: Task, now: Date, timeEstimatesEnabled: boolean): boolean {
+    if (task.planner) return Boolean(currentWorkBlock(task,now));
     const start = safeParseDate(getTaskScheduledAt(task));
     if (!start || start.getTime() > now.getTime()) return false;
     const durationMs = timeEstimateToMinutes(task.timeEstimate, { enabled: timeEstimatesEnabled }) * 60_000;
@@ -201,7 +208,7 @@ export function selectNow(options: SelectNowOptions): NowSelection | null {
         if (frameTask) return { kind: 'task', task: frameTask, frame, reason: 'frame' };
     }
 
-    const focused = visible.filter((task) => task.isFocusedToday).sort(compareTasks)[0];
+    const focused = visible.filter((task) => task.planner ? isCommittedOn(task, localPlanDate(now)) : task.isFocusedToday).sort(compareTasks)[0];
     if (focused) return { kind: 'task', task: focused, reason: 'focused' };
 
     const next = visible.sort(compareTasks)[0];

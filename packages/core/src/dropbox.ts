@@ -6,7 +6,7 @@ import {
     resolveDropboxPath,
 } from './dropbox-sync-utils';
 
-const DROPBOX_SYNC_PATH = '/data.json';
+const DROPBOX_SYNC_PATH = '/attention-planner-v2.json';
 const DOWNLOAD_ENDPOINT = 'https://content.dropboxapi.com/2/files/download';
 const UPLOAD_ENDPOINT = 'https://content.dropboxapi.com/2/files/upload';
 const FILE_METADATA_ENDPOINT = 'https://api.dropboxapi.com/2/files/get_metadata';

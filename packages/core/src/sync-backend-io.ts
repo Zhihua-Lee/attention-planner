@@ -159,7 +159,7 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                     if (!transport.oneDriveDownload) {
                         throw new Error('OneDrive sync is not available on this platform');
                     }
-                    ctx.syncUrl = 'onedrive:///Apps/Attention Planner/data.json';
+                    ctx.syncUrl = 'onedrive:///Apps/Attention Planner/attention-planner-v2.json';
                     const remote = await transport.oneDriveDownload();
                     ctx.oneDriveETag = remote.eTag;
                     return remote.data;
@@ -171,7 +171,7 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
                     if (!transport.googleDriveDownload) {
                         throw new Error('Google Drive sync is not available on this platform');
                     }
-                    ctx.syncUrl = 'google-drive:///appDataFolder/data.json';
+                    ctx.syncUrl = 'google-drive:///appDataFolder/attention-planner-v2.json';
                     const remote = await transport.googleDriveDownload();
                     ctx.googleDriveRevision = remote.revision;
                     return remote.data;
@@ -187,6 +187,7 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
             return transport.fileRead();
         },
         writeRemote: async (sanitized) => {
+            assertPlannerSyncDestination(ctx, sanitized);
             if (ctx.backend === 'cloudkit') {
                 await transport.cloudKitWrite(sanitized);
                 return;
@@ -299,4 +300,15 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
             return null;
         },
     };
+}
+
+/** Planner metadata must never be sent where an older client can silently erase it. */
+export function assertPlannerSyncDestination(ctx: SyncBackendContext, data: AppData): void {
+    if (!data.tasks.some(task => task.planner)) return;
+    if (ctx.backend === 'cloudkit') throw new Error('CloudKit does not support work blocks yet. Use the upgraded JSON sync providers; no data was uploaded.');
+    if (ctx.backend === 'cloud' && ['dropbox','google-drive','onedrive'].includes(ctx.cloudProvider)) return;
+    const path = decodeURIComponent(ctx.backend === 'webdav' ? ctx.webdav?.url ?? '' : ctx.backend === 'file' ? ctx.filePath ?? '' : ctx.cloud?.url ?? '');
+    if (ctx.backend === 'cloud' && /\/v2\/data\/?$/i.test(path)) return;
+    if ((ctx.backend === 'webdav' || ctx.backend === 'file') && /(?:^|[\\/])attention-planner-v2(?:[\\/]|\.json(?:[?#]|$)|$)/i.test(path)) return;
+    throw new Error('Planner data needs an isolated sync location. Use an attention-planner-v2 folder/file on every upgraded device, or the /v2/data endpoint. Export a backup first. The legacy sync file was not overwritten.');
 }

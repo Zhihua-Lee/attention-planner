@@ -1,3 +1,4 @@
+import type { TaskPlanner, PlanningWindow } from './planner';
 import type { ExternalCalendarSubscription } from './ics';
 import type { AttentionFrame } from './attention-frames';
 
@@ -191,6 +192,7 @@ export interface RelativeStartOffset {
 }
 
 export interface Task {
+    planner?: TaskPlanner; // Independent work allocations and dated commitments.
     id: string;
     title: string;
     status: TaskStatus;
@@ -322,6 +324,7 @@ export type MobileQuickAccessView = 'review' | 'projects' | 'calendar' | 'contex
 export type DefaultTaskAreaMode = 'none' | 'fixed' | 'active';
 
 export interface GtdSettings {
+    planningWindows?: PlanningWindow[]; // Explicit protected scheduling hours; absent disables automatic placement.
     timeEstimatePresets?: TimeEstimate[];
     taskEditor?: TaskEditorSettings;
     autoArchiveDays?: number;

@@ -1,5 +1,6 @@
 import {
     filterNotDeleted,
+    readTaskPlanner,
     normalizeRecurrenceForLoad,
     normalizeRelativeStartOffset,
     normalizeRepeatReminderMinutes,
@@ -106,6 +107,7 @@ function validateTaskRecurrence(value: Record<string, unknown>): string | null {
 }
 
 function validateTaskPropValues(value: Record<string, unknown>): string | null {
+    try { readTaskPlanner(value.planner); } catch { return 'Invalid task planner metadata'; }
     return validateTaskRepeatReminderMinutes(value)
         ?? validateTaskTimeSpentMinutes(value)
         ?? validateTaskRelativeStartOffset(value)
