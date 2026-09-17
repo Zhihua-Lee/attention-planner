@@ -139,3 +139,18 @@ describe('planner boundary safety', () => {
         expect(restoreCompletedWork(t,changed,clock(12)).planner!.blocks[0].startAt).toBe(at(16).toISOString());
     });
 });
+
+
+describe('legacy commitment adoption', () => {
+    it('does not resurrect an undated star after another device adopted a dated plan', () => {
+        const old = task({ isFocusedToday: true });
+        const migrated = taskPlanner(old);
+        const adopted = commitToDay({ ...old, planner: migrated }, '2026-09-17', true, clock()).planner!;
+        const merged = mergeTaskPlanners(migrated, adopted)!;
+        expect(merged.legacyFocus).toBeUndefined();
+        expect(merged.days).toEqual(adopted.days);
+        expect(mergeTaskPlanners(adopted, migrated)).toEqual(merged);
+        const cleared = commitToDay({ ...old, planner: adopted }, '2026-09-17', false, clock(10)).planner!;
+        expect(mergeTaskPlanners(migrated, cleared)!.legacyFocus).toBeUndefined();
+    });
+});

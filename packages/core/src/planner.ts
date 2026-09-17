@@ -161,9 +161,10 @@ export function mergeTaskPlanners(a: TaskPlanner | undefined, b: TaskPlanner | u
         return [...m.values()].sort((x,y)=>key(x).localeCompare(key(y)));
     };
     const contentStamp = !a.contentStamp ? b.contentStamp : !b.contentStamp ? a.contentStamp : recordCompare(a.contentStamp,b.contentStamp)>=0 ? a.contentStamp : b.contentStamp;
-    return { version: 1, contentStamp, blocks: merge(a.blocks,b.blocks,v=>v.id), days: merge(a.days,b.days,v=>v.date),
+    const days = merge(a.days,b.days,v=>v.date);
+    return { version: 1, contentStamp, blocks: merge(a.blocks,b.blocks,v=>v.id), days,
         skippedAt: [a.skippedAt,b.skippedAt].filter((s):s is string=>!!s).sort().pop(),
-        legacyFocus: a.legacyFocus || b.legacyFocus || undefined,
+        legacyFocus: days.length ? undefined : a.legacyFocus || b.legacyFocus || undefined,
         legacySchedule: [a.legacySchedule,b.legacySchedule].filter((s):s is string=>!!s).sort()[0] };
 }
 function windowMinutes(value: string): number | null {

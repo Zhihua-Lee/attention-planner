@@ -18,14 +18,14 @@ export function RepeatPicker({
     rule: value
   } : value;
   const parsed = recurrence?.rrule ? parseRRuleString(recurrence.rrule) : undefined;
-  const interval = parsed?.interval ?? recurrence?.interval ?? 1;
+  const interval = parsed?.interval ?? 1;
   const byDay = parsed?.byDay ?? recurrence?.byDay;
   const monthDays = parsed?.byMonthDay ?? recurrence?.byMonthDay;
   const count = parsed?.count ?? recurrence?.count;
   const until = parsed?.until ?? recurrence?.until;
   const endMode = count ? 'count' : until ? 'until' : 'never';
   const cls = 'mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3';
-  const update = (patch: Partial<Recurrence>) => {
+  const update = (patch: Partial<Recurrence> & { interval?: number }) => {
     const next = {
       ...recurrence,
       interval,
@@ -34,10 +34,11 @@ export function RepeatPicker({
       count,
       until,
       ...patch
-    } as Recurrence;
+    } as Recurrence & { interval: number };
+    const { interval: nextInterval, ...rule } = next;
     onChange({
-      ...next,
-      rrule: buildRRuleString(next.rule, next.byDay, next.interval, {
+      ...rule,
+      rrule: buildRRuleString(next.rule, next.byDay, nextInterval, {
         byMonthDay: next.byMonthDay,
         count: next.count,
         until: next.until,

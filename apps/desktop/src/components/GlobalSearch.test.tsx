@@ -4,6 +4,7 @@ import { AREA_FILTER_ALL, useTaskStore, type Area, type Task } from '@mindwtr/co
 import { LanguageProvider } from '../contexts/language-context';
 import { useUiStore } from '../store/ui-store';
 import { GlobalSearch } from './GlobalSearch';
+import { TASK_OPEN_EVENT } from '../lib/lifecycle-actions';
 
 const initialTaskState = useTaskStore.getState();
 const initialUiState = useUiStore.getState();
@@ -127,6 +128,7 @@ describe('GlobalSearch', () => {
 
     it('switches the sidebar area filter to all areas when opening a task hidden by the active area', async () => {
         const onNavigate = vi.fn();
+        const dispatched = vi.spyOn(window, 'dispatchEvent');
         const showToast = vi.fn();
         const updateSettings = vi.fn().mockResolvedValue(undefined);
         useTaskStore.setState((state) => ({ ...state, updateSettings }));
@@ -163,7 +165,12 @@ describe('GlobalSearch', () => {
             'Switched to All Areas so the selected item is visible.',
             'info',
         );
-        expect(onNavigate).toHaveBeenCalledWith('next', 'task-home');
+        const openEvent = dispatched.mock.calls.map(([event]) => event)
+            .find((event) => event.type === TASK_OPEN_EVENT) as CustomEvent<{ taskId: string }> | undefined;
+        expect(openEvent?.detail.taskId).toBe('task-home');
+        expect(onNavigate).not.toHaveBeenCalled();
+        expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+        dispatched.mockRestore();
     });
 
     it('shows Done and Archived tasks when only status filters are selected', async () => {
