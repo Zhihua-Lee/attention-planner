@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Area, Project } from '@mindwtr/core';
 import { PlainCaptureSheet } from './PlainCaptureSheet';
-import { PwaCaptureHost, QUICK_CAPTURE_EVENT, isPlainCaptureRequest } from './PwaCaptureHost';
+import { PwaCaptureHost, QUICK_CAPTURE_EVENT, LEGACY_CAPTURE_EVENT } from './PwaCaptureHost';
 
 const mocks = vi.hoisted(() => {
     const addTask = vi.fn();
@@ -46,9 +46,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const fillTitle = (title = 'Laundry') => fireEvent.change(screen.getByLabelText('What do you need to do?'), { target: { value: title } });
-const openHost = (detail: Record<string, unknown> = {}) => act(() => {
-    window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_EVENT, { detail }));
-});
+const openHost = () => act(() => { window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_EVENT)); });
 
 describe('plain capture interaction', () => {
     it('adds literal text without syntax parsing or mandatory metadata', async () => {
@@ -113,33 +111,41 @@ describe('plain capture interaction', () => {
         render(<PwaCaptureHost />);
         openHost();
         fillTitle('Unfinished thought');
-        fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }));
+        fireEvent.click(screen.getByRole('button', { name: /^Close$/ }));
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
         expect(mocks.addTask).not.toHaveBeenCalled();
         openHost();
         expect(screen.getByLabelText('What do you need to do?')).toHaveValue('Unfinished thought');
     });
-    it('routes blank capture once while preserving contextual legacy capture', () => {
+    it('never dispatches a legacy request when plain capture opens or closes', () => {
         const legacy = vi.fn();
-        window.addEventListener(QUICK_CAPTURE_EVENT, legacy);
+        window.addEventListener(LEGACY_CAPTURE_EVENT, legacy);
         try {
             render(<PwaCaptureHost />);
             openHost();
             expect(screen.getAllByRole('dialog')).toHaveLength(1);
-            expect(legacy).not.toHaveBeenCalled();
-            fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }));
-            openHost({ initialProps: { projectId: 'p1' } });
-            expect(legacy).toHaveBeenCalledOnce();
+            fillTitle();
+            fireEvent.click(screen.getByRole('button', { name: /^Close$/ }));
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+            openHost();
+            expect(screen.getAllByRole('dialog')).toHaveLength(1);
+            expect(legacy).not.toHaveBeenCalled();
         } finally {
-            window.removeEventListener(QUICK_CAPTURE_EVENT, legacy);
+            window.removeEventListener(LEGACY_CAPTURE_EVENT, legacy);
         }
     });
-    it('preserves audio, advanced, and prefilled entry points', () => {
-        expect(isPlainCaptureRequest({ captureUi: 'advanced' })).toBe(false);
-        expect(isPlainCaptureRequest({ initialValue: 'Imported title' })).toBe(false);
-        expect(isPlainCaptureRequest({ captureMode: 'audio' })).toBe(false);
-        expect(isPlainCaptureRequest({}, 'audio')).toBe(false);
-        expect(isPlainCaptureRequest({ captureMode: 'text' }, 'audio')).toBe(true);
+    it('hands advanced capture explicitly to the existing host', () => {
+        const legacy = vi.fn();
+        window.addEventListener(LEGACY_CAPTURE_EVENT, legacy);
+        try {
+            render(<PwaCaptureHost />);
+            openHost();
+            fireEvent.click(screen.getByRole('button', { name: /Advanced capture/ }));
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+            expect(legacy).toHaveBeenCalledOnce();
+            expect(mocks.addTask).not.toHaveBeenCalled();
+        } finally {
+            window.removeEventListener(LEGACY_CAPTURE_EVENT, legacy);
+        }
     });
 });
