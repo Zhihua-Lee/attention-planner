@@ -1,4 +1,4 @@
-import { translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
+import { flushPendingSave, restoreCompletedWork, translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
 import { useUiStore } from '../store/ui-store';
 import { registerUndoableAction } from './undo-registry';
 import { reportError } from './report-error';
@@ -16,10 +16,12 @@ export async function completeTaskWithUndo(taskId: string, t: TranslateFn): Prom
     const task = state.tasks.find((candidate) => candidate.id === taskId);
     if (!task || task.deletedAt || ['done', 'archived', 'reference'].includes(task.status)) return false;
     try {
-        const result = await state.updateTask(taskId, { status: 'done', isFocusedToday: false });
+        const result = await state.updateTask(taskId, { status: 'done', ...(!task.planner ? { isFocusedToday: false } : {}) });
         if (!result.success) throw new Error(result.error || 'Failed to complete task');
+        await flushPendingSave();
         const undo = registerUndoableAction(() => {
-            void undoTaskCompletion(taskId, task.status, task.isFocusedToday === true)
+            void undoTaskCompletion(taskId, task.status, task.isFocusedToday === true && !task.planner)
+                .then(async () => { const store=useTaskStore.getState();const latest=store._allTasks.find(item=>item.id===taskId);if(latest&&latest.status===task.status){const patch=restoreCompletedWork(task,latest,{now:new Date(),deviceId:store.settings.deviceId||'local'});if(Object.keys(patch).length)await store.updateTask(taskId,patch);await flushPendingSave();} })
                 .catch((error) => reportError('Failed to undo task completion', error));
         });
         if (useTaskStore.getState().settings.undoNotificationsEnabled !== false) {

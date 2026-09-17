@@ -1,3 +1,4 @@
+import { useTaskDetailLauncher } from './planner/TaskDetailLauncher';
 import { useState, memo, useEffect, useRef, useCallback, useMemo, type DragEvent, type ReactNode } from 'react';
 import {
     DEFAULT_PROJECT_COLOR,
@@ -1310,10 +1311,11 @@ export const TaskItem = memo(function TaskItem({
     );
 
     const selectAriaLabel = tFallback(t, 'task.select', 'Select task');
+    const launchTaskDetail = useTaskDetailLauncher();
     const displayActions = useMemo(() => ({
         onToggleSelect,
-        onToggleView: () => toggleTaskExpanded(task.id),
-        onEdit: startEditing,
+        onToggleView: () => launchTaskDetail ? launchTaskDetail(task.id) : toggleTaskExpanded(task.id),
+        onEdit: () => launchTaskDetail ? launchTaskDetail(task.id) : startEditing(),
         onRenameTitle: (nextTitle: string) => {
             void updateTask(task.id, { title: nextTitle });
         },
@@ -1329,7 +1331,7 @@ export const TaskItem = memo(function TaskItem({
         onToggleChecklistItem: handleToggleChecklistItem,
         focusToggle: effectiveFocusToggle,
         pomodoroQuickStart,
-    }), [
+    }), [launchTaskDetail,
         handleDeleteTask,
         handleDuplicateTask,
         effectiveFocusToggle,

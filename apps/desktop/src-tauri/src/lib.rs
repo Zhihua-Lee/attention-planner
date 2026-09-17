@@ -329,7 +329,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   purgedAt TEXT,
   availableAt TEXT,
   scheduledAt TEXT,
-  snoozedUntil TEXT
+  snoozedUntil TEXT,
+  planner TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);

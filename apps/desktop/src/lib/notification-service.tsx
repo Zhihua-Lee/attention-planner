@@ -204,15 +204,14 @@ function checkDueAndNotify() {
             repeatNotifiedByTask.set(task.id, repeat.key);
         }
 
-        const next = plan.next;
-        if (!next) return;
-        const diffMs = next.scheduledAt.getTime() - now.getTime();
-        if (diffMs > CHECK_INTERVAL_MS) return;
-
-        if (notifiedAtByTask.get(task.id) === next.dedupeKey) return;
-
-        void sendNotification(task.title, buildDesktopTaskNotificationBody(task, next.kind, tr));
-        notifiedAtByTask.set(task.id, next.dedupeKey);
+        for (const next of [...(plan.next ? [plan.next] : []), ...(plan.blocks ?? [])]) {
+            const diffMs = next.scheduledAt.getTime() - now.getTime();
+            if (diffMs > CHECK_INTERVAL_MS) continue;
+            const key = next.kind === 'start' && task.planner ? next.key : task.id;
+            if (notifiedAtByTask.get(key) === next.dedupeKey) continue;
+            void sendNotification(task.title, buildDesktopTaskNotificationBody(task, next.kind, tr));
+            notifiedAtByTask.set(key, next.dedupeKey);
+        }
     });
 
     if (includeReviewAt) {

@@ -14,12 +14,15 @@ const mocks = vi.hoisted(() => {
             addTask,
             projects: [] as Project[],
             areas: [] as Area[],
+            tasks: [], _allTasks: [],
             settings: { gtd: { defaultCaptureMethod: 'text' } },
             setHighlightTask: vi.fn(),
         },
     };
 });
-vi.mock('@mindwtr/core', () => ({
+vi.mock('@mindwtr/core', async (importOriginal) => ({
+    ...await importOriginal<typeof import('@mindwtr/core')>(),
+    flushPendingSave: vi.fn().mockResolvedValue(undefined),
     shallow: Object.is,
     useTaskStore: Object.assign(
         <T,>(selector: (state: typeof mocks.state) => T) => selector(mocks.state),
@@ -34,7 +37,11 @@ vi.mock('../../store/ui-store', () => ({
 }));
 vi.mock('../../lib/navigation-events', () => ({ dispatchNavigateEvent: (...args: unknown[]) => mocks.navigate(...args) }));
 
+vi.mock('../../lib/lifecycle-actions', () => ({ensurePlannerBackup: vi.fn().mockResolvedValue(undefined),plannerClock:()=>({now:new Date('2026-09-17T12:00:00Z'),deviceId:'test'}),checkReservation:vi.fn()}));
+vi.mock('../planner/usePlannerEnvironment',()=>({usePlannerEnvironment:()=>({events:[],loaded:true,calendarError:null,showDate:()=>{}})}));
+
 beforeEach(() => {
+    localStorage.clear();
     mocks.addTask.mockReset();
     mocks.addTask.mockResolvedValue({ success: true, id: 'created-task' });
     mocks.showToast.mockClear();
@@ -55,7 +62,7 @@ describe('plain capture interaction', () => {
         fillTitle('Read C++ @home #1 /done');
         fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
         await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
-        expect(mocks.addTask).toHaveBeenCalledWith('Read C++ @home #1 /done', { status: 'inbox', description: undefined });
+        expect(mocks.addTask).toHaveBeenCalledWith('Read C++ @home #1 /done', expect.objectContaining({ status: 'inbox', description: undefined, planner:{version:1,blocks:[],days:[]} }));
     });
     it('keeps a failed submission editable rather than closing or resetting it', async () => {
         mocks.addTask.mockResolvedValue({ success: false, error: 'Storage unavailable' });
@@ -75,7 +82,7 @@ describe('plain capture interaction', () => {
         const form = screen.getByLabelText('What do you need to do?').closest('form')!;
         fireEvent.submit(form);
         fireEvent.submit(form);
-        expect(mocks.addTask).toHaveBeenCalledOnce();
+        await waitFor(()=>expect(mocks.addTask).toHaveBeenCalledOnce());
         await act(async () => resolve({ success: true, id: 'created-task' }));
     });
     it('does not submit during IME composition', () => {
@@ -92,20 +99,21 @@ describe('plain capture interaction', () => {
         fireEvent.change(screen.getByLabelText('Must finish by'), { target: { value: '2026-09-20' } });
         fireEvent.click(screen.getByRole('button', { name: 'Add to calendar' }));
         await waitFor(() => expect(mocks.addTask).toHaveBeenCalledOnce());
-        expect(mocks.addTask).toHaveBeenCalledWith('Laundry', {
-            status: 'next', description: undefined,
-            scheduledAt: new Date(2026, 8, 18, 9, 30).toISOString(), dueDate: '2026-09-20',
-        });
+        const props=mocks.addTask.mock.calls[0][1];
+        expect(props.status).toBe('next');expect(props.dueDate).toBe('2026-09-20');
+        expect(props.scheduledAt).toBeUndefined();
+        expect(props.planner.blocks).toHaveLength(1);
+        expect(props.planner.blocks[0].startAt).toBe(new Date(2026,8,18,9,30).toISOString());
     });
     it('preserves note indentation', async () => {
         render(<PlainCaptureSheet isOpen onClose={vi.fn()} />);
         fillTitle();
-        fireEvent.click(screen.getByText('Context and notes'));
+        fireEvent.click(screen.getByText('Content and steps'));
         const description = '    indented code\n\n- one\n  - nested\n';
-        fireEvent.change(screen.getByLabelText('Notes'), { target: { value: description } });
+        fireEvent.change(screen.getByRole('textbox', {name:'taskEdit.descriptionLabel'}), { target: { value: description } });
         fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
         await waitFor(() => expect(mocks.addTask).toHaveBeenCalledOnce());
-        expect(mocks.addTask).toHaveBeenCalledWith('Laundry', { status: 'inbox', description });
+        expect(mocks.addTask).toHaveBeenCalledWith('Laundry', expect.objectContaining({ status: 'inbox', description }));
     });
     it('closes without creating a task and restores the draft when reopened', () => {
         render(<PwaCaptureHost />);

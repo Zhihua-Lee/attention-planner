@@ -1,7 +1,8 @@
 {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "sinceVersionPolicy": "Contract versions start at 1 for every field present when this table was introduced; they are independent of SQLite migration versions.",
     "fields": [
+        {"name": "planner", "sync": "content", "nullability": "optional", "sinceVersion": 3, "signature": "content", "sqliteColumn": "planner", "cloudKit": null, "cloudWrite": "patch", "sqliteOrder": 46, "sqliteType": "TEXT"},
         { "name": "id", "sync": "identity", "nullability": "required", "sinceVersion": 1, "signature": "content", "sqliteColumn": "id", "cloudKit": null, "cloudWrite": "managed", "sqliteOrder": 0, "sqliteType": null },
         { "name": "title", "sync": "content", "nullability": "required", "sinceVersion": 1, "signature": "content", "sqliteColumn": "title", "cloudKit": { "key": "title", "kind": "string" }, "cloudWrite": "patch", "sqliteOrder": 1, "sqliteType": null },
         { "name": "status", "sync": "content", "nullability": "required", "sinceVersion": 1, "signature": "content", "sqliteColumn": "status", "cloudKit": { "key": "status", "kind": "string" }, "cloudWrite": "create-patch", "sqliteOrder": 2, "sqliteType": null },
@@ -51,6 +52,7 @@
         { "name": "focusOrder", "sync": "order", "nullability": "optional", "sinceVersion": 1, "signature": "ignored", "sqliteColumn": "focusOrder", "cloudKit": { "key": "focusOrder", "kind": "integer" }, "cloudWrite": "patch", "sqliteOrder": 26, "sqliteType": "INTEGER" }
     ],
     "fixture": {
+        "planner": {"version": 1, "blocks": [], "days": []},
         "id": "task-schema-fixture",
         "title": "Verify every Task field",
         "status": "done",

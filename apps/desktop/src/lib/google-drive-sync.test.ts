@@ -64,7 +64,7 @@ describe('Google Drive appDataFolder sync transport', () => {
 
     it('lists only appDataFolder and downloads the hidden data file', async () => {
         const fetcher = vi.fn<typeof fetch>()
-            .mockResolvedValueOnce(jsonResponse({ files: [{ id: 'file-1', name: 'data.json', version: '7' }] }))
+            .mockResolvedValueOnce(jsonResponse({ files: [{ id: 'file-1', name: 'attention-planner-v2.json', version: '7' }] }))
             .mockResolvedValueOnce(jsonResponse(appData));
         vi.stubGlobal('fetch', fetcher);
 
@@ -91,7 +91,7 @@ describe('Google Drive appDataFolder sync transport', () => {
 
     it('stops before upload when the Drive version changed', async () => {
         vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValueOnce(jsonResponse({
-            files: [{ id: 'file-1', name: 'data.json', version: '8' }],
+            files: [{ id: 'file-1', name: 'attention-planner-v2.json', version: '8' }],
         })));
 
         await expect(uploadGoogleDriveAppData(appData, '7')).rejects.toBeInstanceOf(GoogleDriveConflictError);

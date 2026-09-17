@@ -719,14 +719,14 @@ describe('completion timestamp updates', () => {
         expect(nextRecurringTask?.dueDate).toBe('2026-07-15');
     });
 
-    it('uses a caller-supplied completedAt when archiving a task', () => {
+    it('does not invent completion when an active task is merely archived', () => {
         const task = createTask('t5', undefined, 0, { status: 'next' });
         const { updatedTask } = applyTaskUpdates(
             task,
             { status: 'archived', completedAt: '2026-07-06T08:00:00.000Z' },
             now
         );
-        expect(updatedTask.completedAt).toBe('2026-07-06T08:00:00.000Z');
+        expect(updatedTask.completedAt).toBeUndefined();
     });
 
     it('preserves the completion time when moving an archived task back to done', () => {

@@ -7,7 +7,7 @@ const DEFAULT_TENANT_ID = 'common';
 const ONEDRIVE_SCOPES = ['Files.ReadWrite.AppFolder'];
 const GRAPH_ROOT_URL = 'https://graph.microsoft.com/v1.0';
 const APP_ROOT_URL = `${GRAPH_ROOT_URL}/me/special/approot`;
-const DATA_ITEM_URL = `${GRAPH_ROOT_URL}/me/drive/special/approot:/data.json`;
+const DATA_ITEM_URL = `${GRAPH_ROOT_URL}/me/drive/special/approot:/attention-planner-v2.json`;
 const DATA_CONTENT_URL = `${DATA_ITEM_URL}:/content`;
 const DEFAULT_CLIENT_ID = String(import.meta.env.VITE_MICROSOFT_CLIENT_ID || '').trim();
 

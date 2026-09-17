@@ -1,3 +1,4 @@
+import { openTaskDetails } from '../lib/lifecycle-actions';
 import { useState, useEffect, useId, useMemo, useRef } from 'react';
 import { Search, FileText, CheckCircle, Save, SlidersHorizontal, X } from 'lucide-react';
 import {
@@ -55,14 +56,13 @@ export function GlobalSearch({ onNavigate }: GlobalSearchProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
     const isOpenRef = useRef(false);
-    const { _allTasks, projects, areas, settings, updateSettings, setHighlightTask, getDerivedState } = useTaskStore(
+    const { _allTasks, projects, areas, settings, updateSettings, getDerivedState } = useTaskStore(
         (state) => ({
             _allTasks: state._allTasks,
             projects: state.projects,
             areas: state.areas,
             settings: state.settings,
             updateSettings: state.updateSettings,
-            setHighlightTask: state.setHighlightTask,
             getDerivedState: state.getDerivedState,
         }),
         shallow
@@ -304,16 +304,7 @@ export function GlobalSearch({ onNavigate }: GlobalSearchProps) {
             setProjectView({ selectedProjectId: result.item.id });
             onNavigate('projects', result.item.id);
         } else {
-            // Map task status to appropriate view
-            const task = result.item;
-            setHighlightTask(task.id);
-            if (task.projectId) {
-                setProjectView({ selectedProjectId: task.projectId });
-                onNavigate('projects', task.id);
-                return;
-            }
-            const targetView = resolveGlobalSearchTaskView(task as Task);
-            onNavigate(targetView, task.id);
+            openTaskDetails(result.item.id);
         }
     };
 

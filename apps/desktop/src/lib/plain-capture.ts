@@ -10,9 +10,14 @@ export type PlainCaptureDraft = {
     interval: number;
     afterCompletion: boolean;
     container: string;
+    plannedDay?: string;
+    durationMinutes?: number;
+    availableAt?: string;
+    checklist?: Task['checklist'];
+    recurrence?: Task['recurrence'];
 };
 
-export type PlainCaptureError = 'title' | 'schedule' | 'due' | 'availability' | 'interval';
+export type PlainCaptureError = 'title' | 'schedule' | 'due' | 'availability' | 'interval' | 'duration';
 export type PlainCaptureResult =
     | { ok: true; title: string; props: Partial<Task> }
     | { ok: false; error: PlainCaptureError };
@@ -45,13 +50,19 @@ export function preparePlainCapture(draft: PlainCaptureDraft): PlainCaptureResul
     if (draft.repeat && (!Number.isInteger(draft.interval) || draft.interval < 1 || draft.interval > 999)) {
         return { ok: false, error: 'interval' };
     }
+    if (draft.availableAt && !parseInput(draft.availableAt, false)) return { ok: false, error: 'availability' };
+    if (schedule && draft.availableAt && schedule < parseInput(draft.availableAt, false)!) return { ok: false, error: 'availability' };
+    if (draft.plannedDay && !parseInput(draft.plannedDay, false)) return { ok: false, error: 'schedule' };
+    if (schedule && (!Number.isFinite(draft.durationMinutes ?? 30) || (draft.durationMinutes ?? 30) < 1 || (draft.durationMinutes ?? 30) > 1440)) return { ok: false, error: 'duration' };
     const projectId = draft.container.startsWith('project:') ? draft.container.slice(8) : undefined;
     const areaId = draft.container.startsWith('area:') ? draft.container.slice(5) : undefined;
     return {
         ok: true,
         title,
         props: {
-            status: schedule ? 'next' : draft.destination,
+            status: schedule || draft.plannedDay ? 'next' : draft.destination,
+            ...(draft.availableAt ? { availableAt:draft.availableAt } : {}),
+            ...(draft.checklist ? { checklist:draft.checklist.filter(s=>s.title.trim()) } : {}),
             // Whitespace can carry Markdown meaning; only discard an empty note.
             description: draft.description.trim() ? draft.description : undefined,
             ...(schedule ? { scheduledAt: schedule.toISOString() } : {}),
@@ -64,6 +75,7 @@ export function preparePlainCapture(draft: PlainCaptureDraft): PlainCaptureResul
                     rrule: `FREQ=${draft.repeat.toUpperCase()};INTERVAL=${draft.interval}`,
                 },
             } : {}),
+            ...(draft.recurrence ? { recurrence:draft.recurrence } : {}),
         },
     };
 }

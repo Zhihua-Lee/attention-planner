@@ -7,6 +7,7 @@
 // lists (or in both, or stale), and `--release-gate` (wired into the stable release
 // workflow only) additionally fails while anything is still pending. RCs may ship
 // with a field pending; stable releases may not.
+import { readTaskPlanner } from './planner';
 import schemaFixture from './task-sync-schema.fixture.json';
 import type { Task } from './types';
 import {
@@ -171,6 +172,7 @@ const taskColumnValues = (task: Task): Record<string, unknown> => {
         energyLevel: task.energyLevel ?? null,
         assignedTo: task.assignedTo ?? null,
         taskMode: task.taskMode ?? null,
+        planner: toJson(task.planner),
         startTime: task.startTime ?? null,
         availableAt: task.availableAt ?? null,
         scheduledAt: task.scheduledAt ?? null,
@@ -230,6 +232,7 @@ export const taskFromSqliteRow = (row: Record<string, unknown>): Task => {
         energyLevel: fromOptional(row.energyLevel as Task['energyLevel'] | null),
         assignedTo: fromOptional(row.assignedTo as string | null),
         taskMode: fromOptional(row.taskMode as Task['taskMode'] | null),
+        planner: readTaskPlanner(fromJson<unknown>(row.planner, undefined)),
         startTime: fromOptional(row.startTime as string | null),
         availableAt: fromOptional(row.availableAt as string | null),
         scheduledAt: fromOptional(row.scheduledAt as string | null),

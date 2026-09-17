@@ -632,7 +632,7 @@ describe('CalendarView', () => {
         expect(within(panel).getByText('Draft planning memo')).toBeInTheDocument();
         expect(within(panel).getByText('Review deadline brief')).toBeInTheDocument();
         expect(within(panel).queryByText('Already scheduled')).not.toBeInTheDocument();
-        expect(within(panel).queryByText('Focused today')).not.toBeInTheDocument();
+        expect(within(panel).getByText('Focused today')).toBeInTheDocument(); // Day intention is not a time reservation.
 
         await selectDay('4');
         const planTitle = panel.querySelector('[data-task-id="task-plan"]') as HTMLElement;

@@ -81,7 +81,7 @@ const NAV_DROP_STATUSES: Record<string, TaskStatus> = {
 };
 const SECTION_COLLAPSE_STORAGE_KEY = 'mindwtr:sidebar:collapsedSections:v2';
 const DEFAULT_COLLAPSED_SECTION_KEYS: string[] = ['more', 'saved', 'archive'];
-const PLAN_VIEW_IDS = new Set(['plan', 'calendar', 'projects', 'waiting', 'someday', 'recurring']);
+const PLAN_VIEW_IDS = new Set(['plan', 'projects', 'waiting', 'someday', 'recurring']);
 
 function createDefaultCollapsedSections(): Set<string> {
     return new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
@@ -316,6 +316,7 @@ export function Layout({ children, currentView, onViewChange, onOpenSyncSettings
             showHeader: false,
             items: [
                 { id: 'agenda', labelKey: 'nav.agenda', icon: Target, tone: 'primary' },
+                { id: 'calendar', labelKey: 'nav.calendar', icon: Calendar, tone: 'primary' },
                 { id: 'inbox', labelKey: 'nav.inbox', icon: Inbox, count: inboxCount, tone: 'primary' },
                 { id: 'plan', labelKey: 'nav.plan', fallbackLabel: 'Plan', icon: Calendar, tone: 'primary' },
             ],

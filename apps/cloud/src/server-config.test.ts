@@ -26,7 +26,7 @@ const EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS = [
 
 const EXPECTED_CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS = [
     'title', 'order', 'orderNum', 'boardOrder', 'focusOrder',
-    'availableAt', 'scheduledAt', 'snoozedUntil',
+    'availableAt', 'scheduledAt', 'snoozedUntil', 'planner',
     ...EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS,
 ];
 
