@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { QuickAddWindowApp } from './QuickAddWindowApp.tsx';
+import { PwaCaptureHost } from './components/capture/PwaCaptureHost';
 import './index.css';
 
 import { type AppData, consoleLogger, setLogger, setStorageAdapter, SQLITE_SCHEMA_VERSION } from '@mindwtr/core';
@@ -180,7 +181,7 @@ async function restoreFullscreenState() {
     if (!loadStoredFullscreen(localStorage)) return;
     try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const current = getCurrentWindow();
+        const current = await getCurrentWindow();
         if (await current.isFullscreen()) return;
         await current.setFullscreen(true);
     } catch (error) {
@@ -223,6 +224,7 @@ function installFileDropNavigationGuard() {
     });
     document.addEventListener('drop', (event) => {
         if (isFileDrag(event)) event.preventDefault();
+        if (isFileDrag(event)) event.preventDefault();
     });
 }
 
@@ -261,6 +263,7 @@ async function bootstrap() {
         <React.StrictMode>
             <LanguageProvider>
                 <RootApp />
+                {!isQuickAddWindow && !isTauriRuntime() && <PwaCaptureHost />}
             </LanguageProvider>
         </React.StrictMode>,
     );
