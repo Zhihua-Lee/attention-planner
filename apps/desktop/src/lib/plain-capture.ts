@@ -52,7 +52,8 @@ export function preparePlainCapture(draft: PlainCaptureDraft): PlainCaptureResul
         title,
         props: {
             status: schedule ? 'next' : draft.destination,
-            description: draft.description.trim() || undefined,
+            // Whitespace can carry Markdown meaning; only discard an empty note.
+            description: draft.description.trim() ? draft.description : undefined,
             ...(schedule ? { scheduledAt: schedule.toISOString() } : {}),
             ...(draft.dueDate ? { dueDate: draft.dueDate } : {}),
             ...(projectId ? { projectId } : areaId ? { areaId } : {}),

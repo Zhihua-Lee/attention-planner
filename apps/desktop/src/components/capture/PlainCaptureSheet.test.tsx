@@ -1,0 +1,145 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Area, Project } from '@mindwtr/core';
+import { PlainCaptureSheet } from './PlainCaptureSheet';
+import { PwaCaptureHost, QUICK_CAPTURE_EVENT, isPlainCaptureRequest } from './PwaCaptureHost';
+
+const mocks = vi.hoisted(() => {
+    const addTask = vi.fn();
+    return {
+        addTask,
+        showToast: vi.fn(),
+        navigate: vi.fn(),
+        state: {
+            addTask,
+            projects: [] as Project[],
+            areas: [] as Area[],
+            settings: { gtd: { defaultCaptureMethod: 'text' } },
+            setHighlightTask: vi.fn(),
+        },
+    };
+});
+vi.mock('@mindwtr/core', () => ({
+    shallow: Object.is,
+    useTaskStore: Object.assign(
+        <T,>(selector: (state: typeof mocks.state) => T) => selector(mocks.state),
+        { getState: () => mocks.state },
+    ),
+}));
+vi.mock('../../contexts/language-context', () => ({
+    useLanguage: () => ({ language: 'en', t: (key: string) => key === 'common.close' ? 'Close' : key }),
+}));
+vi.mock('../../store/ui-store', () => ({
+    useUiStore: <T,>(selector: (state: { showToast: typeof mocks.showToast }) => T) => selector({ showToast: mocks.showToast }),
+}));
+vi.mock('../../lib/navigation-events', () => ({ dispatchNavigateEvent: (...args: unknown[]) => mocks.navigate(...args) }));
+
+beforeEach(() => {
+    mocks.addTask.mockReset();
+    mocks.addTask.mockResolvedValue({ success: true, id: 'created-task' });
+    mocks.showToast.mockClear();
+    mocks.navigate.mockClear();
+    mocks.state.projects = [];
+    mocks.state.areas = [];
+    mocks.state.settings.gtd.defaultCaptureMethod = 'text';
+});
+afterEach(cleanup);
+
+const fillTitle = (title = 'Laundry') => fireEvent.change(screen.getByLabelText('What do you need to do?'), { target: { value: title } });
+const openHost = (detail: Record<string, unknown> = {}) => act(() => {
+    window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_EVENT, { detail }));
+});
+
+describe('plain capture interaction', () => {
+    it('adds literal text without syntax parsing or mandatory metadata', async () => {
+        const onClose = vi.fn();
+        render(<PlainCaptureSheet isOpen onClose={onClose} />);
+        fillTitle('Read C++ @home #1 /done');
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+        expect(mocks.addTask).toHaveBeenCalledWith('Read C++ @home #1 /done', { status: 'inbox', description: undefined });
+    });
+    it('keeps a failed submission editable rather than closing or resetting it', async () => {
+        mocks.addTask.mockResolvedValue({ success: false, error: 'Storage unavailable' });
+        const onClose = vi.fn();
+        render(<PlainCaptureSheet isOpen onClose={onClose} />);
+        fillTitle();
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Storage unavailable');
+        expect(screen.getByLabelText('What do you need to do?')).toHaveValue('Laundry');
+        expect(onClose).not.toHaveBeenCalled();
+    });
+    it('guards concurrent submissions', async () => {
+        let resolve!: (result: { success: boolean; id: string }) => void;
+        mocks.addTask.mockImplementation(() => new Promise(result => { resolve = result; }));
+        render(<PlainCaptureSheet isOpen onClose={vi.fn()} />);
+        fillTitle();
+        const form = screen.getByLabelText('What do you need to do?').closest('form')!;
+        fireEvent.submit(form);
+        fireEvent.submit(form);
+        expect(mocks.addTask).toHaveBeenCalledOnce();
+        await act(async () => resolve({ success: true, id: 'created-task' }));
+    });
+    it('does not submit during IME composition', () => {
+        render(<PlainCaptureSheet isOpen onClose={vi.fn()} />);
+        fillTitle();
+        fireEvent.keyDown(screen.getByLabelText('What do you need to do?'), { key: 'Enter', isComposing: true });
+        expect(mocks.addTask).not.toHaveBeenCalled();
+    });
+    it('uses separate controls for a reservation and deadline', async () => {
+        render(<PlainCaptureSheet isOpen onClose={vi.fn()} />);
+        fillTitle();
+        fireEvent.click(screen.getByText('When?'));
+        fireEvent.change(screen.getByLabelText('Reserve a time'), { target: { value: '2026-09-18T09:30' } });
+        fireEvent.change(screen.getByLabelText('Must finish by'), { target: { value: '2026-09-20' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Add to calendar' }));
+        await waitFor(() => expect(mocks.addTask).toHaveBeenCalledOnce());
+        expect(mocks.addTask).toHaveBeenCalledWith('Laundry', {
+            status: 'next', description: undefined,
+            scheduledAt: new Date(2026, 8, 18, 9, 30).toISOString(), dueDate: '2026-09-20',
+        });
+    });
+    it('preserves note indentation', async () => {
+        render(<PlainCaptureSheet isOpen onClose={vi.fn()} />);
+        fillTitle();
+        fireEvent.click(screen.getByText('Context and notes'));
+        const description = '    indented code\n\n- one\n  - nested\n';
+        fireEvent.change(screen.getByLabelText('Notes'), { target: { value: description } });
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        await waitFor(() => expect(mocks.addTask).toHaveBeenCalledOnce());
+        expect(mocks.addTask).toHaveBeenCalledWith('Laundry', { status: 'inbox', description });
+    });
+    it('closes without creating a task and restores the draft when reopened', () => {
+        render(<PwaCaptureHost />);
+        openHost();
+        fillTitle('Unfinished thought');
+        fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }));
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(mocks.addTask).not.toHaveBeenCalled();
+        openHost();
+        expect(screen.getByLabelText('What do you need to do?')).toHaveValue('Unfinished thought');
+    });
+    it('routes blank capture once while preserving contextual legacy capture', () => {
+        const legacy = vi.fn();
+        window.addEventListener(QUICK_CAPTURE_EVENT, legacy);
+        try {
+            render(<PwaCaptureHost />);
+            openHost();
+            expect(screen.getAllByRole('dialog')).toHaveLength(1);
+            expect(legacy).not.toHaveBeenCalled();
+            fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }));
+            openHost({ initialProps: { projectId: 'p1' } });
+            expect(legacy).toHaveBeenCalledOnce();
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        } finally {
+            window.removeEventListener(QUICK_CAPTURE_EVENT, legacy);
+        }
+    });
+    it('preserves audio, advanced, and prefilled entry points', () => {
+        expect(isPlainCaptureRequest({ captureUi: 'advanced' })).toBe(false);
+        expect(isPlainCaptureRequest({ initialValue: 'Imported title' })).toBe(false);
+        expect(isPlainCaptureRequest({ captureMode: 'audio' })).toBe(false);
+        expect(isPlainCaptureRequest({}, 'audio')).toBe(false);
+        expect(isPlainCaptureRequest({ captureMode: 'text' }, 'audio')).toBe(true);
+    });
+});
