@@ -1,0 +1,38 @@
+name: Lifecycle development checkout
+on:
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/lifecycle-workbench.yml]
+permissions:
+  contents: read
+jobs:
+  checkout:
+    if: github.head_ref == 'feat/lifecycle-ux-20260917'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - name: Package source
+        run: git archive --format=tar HEAD | gzip > "$RUNNER_TEMP/lifecycle-source.tar.gz"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: lifecycle-source
+          path: ${{ runner.temp }}/lifecycle-source.tar.gz
+          retention-days: 1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Package installed dependencies
+        run: |
+          mkdir -p .dev-runtime
+          cp "$(command -v bun)" .dev-runtime/bun
+          find . -type d -name node_modules -prune -print0 > "$RUNNER_TEMP/module-paths"
+          tar --null -T "$RUNNER_TEMP/module-paths" -czf "$RUNNER_TEMP/lifecycle-dependencies.tar.gz" .dev-runtime/bun
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: lifecycle-dependencies
+          path: ${{ runner.temp }}/lifecycle-dependencies.tar.gz
+          retention-days: 1
