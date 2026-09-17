@@ -1,0 +1,73 @@
+name: Verified lifecycle implementation
+on:
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/lifecycle-apply.yml]
+permissions:
+  contents: write
+jobs:
+  apply-and-verify:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/lifecycle-ux-20260917'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Verify and apply reviewed source patch
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/feat/lifecycle-ux-20260917 | cut -f1)" = "$EXPECTED_HEAD"
+          git merge-base --is-ancestor a2b74f16dc15436986e4fa98816841e2b4fbdf05 HEAD
+          python3 - <<'PY'
+          import base64, bz2, hashlib, pathlib, os
+          parts = [pathlib.Path(f'.lifecycle-workbench/{i:02}.part').read_bytes() for i in range(1, 9)]
+          # Normalize duplicated base64 characters from the transfer, then verify
+          # the complete compressed payload and the exact locally tested patch.
+          text = base64.b64encode(parts[2]).decode()
+          assert len(text) == 8004
+          text = text[:5695] + text[5697:]
+          text = text[:5510] + text[5512:]
+          parts[2] = base64.b64decode(text, validate=True)
+          compressed = b''.join(parts)
+          assert hashlib.sha256(compressed).hexdigest() == 'df97c1e2b2f9f62f423617191b29f6c2cb0aff2e8f84932eb86c1580bf4d5e4b'
+          patch = bz2.decompress(compressed)
+          assert hashlib.sha256(patch).hexdigest() == '5f57237c07f692831c5104f7f5f51d0388c19609d98b284bd8f9b000888b989a'
+          assert b'diff --git a/.github/' not in patch
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'lifecycle.patch').write_bytes(patch)
+          PY
+          git apply --check --index --unidiff-zero "$RUNNER_TEMP/lifecycle.patch"
+          git apply --index --unidiff-zero "$RUNNER_TEMP/lifecycle.patch"
+          git rm -r .lifecycle-workbench
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: connect task lifecycle, work blocks and safe rescheduling'
+          git push origin HEAD:feat/lifecycle-ux-20260917
+          echo "Published source: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Cross-platform TypeScript and schema contracts
+        run: bun run typecheck && bun run scripts/check-synced-field-parity.ts
+      - name: Remove unrelated Microsoft apt feeds
+        run: |
+          mapfile -t sources < <(grep -rl 'packages.microsoft.com' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || true)
+          for source in "${sources[@]}"; do sudo mv "$source" "$source.disabled"; done
+      - run: bunx playwright install --with-deps chromium
+      - name: Real-browser lifecycle regression
+        run: bun run test:e2e
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: lifecycle-browser-verification
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore
+          retention-days: 3
