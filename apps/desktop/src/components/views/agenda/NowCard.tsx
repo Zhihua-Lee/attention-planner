@@ -1,281 +1,49 @@
-import { useMemo, useState } from 'react';
-import { CalendarClock, Check, ChevronDown, ChevronUp, Clock3, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import {
-    generateUUID,
-    normalizeAttentionFrames,
-    type AttentionFrame,
-    type AttentionFrameDay,
-    type NowSelection,
-} from '@mindwtr/core';
+import type { ComponentProps } from 'react';
+import { useTaskStore } from '@mindwtr/core';
+import { NowCard as LegacyNowCard } from './LegacyNowCard';
+import { RichMarkdown } from '../../RichMarkdown';
+import { useUiStore } from '../../../store/ui-store';
 
-type ResolveText = (key: string, fallback: string) => string;
+export { AttentionFrameEditor } from './LegacyNowCard';
+type NowCardProps = ComponentProps<typeof LegacyNowCard>;
 
-type NowCardProps = {
-    activeFrame: AttentionFrame | null;
-    frames: AttentionFrame[];
-    inboxCount: number;
-    now: Date;
-    onCompleteTask: (taskId: string) => void;
-    onFramesChange: (frames: AttentionFrame[]) => void;
-    onSkipTask: (taskId: string) => void;
-    onSnoozeTask: (taskId: string) => void;
-    resolveText: ResolveText;
-    selection: NowSelection | null;
-    showFrameEditor?: boolean;
-};
-
-type DayPreset = 'weekdays' | 'weekend' | 'everyday';
-
-const DAY_PRESETS: Record<DayPreset, AttentionFrameDay[]> = {
-    weekdays: [1, 2, 3, 4, 5],
-    weekend: [0, 6],
-    everyday: [0, 1, 2, 3, 4, 5, 6],
-};
-
-const formatClock = (date: Date): string => date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-});
-
-function selectionLabel(selection: NowSelection | null, resolveText: ResolveText): string {
-    if (!selection) return resolveText('attention.now.clear', 'Nothing is demanding your attention right now');
-    switch (selection.reason) {
-        case 'calendar-event': return resolveText('attention.now.meeting', 'Current calendar event');
-        case 'scheduled': return resolveText('attention.now.scheduled', 'Scheduled now');
-        case 'focused': return resolveText('attention.now.focused', "Today's focus");
-        case 'frame': return selection.frame?.name ?? resolveText('attention.now.frame', 'Current frame');
-        default: return resolveText('attention.now.next', 'Next clear action');
-    }
-}
-
-export function AttentionFrameEditor({
-    frames,
-    onFramesChange,
-    resolveText,
-}: Pick<NowCardProps, 'frames' | 'onFramesChange' | 'resolveText'>) {
-    const [open, setOpen] = useState(false);
-    const [name, setName] = useState('');
-    const [startTime, setStartTime] = useState('09:30');
-    const [endTime, setEndTime] = useState('12:00');
-    const [token, setToken] = useState('');
-    const [dayPreset, setDayPreset] = useState<DayPreset>('weekdays');
-
-    const addFrame = () => {
-        const trimmedName = name.trim();
-        if (!trimmedName || startTime === endTime) return;
-        const trimmedToken = token.trim().toLocaleLowerCase();
-        onFramesChange(normalizeAttentionFrames([
-            ...frames,
-            {
-                id: generateUUID(),
-                name: trimmedName,
-                startTime,
-                endTime,
-                days: DAY_PRESETS[dayPreset],
-                matchTokens: trimmedToken ? [trimmedToken] : undefined,
-            },
-        ]));
-        setName('');
-        setToken('');
+// Execution keeps the task's context at hand, without opening the metadata
+// editor or navigating away from NOW. Checking a step is not task completion.
+export function NowCard(props: NowCardProps) {
+    const task = props.selection?.kind === 'task' ? props.selection.task : null;
+    const steps = task?.checklist ?? [];
+    const hasContext = Boolean(task?.description?.trim() || steps.length);
+    const toggleStep = async (stepId: string) => {
+        if (!task) return;
+        const store = useTaskStore.getState();
+        const current = store.tasks.find(candidate => candidate.id === task.id);
+        if (!current || current.deletedAt || ['done', 'archived', 'reference'].includes(current.status)) return;
+        if (!current.checklist?.some(step => step.id === stepId)) return;
+        try {
+            const result = await store.updateTask(current.id, {
+                checklist: current.checklist.map(step => step.id === stepId ? { ...step, isCompleted: !step.isCompleted } : step),
+            });
+            if (!result.success) throw new Error(result.error || 'Step update failed');
+        } catch {
+            useUiStore.getState().showToast(props.resolveText('common.saveFailed', 'Could not save this step. Please try again.'), 'error');
+        }
     };
-
-    return (
-        <div className="border-t border-border/50 pt-3">
-            <button
-                type="button"
-                onClick={() => setOpen((value) => !value)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                aria-expanded={open}
-            >
-                {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                {resolveText('attention.frames.manage', 'Manage flexible frames')}
-            </button>
-            {open && (
-                <div className="mt-3 space-y-3">
-                    {frames.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {frames.map((item) => (
-                                <div key={item.id} className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5 text-xs">
-                                    <button
-                                        type="button"
-                                        className={item.enabled === false ? 'text-muted-foreground line-through' : 'font-medium'}
-                                        onClick={() => onFramesChange(frames.map((candidate) => (
-                                            candidate.id === item.id ? { ...candidate, enabled: candidate.enabled !== false ? false : undefined } : candidate
-                                        )))}
-                                        title={resolveText('attention.frames.toggle', 'Enable or disable frame')}
-                                    >
-                                        {item.name} · {item.startTime}–{item.endTime}
-                                        {item.matchTokens?.length ? ` · ${item.matchTokens.join(', ')}` : ''}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => onFramesChange(frames.filter((candidate) => candidate.id !== item.id))}
-                                        aria-label={`${resolveText('common.delete', 'Delete')} ${item.name}`}
-                                        className="text-muted-foreground hover:text-destructive"
-                                    >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <div className="grid gap-2 md:grid-cols-[minmax(9rem,1.3fr)_7rem_7rem_8rem_minmax(8rem,1fr)_auto]">
-                        <input
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder={resolveText('attention.frames.name', 'Frame name')}
-                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                        />
-                        <input
-                            type="time"
-                            value={startTime}
-                            onChange={(event) => setStartTime(event.target.value)}
-                            aria-label={resolveText('attention.frames.start', 'Start time')}
-                            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                        />
-                        <input
-                            type="time"
-                            value={endTime}
-                            onChange={(event) => setEndTime(event.target.value)}
-                            aria-label={resolveText('attention.frames.end', 'End time')}
-                            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                        />
-                        <select
-                            value={dayPreset}
-                            onChange={(event) => setDayPreset(event.target.value as DayPreset)}
-                            aria-label={resolveText('attention.frames.days', 'Days')}
-                            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                        >
-                            <option value="weekdays">{resolveText('attention.frames.weekdays', 'Weekdays')}</option>
-                            <option value="weekend">{resolveText('attention.frames.weekend', 'Weekend')}</option>
-                            <option value="everyday">{resolveText('attention.frames.everyday', 'Every day')}</option>
-                        </select>
-                        <input
-                            value={token}
-                            onChange={(event) => setToken(event.target.value)}
-                            placeholder={resolveText('attention.frames.token', '@context or #tag')}
-                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                        />
-                        <button
-                            type="button"
-                            onClick={addFrame}
-                            disabled={!name.trim() || startTime === endTime}
-                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <Plus className="h-4 w-4" />
-                            {resolveText('common.add', 'Add')}
-                        </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                        {resolveText('attention.frames.help', 'A frame sets the kind of work that fits this time; it does not fill every minute.')}
-                    </p>
-                </div>
-            )}
-        </div>
-    );
-}
-
-export function NowCard({
-    activeFrame,
-    frames,
-    inboxCount,
-    now,
-    onCompleteTask,
-    onFramesChange,
-    onSkipTask,
-    onSnoozeTask,
-    resolveText,
-    selection,
-    showFrameEditor = true,
-}: NowCardProps) {
-    const eventEnd = useMemo(() => {
-        if (!selection || selection.kind !== 'event') return null;
-        const parsed = new Date(selection.event.end);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
-    }, [selection]);
-
-    return (
-        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_18px_50px_-38px_hsl(var(--foreground))]" data-testid="now-card">
-            <div className="border-l-4 border-l-primary p-5 md:p-7">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-                            <Clock3 className="h-4 w-4" />
-                            {resolveText('attention.now.title', 'NOW')}
-                            <span className="font-medium normal-case tracking-normal text-muted-foreground">{formatClock(now)}</span>
-                        </div>
-                        <p className="mt-2 text-sm font-medium text-muted-foreground">{selectionLabel(selection, resolveText)}</p>
-                    </div>
-                    {activeFrame && (
-                        <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                            {activeFrame.name} · {activeFrame.startTime}–{activeFrame.endTime}
-                        </span>
-                    )}
-                </div>
-
-                {selection?.kind === 'event' ? (
-                    <div className="mt-6 flex items-start gap-3">
-                        <CalendarClock className="mt-1 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-                        <div className="min-w-0">
-                            <h2 className="break-words text-2xl font-semibold leading-tight tracking-[-0.02em] text-foreground">{selection.event.title}</h2>
-                            <p className="mt-2 break-words text-sm leading-6 text-muted-foreground">
-                                {eventEnd ? `${resolveText('attention.now.until', 'Until')} ${formatClock(eventEnd)}` : resolveText('attention.now.inProgress', 'In progress')}
-                                {selection.event.location ? ` · ${selection.event.location}` : ''}
-                            </p>
-                        </div>
-                    </div>
-                ) : selection?.kind === 'task' ? (
-                    <div className="mt-6">
-                        <h2 className="max-w-3xl break-words text-2xl font-semibold leading-tight tracking-[-0.025em] text-foreground md:text-3xl">
-                            {selection.task.title}
-                        </h2>
-                        <div className="mt-6 flex flex-wrap gap-2">
-                            <button
-                                type="button"
-                                onClick={() => onCompleteTask(selection.task.id)}
-                                className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                            >
-                                <Check className="h-4 w-4" />
-                                {resolveText('common.done', 'Done')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onSnoozeTask(selection.task.id)}
-                                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                            >
-                                <Clock3 className="h-4 w-4" />
-                                {resolveText('attention.now.snooze', 'Later · 30 min')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onSkipTask(selection.task.id)}
-                                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                            >
-                                <RefreshCw className="h-4 w-4" />
-                                {resolveText('attention.now.another', 'Show another')}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="mt-6 border-l-2 border-border pl-4 py-1">
-                        <p className="font-medium text-foreground">
-                            {activeFrame
-                                ? resolveText('attention.now.noFrameTask', 'No executable task matches this frame yet.')
-                                : resolveText('attention.now.clearBody', 'You can rest, capture a thought, or choose a frame for this time.')}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {inboxCount > 0
-                                ? `${inboxCount} ${resolveText('attention.now.inboxWaiting', 'items are safely waiting in Inbox; you do not need to sort them now.')}`
-                                : resolveText('attention.now.inboxEmpty', 'Inbox is clear.')}
-                        </p>
-                    </div>
-                )}
-            </div>
-            {showFrameEditor && (
-                <div className="border-t border-border/60 bg-muted/20 px-5 pb-5 md:px-7 md:pb-6">
-                    <AttentionFrameEditor frames={frames} onFramesChange={onFramesChange} resolveText={resolveText} />
-                </div>
-            )}
-        </section>
-    );
+    return <>
+        <LegacyNowCard {...props} />
+        {task && hasContext && <details key={task.id} className="mt-3 rounded-xl border border-border bg-card px-4 py-2" data-testid="now-task-context">
+            <summary className="min-h-11 cursor-pointer content-center text-sm font-medium">
+                {props.resolveText('taskEdit.details', 'Details')}
+                {steps.length > 0 && <span className="ml-2 font-mono text-xs text-muted-foreground">{steps.filter(step => step.isCompleted).length}/{steps.length}</span>}
+            </summary>
+            {task.description && <div className="my-3 min-w-0 break-words"><RichMarkdown markdown={task.description} /></div>}
+            {steps.length > 0 && <ul className="my-2 divide-y divide-border/40">
+                {steps.map(step => <li key={step.id}>
+                    <label className="flex min-h-11 cursor-pointer items-start gap-3 py-3 text-sm">
+                        <input type="checkbox" checked={step.isCompleted} onChange={() => void toggleStep(step.id)} className="mt-1 h-4 w-4 shrink-0 accent-primary" />
+                        <span className={step.isCompleted ? 'break-words text-muted-foreground line-through' : 'break-words'}>{step.title}</span>
+                    </label>
+                </li>)}
+            </ul>}
+        </details>}
+    </>;
 }
