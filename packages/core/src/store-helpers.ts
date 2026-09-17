@@ -351,7 +351,7 @@ export const selectVisibleAreas = (areas: Area[]): Area[] =>
 export const selectVisiblePeople = (people: Person[]): Person[] =>
     filterNotDeleted(people).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-export const completeTaskForProjectArchive = (task: Task, archivedAt: string, deviceId?: string): Task => ({
+export const completeTaskForProjectArchive = (task: Task, archivedAt: string, deviceId?: string): Task => stampPlannerContent(task, {
     ...task,
     status: 'archived',
     completedAt: task.completedAt,
@@ -363,7 +363,7 @@ export const completeTaskForProjectArchive = (task: Task, archivedAt: string, de
     updatedAt: archivedAt,
     rev: nextRevision(task.rev),
     revBy: deviceId,
-});
+}, { now: new Date(archivedAt), deviceId: deviceId ?? 'local' });
 
 export const restoreTaskFromProjectArchive = (task: Task, restoredAt: string, deviceId?: string): Task => {
     const previousStatus = task.statusBeforeProjectArchive;
@@ -380,7 +380,7 @@ export const restoreTaskFromProjectArchive = (task: Task, restoredAt: string, de
         return task;
     }
 
-    return {
+    return stampPlannerContent(task, {
         ...task,
         status: previousStatus!,
         completedAt: task.completedAtBeforeProjectArchive ?? undefined,
@@ -392,7 +392,7 @@ export const restoreTaskFromProjectArchive = (task: Task, restoredAt: string, de
         updatedAt: restoredAt,
         rev: nextRevision(task.rev),
         revBy: deviceId,
-    };
+    }, { now: new Date(restoredAt), deviceId: deviceId ?? 'local' });
 };
 
 const hasTaskProjectArchiveMetadata = (task: Task): boolean => (

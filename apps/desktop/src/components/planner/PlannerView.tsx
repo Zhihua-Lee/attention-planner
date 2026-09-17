@@ -21,6 +21,7 @@ export function PlannerView({
     } = useLanguage(),
     zh = language.startsWith('zh'),
     l = (a: string, b: string) => zh ? b : a;
+  const isFocusMode = useUiStore(s => s.isFocusMode);
   const tasks = useTaskStore(s => s.tasks),
     projects = useTaskStore(s => s.projects),
     gtd = useTaskStore(s => s.settings.gtd);
@@ -177,8 +178,8 @@ export function PlannerView({
         }} className="min-h-11 rounded border border-border bg-background px-2" /><button className={button} aria-label={l('Next day', '后一天')} onClick={() => moveDay(dayCount)}><ChevronRight className="h-4 w-4" /></button><button className={button} onClick={() => setDay(localPlanDate(now))}>{l('Today', '今天')}</button></div>{mode === 'calendar' && <div className="flex gap-1"><button className={button} aria-pressed={span === 1} onClick={() => setSpan(1)}>{l('Day', '日')}</button><button className={button} aria-pressed={span === 7} onClick={() => setSpan(7)}>{l('Week', '周')}</button></div>}</header>
         <div ref={timeline} className="max-h-[70dvh] overflow-auto" data-testid="planner-timeline">
             <div className="grid" style={{
-        gridTemplateColumns: `3rem repeat(${dayCount}, minmax(${dayCount > 1 ? '120px' : '180px'},1fr))`,
-        minWidth: dayCount > 1 ? dayCount * 120 + 48 : undefined
+        gridTemplateColumns: `3rem repeat(${dayCount}, minmax(${dayCount > 1 ? '84px' : '180px'},1fr))`,
+        minWidth: dayCount > 1 ? dayCount * 84 + 48 : undefined
       }}>
                 <div className="sticky top-0 z-20 h-11 border-b border-border bg-card" />{dates.map(d => <div key={localPlanDate(d)} className="sticky top-0 z-20 h-11 border-b border-l border-border bg-card p-2 text-center text-xs font-medium">{d.toLocaleDateString([], {
             weekday: 'short',
@@ -256,7 +257,7 @@ export function PlannerView({
           day: l('Your day', '这一天'),
           calendar: l('Calendar', '日历'),
           history: l('Completed', '已完成')
-        }[mode]}</h1>{mode !== 'now' && <button className={button} onClick={() => capture()}><Plus className="mr-1 inline h-4 w-4" />{l('Add task', '添加任务')}</button>}</header>
+        }[mode]}</h1>{mode !== 'now' && isFocusMode && <button className={button} onClick={() => capture()}><Plus className="mr-1 inline h-4 w-4" />{l('Add task', '添加任务')}</button>}</header>
         {error && <p role="alert" className="rounded border border-destructive p-3 text-sm text-destructive">{error}</p>}
         {(mode === 'calendar' || mode === 'day' || mode === 'now') && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{!loaded ? l('Loading calendars…', '正在读取日历…') : calendarError ? l('Calendar unavailable; automatic moves are paused.', '日历读取失败，已暂停自动移动。') : l('Calendar constraints loaded', '已读取日历约束')}</span><button className="min-h-11 px-2 underline" onClick={refresh}>{l('Refresh', '刷新')}</button>{calendarError && <details><summary>{l('Details', '详情')}</summary>{calendarError}</details>}</div>}
         {mode === 'inbox' && <><p className="text-sm text-muted-foreground">{l('Write it down first. Organize or schedule only when you need to.', '先写下来。需要的时候再整理或安排，不必先决定分类。')}</p><form className="flex gap-2" onSubmit={e => {

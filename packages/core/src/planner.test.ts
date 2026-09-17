@@ -3,7 +3,7 @@ import { activeWorkBlocks, assertReservationFree, restoreCompletedWork, planDate
 import { createPlanningPolicy } from './planning-policy';
 import { getTaskReminderPlan, getNextScheduledAt } from './schedule-utils';
 import { createNextRecurringTask } from './recurrence';
-import { applyTaskUpdates, completeTaskForProjectArchive } from './store-helpers';
+import { applyTaskUpdates, completeTaskForProjectArchive, restoreTaskFromProjectArchive } from './store-helpers';
 import { getTaskScheduledAt, isTaskReadyForNow } from './task-time-semantics';
 import { mergeAppData } from './sync';
 import type { AppData, Task } from './types';
@@ -152,5 +152,19 @@ describe('legacy commitment adoption', () => {
         expect(mergeTaskPlanners(adopted, migrated)).toEqual(merged);
         const cleared = commitToDay({ ...old, planner: adopted }, '2026-09-17', false, clock(10)).planner!;
         expect(mergeTaskPlanners(migrated, cleared)!.legacyFocus).toBeUndefined();
+    });
+});
+
+
+describe('project archive content precedence', () => {
+    it('keeps project archive and restore decisions newer than automatic scheduling writes', () => {
+        const original = task();
+        const planned = { ...original, ...scheduleWork(original, { id: 'work', startAt: at(10).toISOString(), durationMinutes: 30, timeZone: 'America/Chicago' }, clock()) };
+        const archived = completeTaskForProjectArchive(planned, at(11).toISOString(), 'desktop');
+        expect(archived.planner!.contentStamp!.manualRevision).toBeGreaterThan(planned.planner!.contentStamp?.manualRevision ?? 0);
+        expect(plannerContentWinner(archived, planned, planned).status).toBe('archived');
+        const restored = restoreTaskFromProjectArchive(archived, at(12).toISOString(), 'desktop');
+        expect(plannerContentWinner(restored, archived, archived).status).toBe('next');
+        expect(restored.completedAt).toBeUndefined();
     });
 });

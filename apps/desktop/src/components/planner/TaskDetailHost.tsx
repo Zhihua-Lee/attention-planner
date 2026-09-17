@@ -176,7 +176,7 @@ function TaskDetail({
   const reason = task ? policy.executionBlock(task) : 'lifecycle';
   const closed = !task || ['done', 'archived', 'reference'].includes(task.status) || !!task.deletedAt;
   const blockReason = {
-    workflow: l('Waiting or paused', '等待条件或暂不做'),
+    workflow: task?.status === 'inbox' ? l('Captured · not yet activated', '已记下 · 尚未加入待办') : task?.status === 'waiting' ? l('Waiting for a condition', '正在等待条件') : l('Paused by choice', '主动暂不做'),
     project: l('The project is paused', '所属项目暂停'),
     sequential: l('Finish the preceding task first', '先完成前面的任务'),
     unavailable: l('Not available yet', '尚未到可执行时间'),
@@ -303,6 +303,7 @@ function TaskDetail({
                   setBase(structuredClone(task));
                   setDraft(structuredClone(task));
                 }}>{l('Edit content', '编辑内容')}</button>
+                {task.status === 'inbox' && <button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, () => ({ status: 'next' })), l('Ready to plan. No date is required.', '已加入待办，不必现在指定日期。'))}>{l('Ready to plan', '加入待办')}</button>}
                 {!closed && <><button className={button} disabled={busy || !!reason} onClick={() => setCurrentWork(task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} disabled={busy} onClick={() => run(async () => {
                     if (!(await completeTaskWithUndo(task.id, t))) throw new Error(l('Completion failed.', '完成操作未保存。'));
                     setCurrentWork(null);

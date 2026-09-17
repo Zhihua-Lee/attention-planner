@@ -122,6 +122,7 @@ describe('TaskStore', () => {
     it('promotes one checklist step atomically without inheriting execution metadata', async () => {
         const source = createStoreTask('parent', {
             title: 'Figure 3', description: 'Background\n- A nested thought', status: 'next',
+            planner: { version: 1, blocks: [], days: [], contentStamp: { revision: 1, manualRevision: 1, updatedAt: '2026-04-01T00:00:00.000Z', deviceId: 'device-a' } },
             scheduledAt: '2026-09-10T12:00:00Z', dueDate: '2026-09-12', availableAt: '2026-09-09',
             isFocusedToday: true, recurrence: { rule: 'daily' },
             checklist: [{ id: 'step-a', title: ' Fix legend ', isCompleted: false }, { id: 'step-b', title: 'Check units', isCompleted: true }],
@@ -135,6 +136,7 @@ describe('TaskStore', () => {
             title: source.title, description: source.description, status: 'next', scheduledAt: source.scheduledAt,
             checklist: [{ id: 'step-b', title: 'Check units', isCompleted: true }],
         });
+        expect(tasks.find((task) => task.id === source.id)?.planner?.contentStamp?.manualRevision).toBe(2);
         const promoted = tasks.find((task) => task.id === result.id)!;
         expect(promoted).toMatchObject({ title: 'Fix legend', status: 'inbox', taskMode: 'task', rev: 1 });
         for (const key of ['description', 'scheduledAt', 'availableAt', 'dueDate', 'startTime', 'snoozedUntil', 'recurrence', 'reminderTime', 'isFocusedToday', 'completedAt', 'checklist']) {
