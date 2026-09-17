@@ -1,0 +1,110 @@
+diff --git a/apps/desktop/src/components/GlobalSearch.test.tsx b/apps/desktop/src/components/GlobalSearch.test.tsx
+index 8d2c856..d062ed0 100644
+--- a/apps/desktop/src/components/GlobalSearch.test.tsx
++++ b/apps/desktop/src/components/GlobalSearch.test.tsx
+@@ -4,6 +4,7 @@ import { AREA_FILTER_ALL, useTaskStore, type Area, type Task } from '@mindwtr/co
+ import { LanguageProvider } from '../contexts/language-context';
+ import { useUiStore } from '../store/ui-store';
+ import { GlobalSearch } from './GlobalSearch';
++import { TASK_OPEN_EVENT } from '../lib/lifecycle-actions';
+ 
+ const initialTaskState = useTaskStore.getState();
+ const initialUiState = useUiStore.getState();
+@@ -127,6 +128,7 @@ describe('GlobalSearch', () => {
+ 
+     it('switches the sidebar area filter to all areas when opening a task hidden by the active area', async () => {
+         const onNavigate = vi.fn();
++        const dispatched = vi.spyOn(window, 'dispatchEvent');
+         const showToast = vi.fn();
+         const updateSettings = vi.fn().mockResolvedValue(undefined);
+         useTaskStore.setState((state) => ({ ...state, updateSettings }));
+@@ -163,7 +165,12 @@ describe('GlobalSearch', () => {
+             'Switched to All Areas so the selected item is visible.',
+             'info',
+         );
+-        expect(onNavigate).toHaveBeenCalledWith('next', 'task-home');
++        const openEvent = dispatched.mock.calls.map(([event]) => event)
++            .find((event) => event.type === TASK_OPEN_EVENT) as CustomEvent<{ taskId: string }> | undefined;
++        expect(openEvent?.detail.taskId).toBe('task-home');
++        expect(onNavigate).not.toHaveBeenCalled();
++        expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
++        dispatched.mockRestore();
+     });
+ 
+     it('shows Done and Archived tasks when only status filters are selected', async () => {
+diff --git a/apps/desktop/src/components/planner/RepeatPicker.tsx b/apps/desktop/src/components/planner/RepeatPicker.tsx
+index 8d0c241..3c7a238 100644
+--- a/apps/desktop/src/components/planner/RepeatPicker.tsx
++++ b/apps/desktop/src/components/planner/RepeatPicker.tsx
+@@ -18,14 +18,14 @@ export function RepeatPicker({
+     rule: value
+   } : value;
+   const parsed = recurrence?.rrule ? parseRRuleString(recurrence.rrule) : undefined;
+-  const interval = parsed?.interval ?? recurrence?.interval ?? 1;
++  const interval = parsed?.interval ?? 1;
+   const byDay = parsed?.byDay ?? recurrence?.byDay;
+   const monthDays = parsed?.byMonthDay ?? recurrence?.byMonthDay;
+   const count = parsed?.count ?? recurrence?.count;
+   const until = parsed?.until ?? recurrence?.until;
+   const endMode = count ? 'count' : until ? 'until' : 'never';
+   const cls = 'mt-1 min-h-11 w-full rounded-md border border-border bg-background px-3';
+-  const update = (patch: Partial<Recurrence>) => {
++  const update = (patch: Partial<Recurrence> & { interval?: number }) => {
+     const next = {
+       ...recurrence,
+       interval,
+@@ -34,10 +34,11 @@ export function RepeatPicker({
+       count,
+       until,
+       ...patch
+-    } as Recurrence;
++    } as Recurrence & { interval: number };
++    const { interval: nextInterval, ...rule } = next;
+     onChange({
+-      ...next,
+-      rrule: buildRRuleString(next.rule, next.byDay, next.interval, {
++      ...rule,
++      rrule: buildRRuleString(next.rule, next.byDay, nextInterval, {
+         byMonthDay: next.byMonthDay,
+         count: next.count,
+         until: next.until,
+diff --git a/packages/core/src/planner.test.ts b/packages/core/src/planner.test.ts
+index 1cd5731..f600e7e 100644
+--- a/packages/core/src/planner.test.ts
++++ b/packages/core/src/planner.test.ts
+@@ -139,3 +139,18 @@ describe('planner boundary safety', () => {
+         expect(restoreCompletedWork(t,changed,clock(12)).planner!.blocks[0].startAt).toBe(at(16).toISOString());
+     });
+ });
++
++
++describe('legacy commitment adoption', () => {
++    it('does not resurrect an undated star after another device adopted a dated plan', () => {
++        const old = task({ isFocusedToday: true });
++        const migrated = taskPlanner(old);
++        const adopted = commitToDay({ ...old, planner: migrated }, '2026-09-17', true, clock()).planner!;
++        const merged = mergeTaskPlanners(migrated, adopted)!;
++        expect(merged.legacyFocus).toBeUndefined();
++        expect(merged.days).toEqual(adopted.days);
++        expect(mergeTaskPlanners(adopted, migrated)).toEqual(merged);
++        const cleared = commitToDay({ ...old, planner: adopted }, '2026-09-17', false, clock(10)).planner!;
++        expect(mergeTaskPlanners(migrated, cleared)!.legacyFocus).toBeUndefined();
++    });
++});
+diff --git a/packages/core/src/planner.ts b/packages/core/src/planner.ts
+index c1114cb..9b56845 100644
+--- a/packages/core/src/planner.ts
++++ b/packages/core/src/planner.ts
+@@ -161,9 +161,10 @@ export function mergeTaskPlanners(a: TaskPlanner | undefined, b: TaskPlanner | u
+         return [...m.values()].sort((x,y)=>key(x).localeCompare(key(y)));
+     };
+     const contentStamp = !a.contentStamp ? b.contentStamp : !b.contentStamp ? a.contentStamp : recordCompare(a.contentStamp,b.contentStamp)>=0 ? a.contentStamp : b.contentStamp;
+-    return { version: 1, contentStamp, blocks: merge(a.blocks,b.blocks,v=>v.id), days: merge(a.days,b.days,v=>v.date),
++    const days = merge(a.days,b.days,v=>v.date);
++    return { version: 1, contentStamp, blocks: merge(a.blocks,b.blocks,v=>v.id), days,
+         skippedAt: [a.skippedAt,b.skippedAt].filter((s):s is string=>!!s).sort().pop(),
+-        legacyFocus: a.legacyFocus || b.legacyFocus || undefined,
++        legacyFocus: days.length ? undefined : a.legacyFocus || b.legacyFocus || undefined,
+         legacySchedule: [a.legacySchedule,b.legacySchedule].filter((s):s is string=>!!s).sort()[0] };
+ }
+ function windowMinutes(value: string): number | null {
