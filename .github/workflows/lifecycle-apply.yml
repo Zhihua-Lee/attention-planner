@@ -41,7 +41,7 @@ jobs:
           pathlib.Path(os.environ['RUNNER_TEMP'], 'lifecycle.patch').write_bytes(patch)
           PY
           git apply --check --index --unidiff-zero "$RUNNER_TEMP/lifecycle.patch"
-          git apply --index --unidiff-zero "$RUNNER_TEMP/lifecycle.patch"
+          git apply --index --unidiff-zero --whitespace=fix "$RUNNER_TEMP/lifecycle.patch"
           git rm -r .lifecycle-workbench
           git diff --cached --check
           git config user.name 'github-actions[bot]'
