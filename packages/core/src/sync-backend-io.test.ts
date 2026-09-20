@@ -251,3 +251,19 @@ describe('createSyncBackendIO', () => {
         expect(io.getSyncUrl!()).toBe('https://dav.example.com/data.json');
     });
 });
+
+
+describe('planner generation sync guard', () => {
+    const upgraded={...APP_DATA,tasks:[{id:'planner-task',title:'Plan',status:'next',contexts:[],tags:[],createdAt:'2026-09-17T12:00:00Z',updatedAt:'2026-09-17T12:00:00Z',planner:{version:1,blocks:[],days:[]}}]} as AppData;
+    it('blocks lossy CloudKit and legacy-file uploads before touching the transport', async () => {
+        const transport=makeTransport();
+        await expect(createSyncBackendIO({backend:'cloudkit',cloudProvider:'selfhosted',dropboxRev:null},transport).writeRemote(upgraded)).rejects.toThrow('CloudKit');
+        await expect(createSyncBackendIO({backend:'file',cloudProvider:'selfhosted',filePath:'/sync/mindwtr.json',dropboxRev:null},transport).writeRemote(upgraded)).rejects.toThrow('isolated');
+        expect(transport.cloudKitWrite).not.toHaveBeenCalled();expect(transport.fileWrite).not.toHaveBeenCalled();
+    });
+    it('permits the explicitly upgraded JSON generation', async () => {
+        const transport=makeTransport();
+        await createSyncBackendIO({backend:'cloud',cloudProvider:'selfhosted',cloud:{url:'https://sync.example/v2/data'},dropboxRev:null},transport).writeRemote(upgraded);
+        expect(transport.cloudPut).toHaveBeenCalledWith(upgraded);
+    });
+});

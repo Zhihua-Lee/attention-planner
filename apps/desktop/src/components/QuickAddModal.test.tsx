@@ -1,3 +1,6 @@
+// These tests explicitly select the retained syntax/audio/import capture path.
+const advancedCaptureEvent = (type: string, init?: CustomEventInit) =>
+    new window.CustomEvent(type, { ...init, detail: { ...init?.detail, advanced: true } });
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useTaskStore } from '@mindwtr/core';
@@ -120,7 +123,7 @@ describe('QuickAddModal', () => {
         act(() => useTaskStore.setState({ addTask, updateTask }));
         renderQuickAddModal();
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { initialValue: 'Prepare report', expandContent: true } }));
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', { detail: { initialValue: 'Prepare report', expandContent: true } }));
         });
         fireEvent.change(screen.getByRole('textbox', { name: 'Content' }), { target: { value: 'Background\n- Nested thought' } });
         fireEvent.click(screen.getByText('Checklist', { selector: 'summary' }));
@@ -142,7 +145,7 @@ describe('QuickAddModal', () => {
         const updateTask = vi.fn();
         act(() => useTaskStore.setState({ addTask, updateTask }));
         renderQuickAddModal();
-        await act(async () => window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { initialValue: 'Cancelled', expandContent: true } })));
+        await act(async () => window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', { detail: { initialValue: 'Cancelled', expandContent: true } })));
         fireEvent.change(screen.getByRole('textbox', { name: 'Content' }), { target: { value: 'Do not save' } });
         fireEvent.click(screen.getByText('Checklist', { selector: 'summary' }));
         fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
@@ -151,7 +154,7 @@ describe('QuickAddModal', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
         expect(addTask).not.toHaveBeenCalled();
         expect(updateTask).not.toHaveBeenCalled();
-        await act(async () => window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { expandContent: true } })));
+        await act(async () => window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', { detail: { expandContent: true } })));
         expect(screen.getByRole('textbox', { name: 'Content' })).toHaveValue('');
         expect(screen.queryByPlaceholderText('Item name')).not.toBeInTheDocument();
     });
@@ -160,7 +163,7 @@ describe('QuickAddModal', () => {
         const addTask = vi.fn().mockResolvedValueOnce({ success: false }).mockResolvedValue({ success: true, id: 'created' });
         act(() => useTaskStore.setState({ addTask }));
         renderQuickAddModal();
-        await act(async () => window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: { initialValue: 'Retry task', expandContent: true } })));
+        await act(async () => window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', { detail: { initialValue: 'Retry task', expandContent: true } })));
         fireEvent.change(screen.getByRole('textbox', { name: 'Content' }), { target: { value: 'Keep this draft' } });
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
         await waitFor(() => expect(addTask).toHaveBeenCalledTimes(1));
@@ -176,10 +179,10 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'First capture' },
             }));
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Second capture' },
             }));
             await Promise.resolve();
@@ -202,7 +205,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal({ standaloneWindow: true });
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Fast capture' },
             }));
             await Promise.resolve();
@@ -236,7 +239,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal({ standaloneWindow: true });
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Fast capture' },
             }));
             await Promise.resolve();
@@ -293,7 +296,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Area filtered capture' },
             }));
             await Promise.resolve();
@@ -315,7 +318,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal({ standaloneWindow: true });
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Close quietly' },
             }));
             await Promise.resolve();
@@ -341,7 +344,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'File Q3 estimated tax payment' },
             }));
             await Promise.resolve();
@@ -393,7 +396,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Plan campaign +Launch !Work' },
             }));
             await Promise.resolve();
@@ -424,7 +427,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: {
                     initialValue: 'Draft launch brief',
                     initialProps: { projectId: 'project-launch', status: 'next' },
@@ -459,7 +462,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: {
                     initialValue: 'Draft launch brief',
                     initialProps: { projectId: 'project-launch', status: 'next' },
@@ -485,7 +488,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: {
                     initialValue: 'Loose thought',
                     initialProps: { status: 'inbox' },
@@ -514,7 +517,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Draft launch brief' },
             }));
             await Promise.resolve();
@@ -543,7 +546,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'First batch entry' },
             }));
             await Promise.resolve();
@@ -566,7 +569,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Check tab stops' },
             }));
             await Promise.resolve();
@@ -606,7 +609,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Capture receipt' },
             }));
             await Promise.resolve();
@@ -657,7 +660,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add'));
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add'));
             await Promise.resolve();
         });
 
@@ -702,7 +705,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add'));
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add'));
             await Promise.resolve();
         });
 
@@ -741,7 +744,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: {
                     initialProps: {
                         projectId: 'project-id',
@@ -786,7 +789,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add'));
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add'));
             await Promise.resolve();
         });
 
@@ -815,7 +818,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Voice note' },
             }));
             await Promise.resolve();
@@ -867,7 +870,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', {
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', {
                 detail: { initialValue: 'Voice note' },
             }));
             await Promise.resolve();
@@ -891,7 +894,7 @@ describe('QuickAddModal', () => {
         renderQuickAddModal();
 
         await act(async () => {
-            window.dispatchEvent(new CustomEvent('mindwtr:quick-add', { detail: {} }));
+            window.dispatchEvent(advancedCaptureEvent('mindwtr:quick-add', { detail: {} }));
             await Promise.resolve();
         });
 

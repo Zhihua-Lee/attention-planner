@@ -1,3 +1,4 @@
+import { mergeTaskPlanners, plannerContentWinner } from './planner';
 import type { AppData, Attachment, Area, Person, Project, Task } from './types';
 import { logWarn } from './logger';
 import {
@@ -897,7 +898,7 @@ export function mergeAppDataWithStats(local: AppData, incoming: AppData, options
             return repairTaskRecurrenceSeriesIdentity(
                 localTask,
                 incomingTask,
-                { ...winner, attachments },
+                { ...plannerContentWinner(localTask,incomingTask,winner), attachments, planner: mergeTaskPlanners(localTask.planner, incomingTask.planner) },
             );
         },
         normalizeTaskForContentComparison,

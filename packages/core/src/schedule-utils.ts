@@ -1,3 +1,4 @@
+import { activeWorkBlocks } from './planner';
 import { isAfter } from 'date-fns';
 import { hasTimeComponent, safeParseDate } from './date';
 import { stripMarkdown } from './markdown';
@@ -24,6 +25,7 @@ export type TaskReminderIntent = {
 export type TaskReminderPlan = {
     next: TaskReminderIntent | null;
     repeats: TaskReminderIntent[];
+    blocks?: TaskReminderIntent[];
 };
 
 export type ProjectReviewReminderIntent = {
@@ -113,7 +115,9 @@ function getNextTaskReminderIntent(
  * Used by apps to drive local notification scheduling.
  */
 export function getNextScheduledAt(task: Task, now: Date = new Date(), options: ScheduleOptions = {}): Date | null {
-    return getNextTaskReminderIntent(task, now, options)?.scheduledAt ?? null;
+    const plan = getTaskReminderPlan(task, now, options);
+    return [plan.next, ...(plan.blocks ?? [])].filter((intent): intent is TaskReminderIntent => !!intent)
+        .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())[0]?.scheduledAt ?? null;
 }
 
 /**
@@ -164,9 +168,15 @@ export function getTaskReminderPlan(
             repeatIndex: index + 1,
         }),
     );
+    const blocks: TaskReminderIntent[] = task.planner && options.includeStartTime !== false && task.suppressMindwtrReminders !== true
+        ? activeWorkBlocks(task).filter(b => Date.parse(b.startAt) > now.getTime()).map(b => ({
+            key: `block:${task.id}:${b.id}:${b.revision}`, dedupeKey: `${b.id}:${b.revision}:${b.startAt}`,
+            taskId: task.id, kind: 'start', scheduledAt: new Date(b.startAt),
+        })) : [];
     return {
-        next: getNextTaskReminderIntent(task, now, options),
+        next: getNextTaskReminderIntent(task, now, task.planner ? { ...options, includeStartTime: false } : options),
         repeats,
+        ...(task.planner ? { blocks } : {}),
     };
 }
 
@@ -507,6 +517,14 @@ export function buildReminderSchedule(input: ReminderScheduleInput): ReminderSch
                 });
             }
 
+            for (const block of plan.blocks ?? []) {
+                taskReminderCount += 1;
+                oneShot.push({ key:block.key, title:task.title,
+                    message:buildReminderNotificationBody(task,'start',translations), fireAt:block.scheduledAt,
+                    hasSnoozeAction:true, hasCompleteAction:false,
+                    data:{kind:'task-reminder',taskId:task.id},
+                });
+            }
             const next = plan.next;
             const fireAtMs = next?.scheduledAt.getTime() ?? NaN;
             if (!next || fireAtMs <= nowMs) continue;

@@ -24,7 +24,7 @@ export function readViewFromUrl(
     return view;
 }
 
-export function writeViewToUrl(view: string): void {
+export function writeViewToUrl(view: string, push = false): void {
     if (typeof window === 'undefined') return;
     // The quick-add window is its own small process, identified by its own
     // URL param (quickAddWindow) — it never renders the main view switcher
@@ -32,5 +32,6 @@ export function writeViewToUrl(view: string): void {
     if (isQuickAddWindowLocation()) return;
     const url = new URL(window.location.href);
     url.searchParams.set(VIEW_URL_PARAM, view);
-    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    if (push && readViewFromUrl() !== view) window.history.pushState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    else window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }

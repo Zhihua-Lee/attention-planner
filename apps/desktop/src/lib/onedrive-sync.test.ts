@@ -70,7 +70,7 @@ describe('OneDrive Graph sync transport', () => {
                 '@microsoft.graph.downloadUrl': 'https://files.1drv.example/download',
                 eTag: 'etag-1',
                 id: 'data-item',
-                name: 'data.json',
+                name: 'attention-planner-v2.json',
             }))
             .mockResolvedValueOnce(jsonResponse(appData));
         vi.stubGlobal('fetch', fetcher);

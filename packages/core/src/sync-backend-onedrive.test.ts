@@ -47,7 +47,7 @@ describe('OneDrive sync backend adapter', () => {
         const io = createSyncBackendIO(context, transport);
 
         await expect(io.readRemote()).resolves.toBe(APP_DATA);
-        expect(context.syncUrl).toBe('onedrive:///Apps/Attention Planner/data.json');
+        expect(context.syncUrl).toBe('onedrive:///Apps/Attention Planner/attention-planner-v2.json');
         expect(io.getCachedRemoteFingerprint?.()).toBe('onedrive:v1:etag=etag-1');
 
         await io.writeRemote(APP_DATA);

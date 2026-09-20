@@ -1,3 +1,4 @@
+import { closeTaskWork, stampPlannerContent, scheduleWork, changeWork, commitToDay, localPlanDate } from './planner';
 import { createNextRecurringTask, normalizeRecurrenceForLoad } from './recurrence';
 import { getTaskDateCoherenceIssues } from './task-date-coherence';
 import {
@@ -106,7 +107,7 @@ export function applyTaskUpdates(oldTask: Task, updates: Partial<Task>, now: str
         finalUpdates = {
             ...updatesToApply,
             status: incomingStatus,
-            completedAt: explicitCompletedAt ?? (oldTask.completedAt || now),
+            completedAt: oldTask.completedAt,
             isFocusedToday: false,
             ...clearsFocusOrder,
         };
@@ -118,6 +119,10 @@ export function applyTaskUpdates(oldTask: Task, updates: Partial<Task>, now: str
         };
     }
 
+    if (incomingStatus === 'archived' && updates.planner?.skippedAt && !oldTask.planner?.skippedAt) {
+        nextRecurringTask = createNextRecurringTask(oldTask, updates.planner.skippedAt, oldTask.status);
+        finalUpdates = { ...finalUpdates, completedAt: undefined };
+    }
     if (incomingStatus !== 'reference') {
         finalUpdates = resolveRelativeStartUpdates(oldTask, finalUpdates);
     }
@@ -131,6 +136,10 @@ export function applyTaskUpdates(oldTask: Task, updates: Partial<Task>, now: str
         };
     }
 
+    if (statusChanged && ['done','archived','reference'].includes(incomingStatus) && oldTask.planner) {
+        finalUpdates = { ...finalUpdates, planner: closeTaskWork({ ...oldTask, ...finalUpdates }, { now: new Date(now), deviceId: 'lifecycle' }, incomingStatus === 'done' ? 'task-completed' : 'task-closed') };
+    }
+
     // Reference tasks should be non-actionable; clear scheduling/priority fields.
     if (incomingStatus === 'reference') {
         finalUpdates = {
@@ -140,7 +149,7 @@ export function applyTaskUpdates(oldTask: Task, updates: Partial<Task>, now: str
     }
 
     return {
-        updatedTask: { ...oldTask, ...finalUpdates, updatedAt: now },
+        updatedTask: stampPlannerContent(oldTask, { ...oldTask, ...finalUpdates, updatedAt: now }, { now: new Date(now), deviceId: finalUpdates.revBy ?? oldTask.revBy ?? 'local' }),
         nextRecurringTask,
     };
 }
@@ -154,6 +163,19 @@ export function applyTaskUpdates(oldTask: Task, updates: Partial<Task>, now: str
  */
 export const normalizeTaskUpdate = (task: Task, updates: Partial<Task>): Partial<Task> => {
     let adjustedUpdates = updates;
+    if (task.planner && !hasOwnField(updates, 'planner')) {
+        const clock = { now: new Date(), deviceId: 'compatibility' };
+        const scheduleTouched = hasOwnField(updates, 'scheduledAt') || (hasOwnField(updates, 'startTime') && (!updates.startTime || updates.startTime.includes('T')));
+        if (scheduleTouched) {
+            const value = hasOwnField(updates, 'scheduledAt') ? updates.scheduledAt : updates.startTime;
+            const blocks = task.planner.blocks.filter(b => b.state === 'scheduled' || b.state === 'pending');
+            if (blocks.length > 1) throw new Error('This task has several work blocks. Open its details and edit the selected reservation.');
+            const scheduling = value ? scheduleWork(task, { id: blocks[0]?.id ?? `manual:${task.id}`, startAt: value, durationMinutes: blocks[0]?.durationMinutes || 30, timeZone: blocks[0]?.timeZone || 'UTC' }, clock)
+                : blocks[0] ? changeWork(task,blocks[0].id,'cancel',clock) : { scheduledAt: undefined, startTime: task.startTime?.includes('T') ? undefined : task.startTime };
+            adjustedUpdates = { ...adjustedUpdates, ...scheduling };
+        }
+        if (hasOwnField(updates,'isFocusedToday')) adjustedUpdates = { ...adjustedUpdates, ...commitToDay({ ...task, ...adjustedUpdates },localPlanDate(clock.now),!!updates.isFocusedToday,clock) };
+    }
     if (hasOwnField(updates, 'recurrence')) {
         const recurrence = normalizeRecurrenceForLoad(updates.recurrence);
         const existingSeriesId = typeof task.recurrence === 'object'
@@ -329,10 +351,10 @@ export const selectVisibleAreas = (areas: Area[]): Area[] =>
 export const selectVisiblePeople = (people: Person[]): Person[] =>
     filterNotDeleted(people).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-export const completeTaskForProjectArchive = (task: Task, archivedAt: string, deviceId?: string): Task => ({
+export const completeTaskForProjectArchive = (task: Task, archivedAt: string, deviceId?: string): Task => stampPlannerContent(task, {
     ...task,
-    status: 'done',
-    completedAt: archivedAt,
+    status: 'archived',
+    completedAt: task.completedAt,
     isFocusedToday: false,
     statusBeforeProjectArchive: task.status,
     completedAtBeforeProjectArchive: task.completedAt ?? null,
@@ -341,7 +363,7 @@ export const completeTaskForProjectArchive = (task: Task, archivedAt: string, de
     updatedAt: archivedAt,
     rev: nextRevision(task.rev),
     revBy: deviceId,
-});
+}, { now: new Date(archivedAt), deviceId: deviceId ?? 'local' });
 
 export const restoreTaskFromProjectArchive = (task: Task, restoredAt: string, deviceId?: string): Task => {
     const previousStatus = task.statusBeforeProjectArchive;
@@ -351,15 +373,14 @@ export const restoreTaskFromProjectArchive = (task: Task, restoredAt: string, de
         Boolean(previousStatus) &&
         previousStatus !== 'done' &&
         previousStatus !== 'archived' &&
-        task.status === 'done' &&
         Boolean(archivedAt) &&
-        task.completedAt === archivedAt;
+        (task.status === 'archived' || (task.status === 'done' && task.completedAt === archivedAt));
 
     if (!shouldRestore) {
         return task;
     }
 
-    return {
+    return stampPlannerContent(task, {
         ...task,
         status: previousStatus!,
         completedAt: task.completedAtBeforeProjectArchive ?? undefined,
@@ -371,7 +392,7 @@ export const restoreTaskFromProjectArchive = (task: Task, restoredAt: string, de
         updatedAt: restoredAt,
         rev: nextRevision(task.rev),
         revBy: deviceId,
-    };
+    }, { now: new Date(restoredAt), deviceId: deviceId ?? 'local' });
 };
 
 const hasTaskProjectArchiveMetadata = (task: Task): boolean => (

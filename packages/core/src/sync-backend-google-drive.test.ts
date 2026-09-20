@@ -47,7 +47,7 @@ describe('Google Drive sync backend adapter', () => {
         const io = createSyncBackendIO(context, transport);
 
         await expect(io.readRemote()).resolves.toBe(APP_DATA);
-        expect(context.syncUrl).toBe('google-drive:///appDataFolder/data.json');
+        expect(context.syncUrl).toBe('google-drive:///appDataFolder/attention-planner-v2.json');
         expect(io.getCachedRemoteFingerprint?.()).toBe('google-drive:v1:version=7');
 
         await io.writeRemote(APP_DATA);

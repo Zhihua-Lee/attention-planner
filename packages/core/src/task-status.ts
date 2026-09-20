@@ -1,3 +1,4 @@
+import { readTaskPlanner } from './planner';
 import type { Task, TaskStatus } from './types';
 import { normalizeRecurrenceForLoad } from './recurrence';
 import { normalizeRepeatReminderMinutes } from './schedule-utils';
@@ -99,6 +100,7 @@ export function normalizeTaskForLoad(task: Task, nowIso: string = new Date().toI
         : undefined;
     const next: Task = {
         ...rest,
+        planner: readTaskPlanner(task.planner),
         createdAt: createdAtIso,
         updatedAt: updatedAtIso,
         status: normalizedStatus,
@@ -122,7 +124,7 @@ export function normalizeTaskForLoad(task: Task, nowIso: string = new Date().toI
     // — this runs on every load/merge without a rev bump (the established
     // pattern for isFocusedToday here), so it must stay idempotent.
     if (normalizedStatus === 'done' || normalizedStatus === 'archived') {
-        next.completedAt = task.completedAt || task.updatedAt || nowIso;
+        next.completedAt = normalizedStatus === 'done' ? task.completedAt || task.updatedAt || nowIso : task.completedAt;
         next.isFocusedToday = false;
         next.focusOrder = undefined;
     } else if (next.isFocusedToday && isFutureStart(next, new Date(nowIso))) {

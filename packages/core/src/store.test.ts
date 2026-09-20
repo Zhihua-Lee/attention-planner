@@ -122,6 +122,7 @@ describe('TaskStore', () => {
     it('promotes one checklist step atomically without inheriting execution metadata', async () => {
         const source = createStoreTask('parent', {
             title: 'Figure 3', description: 'Background\n- A nested thought', status: 'next',
+            planner: { version: 1, blocks: [], days: [], contentStamp: { revision: 1, manualRevision: 1, updatedAt: '2026-04-01T00:00:00.000Z', deviceId: 'device-a' } },
             scheduledAt: '2026-09-10T12:00:00Z', dueDate: '2026-09-12', availableAt: '2026-09-09',
             isFocusedToday: true, recurrence: { rule: 'daily' },
             checklist: [{ id: 'step-a', title: ' Fix legend ', isCompleted: false }, { id: 'step-b', title: 'Check units', isCompleted: true }],
@@ -135,6 +136,7 @@ describe('TaskStore', () => {
             title: source.title, description: source.description, status: 'next', scheduledAt: source.scheduledAt,
             checklist: [{ id: 'step-b', title: 'Check units', isCompleted: true }],
         });
+        expect(tasks.find((task) => task.id === source.id)?.planner?.contentStamp?.manualRevision).toBe(2);
         const promoted = tasks.find((task) => task.id === result.id)!;
         expect(promoted).toMatchObject({ title: 'Fix legend', status: 'inbox', taskMode: 'task', rev: 1 });
         for (const key of ['description', 'scheduledAt', 'availableAt', 'dueDate', 'startTime', 'snoozedUntil', 'recurrence', 'reminderTime', 'isFocusedToday', 'completedAt', 'checklist']) {
@@ -2480,7 +2482,7 @@ describe('TaskStore', () => {
         expect(mockStorage.saveData).toHaveBeenCalled();
     });
 
-    it('marks active tasks that belong to archived projects as done during fetch', async () => {
+    it('archives active tasks under archived projects without claiming completion', async () => {
         vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-02-14T10:00:00.000Z').getTime());
         mockStorage.getData = vi.fn().mockResolvedValue({
             tasks: [
@@ -2526,9 +2528,9 @@ describe('TaskStore', () => {
 
         const linkedTask = useTaskStore.getState()._allTasks.find((task) => task.id === 't-linked');
         const linkedSection = useTaskStore.getState()._allSections.find((section) => section.id === 's-linked');
-        expect(linkedTask?.status).toBe('done');
+        expect(linkedTask?.status).toBe('archived');
         expect(linkedTask?.isFocusedToday).toBe(false);
-        expect(linkedTask?.completedAt).toBeTruthy();
+        expect(linkedTask?.completedAt).toBeUndefined();
         expect(linkedSection?.deletedAt).toBeTruthy();
         expect(mockStorage.saveData).toHaveBeenCalled();
     });
@@ -3472,7 +3474,7 @@ describe('TaskStore', () => {
         expect(duplicatedTask?.checklist?.map((item) => item.id)).not.toEqual(['c1', 'c2']);
     });
 
-    it('should archive a project, mark incomplete tasks done, and archive its sections', async () => {
+    it('should archive a project and its sections without completing unfinished tasks', async () => {
         const { addProject, addTask, addSection, updateProject } = useTaskStore.getState();
         addProject('Archived Project', '#123456');
 
@@ -3499,7 +3501,9 @@ describe('TaskStore', () => {
         const projectTasks = useTaskStore.getState()._allTasks.filter(t => t.projectId === project.id && !t.deletedAt);
         const projectSections = useTaskStore.getState()._allSections.filter((item) => item.projectId === project.id);
         expect(projectTasks).toHaveLength(4);
-        expect(projectTasks.filter((task) => task.status === 'done')).toHaveLength(3);
+        expect(projectTasks.filter((task) => task.status === 'done')).toHaveLength(1);
+        expect(projectTasks.find(task=>task.title==='Task 1')?.completedAt).toBeUndefined();
+        expect(projectTasks.find(task=>task.title==='Task 2')?.completedAt).toBeUndefined();
         expect(projectTasks.find((task) => task.title === 'Task 1')?.statusBeforeProjectArchive).toBe('next');
         expect(projectTasks.find((task) => task.title === 'Task 2')?.statusBeforeProjectArchive).toBe('waiting');
         expect(projectTasks.find((task) => task.title === 'Already Done')?.completedAt).toBe('2026-03-20T10:00:00.000Z');

@@ -1,5 +1,7 @@
 # Attention Planner 产品模型
 
+> Implementation update: [Lifecycle UX and planner generation](./lifecycle-implementation-2026-09-17.md) supersedes the single-block and three-entry UI limitations below. Older stage notes are retained as history, not the current branch capability.
+
 本文件是 Attention Planner 的产品概念基线。界面、文案和后续功能应先服从这套模型，再考虑兼容上游 Mindwtr 的实现。
 
 ## 一句话原则

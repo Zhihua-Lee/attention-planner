@@ -115,3 +115,28 @@ describe('useUiStore list options', () => {
         expect(options.referenceGroupBy).toBe('area');
     });
 });
+
+
+describe('routine feedback', () => {
+    it('coalesces save confirmations without dropping recovery actions or errors', async () => {
+        vi.useFakeTimers();
+        try {
+            const { useUiStore } = await import('./ui-store');
+            useUiStore.setState({ toasts: [] });
+            const store = useUiStore.getState();
+            const undo = vi.fn();
+            store.showToast('Done', 'info', 12000, { label: 'Undo', onClick: undo });
+            store.showToast('Connection failed', 'error');
+            store.showToast('First reservation saved', 'success');
+            store.showToast('Second reservation saved', 'success');
+            expect(useUiStore.getState().toasts.map(t => t.message)).toEqual(['Done', 'Connection failed', 'Second reservation saved']);
+            vi.advanceTimersByTime(3500);
+            expect(useUiStore.getState().toasts.map(t => t.message)).toEqual(['Done']);
+            useUiStore.getState().toasts[0].action!.onClick();
+            expect(undo).toHaveBeenCalledOnce();
+        } finally {
+            vi.clearAllTimers();
+            vi.useRealTimers();
+        }
+    });
+});

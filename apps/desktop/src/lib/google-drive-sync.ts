@@ -15,7 +15,7 @@ const GOOGLE_DRIVE_SCOPE = [
 ].join(' ');
 const DRIVE_API_ROOT = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v3';
-const DATA_FILE_NAME = 'data.json';
+const DATA_FILE_NAME = 'attention-planner-v2.json';
 const TOKEN_EXPIRY_SKEW_MS = 30_000;
 const DEFAULT_CLIENT_ID = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
 const MANAGED_CLIENT_ID = 'managed-by-attention-planner-broker';

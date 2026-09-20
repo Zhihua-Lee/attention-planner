@@ -25,6 +25,7 @@ const GTD_SYNCED_FIELD_SAMPLE_VALUES: Record<GtdSyncedFieldKey, GtdSettings[GtdS
     focusGroupBy: 'project',
     defaultProjectFlowMode: 'sequential',
     naturalLanguageDates: false,
+    planningWindows: [{days:[1,2,3,4,5],start:'09:00',end:'17:00'}],
     attentionFrames: [{
         id: 'frame-1',
         name: 'Deep work',
