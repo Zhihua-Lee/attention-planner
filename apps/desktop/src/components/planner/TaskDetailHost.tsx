@@ -292,6 +292,12 @@ function TaskDetail({
                 </details>
                 <details><summary className="min-h-11 cursor-pointer text-sm">{l('Repeat rule · this and following occurrences', '重复规则 · 本次及以后')}</summary><RepeatPicker value={draft.recurrence} onChange={v => set('recurrence', v)} /></details>
                 <div className="flex gap-2"><button type="submit" disabled={busy} className={`${button} bg-primary text-primary-foreground`}>{l('Save changes', '保存全部修改')}</button><button type="button" className={button} onClick={() => {
+                  try {
+                    localStorage.removeItem(draftKey);
+                  } catch {
+                    setError(l('Could not discard the saved draft. Please retry.', '无法清除已保存的草稿，请重试。'));
+                    return;
+                  }
                   setBase(null);
                   setExit(false);
                 }}>{l('Discard edits', '放弃本次编辑')}</button></div>

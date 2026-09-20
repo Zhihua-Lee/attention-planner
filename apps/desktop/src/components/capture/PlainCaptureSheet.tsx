@@ -74,6 +74,9 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
     const showToast = useUiStore((state) => state.showToast);
     const hasDraft = JSON.stringify(draft) !== JSON.stringify(emptyPlainCapture());
     const set = <K extends keyof PlainCaptureDraft>(key: K, value: PlainCaptureDraft[K]) => {
+        // Once created, this sheet only retries persistence. Edit the task after
+        // that succeeds; never accept changes which the retry would not save.
+        if (pendingId.current || savingRef.current) return;
         setDraft(current => ({ ...current, [key]: value }));
         setError(null);
     };
@@ -112,6 +115,9 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
             await ensurePlannerBackup();
             const clock=plannerClock();
             const existing=pendingId.current&&useTaskStore.getState()._allTasks.some(t=>t.id===pendingId.current&&!t.deletedAt);
+            if (pendingId.current && !existing) {
+                throw new Error(text('The pending task is no longer available. Your draft is kept; clear it explicitly before creating a replacement.', '待保存任务已不可用。草稿仍然保留；如需重新创建，请先明确清除草稿。'));
+            }
             let props:Partial<Task>={...prepared.props,planner:{version:1,blocks:[],days:[]},scheduledAt:undefined};
             let temporary={id:'new-capture',createdAt:clock.now.toISOString(),updatedAt:clock.now.toISOString(),title:prepared.title,status:prepared.props.status??'inbox',tags:[],contexts:[],...props} as Task;
             if(prepared.props.scheduledAt&&!existing){checkReservation(pendingId.current??'new-capture',blockId.current,prepared.props.scheduledAt,draft.durationMinutes??30,events,loaded&&!calendarError);props={...props,...scheduleWork(temporary,{id:blockId.current,startAt:prepared.props.scheduledAt,durationMinutes:draft.durationMinutes??30,timeZone:plannerTimeZone()},clock)};temporary={...temporary,...props};}
@@ -229,11 +235,11 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                             </label>
                             <CaptureContentFields t={t} description={draft.description} checklist={draft.checklist} onChange={patch=>setDraft(d=>({...d,...patch,description:patch.description??d.description}))}/>
                         </details>
-                        {hasDraft&&<button type="button" className="min-h-11 text-sm underline" onClick={()=>{setDraft(emptyPlainCapture());pendingId.current=null;}}>{text('Clear this draft','清空这份草稿')}</button>}
                         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
                         {onAdvanced && !hasDraft && <button type="button" onClick={onAdvanced} className="min-h-11 text-sm text-muted-foreground underline">{text('Advanced capture: syntax, audio or text import', '高级录入：语法、语音或文本导入')}</button>}
                     </fieldset>
                     <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                        {hasDraft && <button type="button" disabled={saving || Boolean(pendingId.current && useTaskStore.getState()._allTasks.some(task => task.id === pendingId.current && !task.deletedAt))} className="min-h-11 text-sm underline disabled:opacity-40" onClick={() => { pendingId.current = null; setDraft(emptyPlainCapture()); setError(null); }}>{text('Clear this draft', '清空这份草稿')}</button>}
                         <button type="button" onClick={()=>close()} disabled={saving} className="min-h-11 rounded-md px-3 text-sm hover:bg-muted disabled:opacity-40">{text('Close · keep draft', '关闭，保留本次草稿')}</button>
                         <button type="submit" disabled={saving || !draft.title.trim()} className="min-h-11 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-40">
                             {saving ? text('Adding…', '正在添加…') : draft.scheduledAt ? text('Add to calendar', '添加到日历') : draft.destination === 'inbox' ? text('Add to Inbox', '存入收件箱') : text('Add task', '加入待办')}

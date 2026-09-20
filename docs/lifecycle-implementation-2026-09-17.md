@@ -34,6 +34,13 @@ CloudKit does not yet carry the planner schema, so upgraded planner uploads are 
 
 ## Verification boundary
 
+### PR #2 review follow-up
+
+- A created-but-unflushed capture is intentionally locked until persistence succeeds. Retry keeps the original task identity; missing/deleted pending tasks keep their draft and require explicit clearing before replacement. Content can be edited from task details after a successful save.
+- Discarding content edits removes the persisted browser draft before leaving edit mode, so reload cannot revive discarded content.
+- External appointment tiles show location when provided and open read-only full title, time, location and description. Feed descriptions render as text, not executable HTML; this does not grant calendar write access.
+- Regression coverage includes failed-write retry after remount, missing pending identity recovery, discard followed by reload, and event details at phone/desktop viewport sizes. Physical iPhone validation remains separate.
+
 Pure planner tests cover multiple blocks, separate progress/completion, future planning, dated commitments, collision checks, safe rollover, manual-over-automatic conflicts, merge symmetry, time semantics, recurrence and non-completion archive. Storage/sync tests cover generation isolation and rejection before unsupported uploads. Browser tests cover phone/desktop capture, common detail/history, atomic edit/cancel, repeated tasks and the whole multi-block journey.
 
 The final PR records exact executed commands and outcomes. Presence of this document/tests is not a claim of passing CI. Real iPhone keyboard/Safari gestures and native OS notification delivery require device verification. No main merge, production deployment, external calendar writes or real user-data migration is performed by development.

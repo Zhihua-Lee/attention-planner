@@ -9,6 +9,8 @@ import { RichMarkdown } from '../RichMarkdown';
 import { QUICK_CAPTURE_EVENT } from '../capture/PwaCaptureHost';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 import { PlanningPreferences } from './PlanningPreferences';
+import { CalendarEventDetails } from './CalendarEventDetails';
+import type { ExternalCalendarEvent } from '@mindwtr/core';
 const button = 'min-h-11 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-40';
 export function PlannerView({
   mode
@@ -22,6 +24,7 @@ export function PlannerView({
     zh = language.startsWith('zh'),
     l = (a: string, b: string) => zh ? b : a;
   const isFocusMode = useUiStore(s => s.isFocusMode);
+  const [selectedEvent, setSelectedEvent] = useState<ExternalCalendarEvent | null>(null);
   const tasks = useTaskStore(s => s.tasks),
     projects = useTaskStore(s => s.projects),
     gtd = useTaskStore(s => s.settings.gtd);
@@ -236,7 +239,7 @@ export function PlannerView({
                         {events.filter(e => Date.parse(e.start) < end && Date.parse(e.end) > start).map(e => {
               const s = new Date(Math.max(start, Date.parse(e.start))).toISOString(),
                 minutes = (Math.min(end, Date.parse(e.end)) - Date.parse(s)) / 60000;
-              return <div key={e.id} className="pointer-events-none absolute inset-x-1 z-10 overflow-hidden rounded border border-border bg-muted p-1 text-xs" style={place(s, minutes)} title={e.title}>{e.title}<span className="block text-[10px]">{l('Meeting · fixed', '会议 · 固定')}</span></div>;
+              return <button type="button" key={e.id} onClick={() => setSelectedEvent(e)} aria-label={`${e.title}${e.location ? ` · ${e.location}` : ''}`} className="absolute inset-x-1 z-10 overflow-hidden rounded border border-border bg-muted p-1 text-left text-xs hover:bg-muted/80 focus-visible:outline-primary" style={place(s, minutes)} title={[e.title, e.location].filter(Boolean).join(' · ')}><span className="block truncate font-medium">{e.title}</span>{e.location && <span className="block truncate">{e.location}</span>}<span className="block text-[10px]">{l('Meeting · fixed', '会议 · 固定')}</span></button>;
             })}
                         {active.flatMap(task => activeWorkBlocks(task).filter(b => Date.parse(b.startAt) < end && blockEnd(b) > start).map(b => <button key={`${task.id}:${b.id}`} data-calendar-block={b.id} draggable onDragStart={e => e.dataTransfer.setData('application/x-attention-block', JSON.stringify({
               taskId: task.id,
@@ -309,5 +312,6 @@ export function PlannerView({
             <button className={button} onClick={downloadPlannerBackup}>{l('Export full backup', '导出完整备份')}</button>
         </>}
         {mode === 'history' && <div className="space-y-2">{tasks.filter(t => t.status === 'done').map(row)}</div>}
+        {selectedEvent && <CalendarEventDetails event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
     </div>;
 }

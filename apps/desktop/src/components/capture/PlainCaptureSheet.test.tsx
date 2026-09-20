@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Area, Project } from '@mindwtr/core';
+import { flushPendingSave, type Area, type Project, type Task } from '@mindwtr/core';
 import { PlainCaptureSheet } from './PlainCaptureSheet';
 import { PwaCaptureHost, QUICK_CAPTURE_EVENT, LEGACY_CAPTURE_EVENT } from './PwaCaptureHost';
 
@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => {
             addTask,
             projects: [] as Project[],
             areas: [] as Area[],
-            tasks: [], _allTasks: [],
+            tasks: [] as Task[], _allTasks: [] as Task[],
             settings: { gtd: { defaultCaptureMethod: 'text' } },
             setHighlightTask: vi.fn(),
         },
@@ -42,6 +42,8 @@ vi.mock('../planner/usePlannerEnvironment',()=>({usePlannerEnvironment:()=>({eve
 
 beforeEach(() => {
     localStorage.clear();
+    vi.mocked(flushPendingSave).mockReset().mockResolvedValue(undefined);
+    mocks.state._allTasks = [];
     mocks.addTask.mockReset();
     mocks.addTask.mockResolvedValue({ success: true, id: 'created-task' });
     mocks.showToast.mockClear();
@@ -56,6 +58,42 @@ const fillTitle = (title = 'Laundry') => fireEvent.change(screen.getByLabelText(
 const openHost = () => act(() => { window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_EVENT)); });
 
 describe('plain capture interaction', () => {
+    it('locks created content and retries persistence without duplicating the task', async () => {
+        mocks.addTask.mockImplementation(async (title, props) => {
+            mocks.state._allTasks = [{ id: 'created-task', title, ...props } as Task];
+            return { success: true, id: 'created-task' };
+        });
+        vi.mocked(flushPendingSave).mockRejectedValueOnce(new Error('Disk full'));
+        const onClose = vi.fn();
+        const view = render(<PlainCaptureSheet isOpen onClose={onClose} />);
+        fillTitle('Original draft');
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Disk full');
+        expect(screen.getByLabelText('What do you need to do?')).toBeDisabled();
+        // Even synthetic/programmatic change events must not mutate a pending save.
+        fillTitle('Unsaved replacement');
+        expect(screen.getByLabelText('What do you need to do?')).toHaveValue('Original draft');
+        view.unmount();
+        render(<PlainCaptureSheet isOpen onClose={onClose} />);
+        expect(screen.getByLabelText('What do you need to do?')).toBeDisabled();
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+        expect(mocks.addTask).toHaveBeenCalledOnce();
+        expect(mocks.state._allTasks[0].title).toBe('Original draft');
+    });
+    it('keeps the draft instead of duplicating a missing pending task', async () => {
+        localStorage.setItem('attention-planner:capture-draft:v2', JSON.stringify({ draft: { title: 'Recovered draft' }, pendingId: 'missing' }));
+        const onClose = vi.fn();
+        render(<PlainCaptureSheet isOpen onClose={onClose} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent('pending task is no longer available');
+        expect(mocks.addTask).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
+        expect(screen.getByLabelText('What do you need to do?')).toHaveValue('Recovered draft');
+        fireEvent.click(screen.getByRole('button', { name: 'Clear this draft' }));
+        expect(screen.getByLabelText('What do you need to do?')).toBeEnabled();
+        expect(screen.getByLabelText('What do you need to do?')).toHaveValue('');
+    });
     it('adds literal text without syntax parsing or mandatory metadata', async () => {
         const onClose = vi.fn();
         render(<PlainCaptureSheet isOpen onClose={onClose} />);
