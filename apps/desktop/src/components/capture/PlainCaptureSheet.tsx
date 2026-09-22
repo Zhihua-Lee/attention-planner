@@ -12,6 +12,8 @@ import { emptyPlainCapture, preparePlainCapture, type PlainCaptureDraft, type Pl
 import { dispatchNavigateEvent } from '../../lib/navigation-events';
 import { useUiStore } from '../../store/ui-store';
 import { ModalPortal } from '../ModalPortal';
+import { useVisibleViewport } from '../../hooks/use-visible-viewport';
+import { isInputComposition } from '../../lib/input-method';
 
 export type PlainCaptureSheetProps = {
     isOpen: boolean;
@@ -21,6 +23,7 @@ export type PlainCaptureSheetProps = {
 };
 
 export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest }: PlainCaptureSheetProps) {
+    const viewport = useVisibleViewport(isOpen);
     const { language, t } = useLanguage();
     const {events,loaded,calendarError,showDate} = usePlannerEnvironment();
     useEffect(()=>{if(isOpen&&draftDate.current)showDate(draftDate.current);},[isOpen,showDate]);
@@ -149,7 +152,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
         }
     };
     const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-        if (event.defaultPrevented || event.nativeEvent.isComposing) return;
+        if (event.defaultPrevented || isInputComposition(event.nativeEvent)) return;
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
         if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
             event.preventDefault(); event.stopPropagation(); void save();
@@ -171,9 +174,9 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
     const activeProjects = projects.filter(project => !project.deletedAt && project.status === 'active');
     const activeAreas = areas.filter(area => !area.deletedAt).sort((a, b) => a.order - b.order);
     return <ModalPortal>
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-2 sm:p-4" onClick={event => { if (event.target === event.currentTarget) close(); }}>
+        <div style={viewport} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-2 sm:p-4" onClick={event => { if (event.target === event.currentTarget) close(); }}>
             <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={`${id}-heading`} data-testid="plain-capture-sheet"
-                className="flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-xl" onKeyDown={keyDown}>
+                data-planner-form className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-xl" onKeyDown={keyDown}>
                 <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2">
                     <h2 id={`${id}-heading`} className="font-semibold">{text('Capture a task', '记一件事')}</h2>
                     <button type="button" onClick={()=>close()} disabled={saving} aria-label={t('common.close')} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-muted disabled:opacity-40"><X className="h-5 w-5" /></button>
@@ -181,14 +184,15 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                 {!!savedDraftKeys.length&&!draft.title&&<label className="p-4 text-sm">{text('Saved drafts','暂存草稿')}<select className="min-h-11 border border-border bg-card px-2" defaultValue="" onChange={e=>{try{const saved=JSON.parse(localStorage.getItem(e.target.value)||'null');if(saved?.draft){setDraft({...emptyPlainCapture(),...saved.draft});localStorage.removeItem(e.target.value);}}catch{setError(text('Could not restore that draft.','无法恢复这份草稿。'));}}}><option value="">{text('Restore a draft…','恢复草稿…')}</option>{savedDraftKeys.map(key=><option key={key} value={key}>{JSON.parse(localStorage.getItem(key)||'{}').draft?.title||text('Untitled draft','未命名草稿')}</option>)}</select></label>}
                 {draftChoice&&<section className="space-y-2 border-b border-border p-4" aria-label={text('Unfinished draft','有未完成的草稿')}><p className="text-sm">{text('Keep the current draft, or save it aside and start this new capture?','继续当前草稿，还是保留它并另起一条？')}</p><button type="button" className="min-h-11 px-3 underline" onClick={()=>setDraftChoice(null)}>{text('Continue draft','继续草稿')}</button><button type="button" className="min-h-11 px-3 underline" disabled={!!pendingId.current} onClick={()=>{try{localStorage.setItem(`${draftKey}:saved:${generateUUID()}`,JSON.stringify({draft}));const request=draftChoice;setDraft(emptyPlainCapture());setDraftChoice(null);applyRequest(request);}catch{setError(text('Could not save the old draft aside. It has been kept.','无法另存旧草稿，原内容已保留。'));}}}>{text('Save aside and start new','另存草稿并新建')}</button></section>}
                 {pendingId.current&&<p role="status" className="px-4 py-2 text-sm">{text('This task was created. Retry Save to finish writing it safely; do not create another copy.','任务已创建，请重试保存完成写入，不会重复创建。')}</p>}
-                <form onSubmit={event => { event.preventDefault(); void save(); }} className="flex min-h-0 flex-col">
-                    <fieldset disabled={saving||!!pendingId.current} className="min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
+                <form onSubmit={event => { event.preventDefault(); void save(); }} className="flex min-h-0 flex-col overflow-hidden">
+                    <div className="min-h-0 overflow-y-auto overscroll-contain">
+                    <fieldset disabled={saving||!!pendingId.current} className="min-w-0 px-4 py-4 space-y-4">
                         <div>
                             <label htmlFor={`${id}-title`} className="text-sm font-medium">{text('What do you need to do?', '要做什么？')}</label>
                             <textarea ref={titleRef} id={`${id}-title`} value={draft.title} onChange={event => set('title', event.target.value)} rows={2}
                                 placeholder={text('For example: do the laundry', '例如：洗衣服')} className={`${inputClass} resize-y text-base`}
                                 onKeyDown={event => {
-                                    if (event.key === 'Enter' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey && !event.nativeEvent.isComposing) {
+                                    if (event.key === 'Enter' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey && !isInputComposition(event.nativeEvent)) {
                                         event.preventDefault(); void save();
                                     }
                                 }} />
@@ -235,10 +239,11 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                             </label>
                             <CaptureContentFields t={t} description={draft.description} checklist={draft.checklist} onChange={patch=>setDraft(d=>({...d,...patch,description:patch.description??d.description}))}/>
                         </details>
-                        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
                         {onAdvanced && !hasDraft && <button type="button" onClick={onAdvanced} className="min-h-11 text-sm text-muted-foreground underline">{text('Advanced capture: syntax, audio or text import', '高级录入：语法、语音或文本导入')}</button>}
                     </fieldset>
+                    </div>
                     <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                        {error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}
                         {hasDraft && <button type="button" disabled={saving || Boolean(pendingId.current && useTaskStore.getState()._allTasks.some(task => task.id === pendingId.current && !task.deletedAt))} className="min-h-11 text-sm underline disabled:opacity-40" onClick={() => { pendingId.current = null; setDraft(emptyPlainCapture()); setError(null); }}>{text('Clear this draft', '清空这份草稿')}</button>}
                         <button type="button" onClick={()=>close()} disabled={saving} className="min-h-11 rounded-md px-3 text-sm hover:bg-muted disabled:opacity-40">{text('Close · keep draft', '关闭，保留本次草稿')}</button>
                         <button type="submit" disabled={saving || !draft.title.trim()} className="min-h-11 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-40">

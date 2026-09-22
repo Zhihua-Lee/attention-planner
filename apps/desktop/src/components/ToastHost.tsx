@@ -18,9 +18,9 @@ export function ToastHost() {
                 <div
                     key={toast.id}
                     className={cn(
-                        "w-full min-w-0 rounded-md border px-3 py-2 shadow-lg text-sm flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2",
-                        toast.tone === 'success' && "border-success/40 bg-success/10 text-success",
-                        toast.tone === 'error' && "border-destructive/40 bg-destructive/10 text-destructive",
+                        "w-full min-w-0 rounded-md border bg-card px-3 py-2 shadow-lg text-sm flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2",
+                        toast.tone === 'success' && "border-success/40 text-success",
+                        toast.tone === 'error' && "border-destructive/40 text-destructive",
                         toast.tone === 'info' && "border-border bg-card text-foreground"
                     )}
                     role="status"

@@ -216,6 +216,8 @@ export interface Task {
     textDirection?: TextDirection;
     attachments?: Attachment[];
     location?: string;
+    /** Independent child task. Scheduling and lifecycle never cascade through this link. */
+    parentTaskId?: string;
     projectId?: string;
     sectionId?: string;
     areaId?: string;

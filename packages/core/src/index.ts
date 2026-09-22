@@ -149,3 +149,4 @@ export * from './settings-search-keys';
 export * from './planning-policy';
 
 export * from './planner';
+export * from './task-hierarchy';

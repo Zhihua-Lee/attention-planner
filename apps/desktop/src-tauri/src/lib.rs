@@ -330,7 +330,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   availableAt TEXT,
   scheduledAt TEXT,
   snoozedUntil TEXT,
-  planner TEXT
+  planner TEXT,
+  parentTaskId TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);

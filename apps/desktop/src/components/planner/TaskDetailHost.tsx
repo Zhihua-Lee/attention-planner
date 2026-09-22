@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
 import { flushPendingSave, changeWork, commitToDay, contentDraftPatch, createNextRecurringTask, createPlanningPolicy, estimateMinutes, isCommittedOn, localPlanDate, localPlanInput, planDatePart, planTimePart, planDateValue, plannerTimeZone, scheduleWork, skipRecurringWork, taskPlanner, useTaskStore, type Task, type WorkBlock } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
@@ -11,34 +11,46 @@ import { RichMarkdown } from '../RichMarkdown';
 import { RepeatPicker } from './RepeatPicker';
 import { useDialogHistory } from './useDialogHistory';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
+import { TaskRelations } from './TaskRelations';
+import { useVisibleViewport } from '../../hooks/use-visible-viewport';
+import { isInputComposition } from '../../lib/input-method';
 export function TaskDetailHost() {
-  const [selection, setSelection] = useState<{
+  const [stack, setStack] = useState<Array<{
     taskId: string;
     blockId?: string;
-  } | null>(null);
+  }>>([]);
+  const selection = stack[stack.length - 1];
   useEffect(() => {
     const receive = (event: Event) => {
       const detail = (event as CustomEvent).detail;
-      if (detail?.taskId) setSelection(current => current ?? detail);
+      if (detail?.taskId) setStack(current => current.length ? current : [detail]);
     };
     window.addEventListener(TASK_OPEN_EVENT, receive);
     const taskId = new URLSearchParams(location.search).get('task');
-    if (taskId) setSelection({
+    if (taskId) setStack([{
       taskId
-    });
+    }]);
     return () => window.removeEventListener(TASK_OPEN_EVENT, receive);
   }, []);
-  return selection ? <TaskDetail key={selection.taskId} {...selection} onClose={() => setSelection(null)} /> : null;
+  return selection ? <TaskDetail key={selection.taskId} {...selection} onClose={() => setStack(current => current.slice(0, -1))} onOpenTask={taskId => setStack(current => {
+    const index = current.findIndex(item => item.taskId === taskId);
+    return index >= 0 ? current.slice(0, index + 1) : [...current, { taskId }];
+  })} /> : null;
 }
 function TaskDetail({
   taskId,
   blockId,
-  onClose
+  onClose,
+  onOpenTask
 }: {
   taskId: string;
   blockId?: string;
   onClose: () => void;
+  onOpenTask: (taskId: string) => void;
 }) {
+  const viewport = useVisibleViewport();
+  const formId = useId();
+  const titleInput = useRef<HTMLInputElement>(null), editButton = useRef<HTMLButtonElement>(null);
   const task = useTaskStore(s => s._allTasks.find(t => t.id === taskId));
   const projects = useTaskStore(s => s.projects),
     areas = useTaskStore(s => s.areas),
@@ -72,7 +84,8 @@ function TaskDetail({
     [draft, setDraft] = useState<Partial<Task>>(restored?.draft ?? {});
   const [exit, setExit] = useState(false),
     [error, setError] = useState<string | null>(null),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [relationBusy, setRelationBusy] = useState(false);
   const [day, setDay] = useState(() => localPlanDate(now));
   const [reservation, setReservation] = useState<{
     id: string;
@@ -87,8 +100,11 @@ function TaskDetail({
     lock = useRef(false);
   const editing = !!base,
     dirty = editing && JSON.stringify(draft) !== JSON.stringify(base);
+  useEffect(() => {
+    if (editing) titleInput.current?.focus();
+  }, [editing]);
   const close = useDialogHistory(true, force => {
-    if (lock.current) return false;
+    if (lock.current || relationBusy) return false;
     if (dirty && !force) {
       setExit(true);
       return false;
@@ -162,6 +178,7 @@ function TaskDetail({
       localStorage.removeItem(draftKey);
       setBase(null);
       setExit(false);
+      requestAnimationFrame(() => editButton.current?.focus());
       if (andClose) {
         lock.current = false;
         close(true);
@@ -240,11 +257,14 @@ function TaskDetail({
       })))
     });
   });
-  return <ModalPortal><div className="fixed inset-0 z-[65] flex justify-end bg-black/45" onClick={e => {
+  return <ModalPortal><div style={viewport} className="fixed inset-0 z-[65] flex justify-end bg-black/45" onClick={e => {
       if (e.target === e.currentTarget) close();
     }}>
-        <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-label={l('Task details', '任务详情')} data-testid="task-details" className="flex h-[100dvh] w-full max-w-2xl flex-col bg-card text-foreground shadow-2xl" onKeyDown={e => {
-        if (e.nativeEvent.isComposing) return;
+        <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-label={l('Task details', '任务详情')} data-testid="task-details" data-planner-form className="flex h-full w-full max-w-2xl flex-col bg-card text-foreground shadow-2xl" onKeyDown={e => {
+        if (isInputComposition(e.nativeEvent)) return;
+        if (editing && !exit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault(); e.stopPropagation(); void save(); return;
+        }
         if (e.key === 'Escape') {
           e.preventDefault();
           e.stopPropagation();
@@ -263,16 +283,17 @@ function TaskDetail({
           }
         }
       }}>
-        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2"><button className={button} onClick={() => close()} disabled={busy}><ArrowLeft className="mr-1 inline h-4 w-4" />{l('Back', '返回')}</button><span className="text-xs text-muted-foreground">{editing ? l('Editing · changes saved together', '编辑中 · 修改一起保存') : l('Task details', '任务详情')}</span><button className={button} aria-label={l('Close', '关闭')} onClick={() => close()} disabled={busy}><X className="h-4 w-4" /></button></header>
+        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2"><button className={button} onClick={() => close()} disabled={busy || relationBusy}><ArrowLeft className="mr-1 inline h-4 w-4" />{l('Back', '返回')}</button><span className="text-xs text-muted-foreground">{editing ? l('Editing · changes saved together', '编辑中 · 修改一起保存') : l('Task details', '任务详情')}</span><button className={button} aria-label={l('Close', '关闭')} onClick={() => close()} disabled={busy || relationBusy}><X className="h-4 w-4" /></button></header>
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 pb-12">
         {!task ? <p>{l('Task not found. Close this view to continue.', '任务不存在，返回即可继续。')}</p> : <>
             <p className="text-xs text-muted-foreground">{[area?.name, project?.title].filter(Boolean).join(' / ') || l('Unassigned', '未分类')}</p>
             {restored && editing && <p className="text-xs text-muted-foreground">{l('Restored your unfinished edit. Saving still checks for changes from other devices.', '已恢复未完成的编辑，保存时仍会检查其他设备的修改。')}</p>}
-            {editing ? <form onSubmit={e => {
+            {editing ? <form id={formId} onSubmit={e => {
               e.preventDefault();
               void save();
             }} className="space-y-4">
-                <label className="block text-sm">{l('Task name', '任务名称')}<input className={input} value={draft.title ?? ''} onChange={e => set('title', e.target.value)} /></label>
+                <fieldset disabled={busy} className="min-w-0 space-y-4">
+                <label className="block text-sm">{l('Task name', '任务名称')}<input ref={titleInput} className={input} value={draft.title ?? ''} onChange={e => set('title', e.target.value)} /></label>
                 <CaptureContentFields t={t} description={draft.description ?? ''} checklist={draft.checklist} onChange={patch => setDraft(d => ({
                 ...d,
                 ...patch
@@ -291,21 +312,13 @@ function TaskDetail({
                   }}><option value="">{l('Unassigned', '暂不分类')}</option>{areas.map(a => <optgroup key={a.id} label={a.name}><option value={`a:${a.id}`}>{a.name}</option>{projects.filter(p => p.areaId === a.id).map(p => <option key={p.id} value={`p:${p.id}`}>{p.title}</option>)}</optgroup>)}{projects.filter(p => !p.areaId).map(p => <option key={p.id} value={`p:${p.id}`}>{p.title}</option>)}</select></label>
                 </details>
                 <details><summary className="min-h-11 cursor-pointer text-sm">{l('Repeat rule · this and following occurrences', '重复规则 · 本次及以后')}</summary><RepeatPicker value={draft.recurrence} onChange={v => set('recurrence', v)} /></details>
-                <div className="flex gap-2"><button type="submit" disabled={busy} className={`${button} bg-primary text-primary-foreground`}>{l('Save changes', '保存全部修改')}</button><button type="button" className={button} onClick={() => {
-                  try {
-                    localStorage.removeItem(draftKey);
-                  } catch {
-                    setError(l('Could not discard the saved draft. Please retry.', '无法清除已保存的草稿，请重试。'));
-                    return;
-                  }
-                  setBase(null);
-                  setExit(false);
-                }}>{l('Discard edits', '放弃本次编辑')}</button></div>
+
+                </fieldset>
             </form> : <>
                 <h1 className="break-words text-2xl font-semibold">{task.title}</h1>
                 <div className="flex flex-wrap gap-2 text-xs">{task.availableAt && <span>{l('Available', '可执行起始')} {task.availableAt}</span>}{task.dueDate && <span className={Date.parse(task.dueDate.length === 10 ? `${task.dueDate}T23:59:59` : task.dueDate) < now.getTime() ? 'text-destructive' : ''}>{l('Due', '截止')} {task.dueDate}</span>}{task.timeEstimate && <span>{l('Total estimate', '总预计')} {estimateMinutes(task.timeEstimate)} min</span>}</div>
                 {reason && <p className="rounded-lg border border-border bg-muted p-3 text-sm">{blockReason}{!closed && l(' · Still visible for planning.', ' · 仍可查看和提前规划。')}</p>}
-                <div className="flex flex-wrap gap-2"><button className={button} onClick={() => {
+                <div className="flex flex-wrap gap-2"><button ref={editButton} className={button} onClick={() => {
                   setBase(structuredClone(task));
                   setDraft(structuredClone(task));
                 }}>{l('Edit content', '编辑内容')}</button>
@@ -327,6 +340,7 @@ function TaskDetail({
                       await flushPendingSave();
                     }, l('Moved to Inbox as an independent task.', '已移到收件箱，作为独立任务。'));
                   }}>{l('Make task', '独立成任务')}</button>}</label>)}</section>}
+                <TaskRelations task={task} onOpenTask={onOpenTask} onBusyChange={setRelationBusy} />
                 {!closed && <section className="space-y-3 border-t border-border pt-4"><h2 className="font-semibold">{l('Plan this task', '安排这件事')}</h2>
                     <div className="flex flex-wrap items-end gap-2"><label className="text-sm">{l('Choose a day', '哪天想做')}<input type="date" className={input} value={day} onChange={e => setDay(e.target.value)} /></label><button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, (latest, clock) => ({
                     ...commitToDay(latest, day, !isCommittedOn(latest, day), clock),
@@ -378,8 +392,22 @@ function TaskDetail({
                   })), l('Repeating stopped; this task is kept.', '已停止后续重复，当前任务保留。'))}>{l('Stop repeating', '停止后续重复')}</button></div>}</details>}
             </>}
         </>}
-        {error && <p role="alert" className="rounded-lg border border-destructive p-3 text-sm text-destructive">{error}</p>}
+        {error && !editing && <p role="alert" className="rounded-lg border border-destructive p-3 text-sm text-destructive">{error}</p>}
         </div>
-        {exit && <section role="alertdialog" aria-label={l('Unsaved changes', '有未保存的修改')} className="shrink-0 space-y-2 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"><p>{l('Save all edits before leaving?', '离开前保存全部修改吗？')}</p><div className="flex flex-wrap gap-2"><button className={button} disabled={busy} onClick={() => save(true)}>{l('Save and return', '保存并返回')}</button><button className={button} disabled={busy} onClick={() => close(true)}>{l('Discard and return', '放弃并返回')}</button><button className={button} onClick={() => setExit(false)}>{l('Keep editing', '继续编辑')}</button></div></section>}
+        {editing && !exit && <footer className="shrink-0 space-y-2 border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+                <div className="flex flex-wrap gap-2"><button type="submit" form={formId} disabled={busy} className={`${button} bg-primary text-primary-foreground`}>{l('Save changes', '保存全部修改')}</button><button type="button" className={button} disabled={busy} onClick={() => {
+                  try {
+                    localStorage.removeItem(draftKey);
+                  } catch {
+                    setError(l('Could not discard the saved draft. Please retry.', '无法清除已保存的草稿，请重试。'));
+                    return;
+                  }
+                  setBase(null);
+                  requestAnimationFrame(() => editButton.current?.focus());
+                  setExit(false);
+                }}>{l('Discard edits', '放弃本次编辑')}</button></div>
+        </footer>}
+        {exit && <section role="alertdialog" aria-label={l('Unsaved changes', '有未保存的修改')} className="shrink-0 space-y-2 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<p>{l('Save all edits before leaving?', '离开前保存全部修改吗？')}</p><div className="flex flex-wrap gap-2"><button className={button} disabled={busy} onClick={() => save(true)}>{l('Save and return', '保存并返回')}</button><button className={button} disabled={busy} onClick={() => close(true)}>{l('Discard and return', '放弃并返回')}</button><button className={button} onClick={() => setExit(false)}>{l('Keep editing', '继续编辑')}</button></div></section>}
         </div></div></ModalPortal>;
 }
