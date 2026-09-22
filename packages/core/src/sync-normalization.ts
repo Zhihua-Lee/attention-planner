@@ -160,6 +160,7 @@ export const normalizeTaskForSyncMerge = (task: Task, nowIso: string): Task => {
         assignedTo: normalized.assignedTo,
         taskMode: normalized.taskMode,
         planner: normalized.planner,
+        parentTaskId: normalizeOptionalString(normalized.parentTaskId),
         startTime: normalized.startTime,
         availableAt: normalized.availableAt,
         scheduledAt: normalized.scheduledAt,

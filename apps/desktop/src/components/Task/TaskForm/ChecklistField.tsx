@@ -405,6 +405,7 @@ export function ChecklistField({
                                                 }
                                             }}
                                             onKeyDown={(event) => {
+                                                if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
                                                 const currentValue = event.currentTarget.value;
                                                 const eventSelection = getInputSelection(event.currentTarget);
                                                 const lowerKey = event.key.toLowerCase();
@@ -557,6 +558,7 @@ export function ChecklistField({
                         focusChecklistIndex(nextList.length - 1, source);
                     }}
                     onKeyDown={(event) => {
+                        if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
                         if (event.key === 'Enter') {
                             event.preventDefault();
                             event.stopPropagation();

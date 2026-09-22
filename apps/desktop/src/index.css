@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Planner forms stay legible with touch keyboards; desktop density is unchanged. */
+@media (max-width: 639px), (pointer: coarse) {
+  [data-planner-form] input:not([type="checkbox"]):not([type="radio"]),
+  [data-planner-form] textarea,
+  [data-planner-form] select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  [data-planner-form] button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 /* Hallmark · genre: modern-minimal desktop productivity · tone: calm, quiet, capable · anchor hue: accessible blue */
 /* Hallmark · macrostructure: GTD command rail + adaptive work canvas · fingerprint: task-first rail, focused list, optional detail panels */
 /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */

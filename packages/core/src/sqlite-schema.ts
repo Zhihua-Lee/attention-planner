@@ -1,4 +1,4 @@
-export const SQLITE_SCHEMA_VERSION = 12;
+export const SQLITE_SCHEMA_VERSION = 13;
 
 export const SQLITE_BASE_SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   availableAt TEXT,
   scheduledAt TEXT,
   snoozedUntil TEXT,
-  planner TEXT
+  planner TEXT,
+  parentTaskId TEXT
 );
 
 CREATE TABLE IF NOT EXISTS projects (

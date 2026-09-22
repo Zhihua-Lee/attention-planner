@@ -1,7 +1,8 @@
 {
-    "schemaVersion": 3,
+    "schemaVersion": 4,
     "sinceVersionPolicy": "Contract versions start at 1 for every field present when this table was introduced; they are independent of SQLite migration versions.",
     "fields": [
+        {"name": "parentTaskId", "sync": "content", "nullability": "optional", "sinceVersion": 4, "signature": "content", "sqliteColumn": "parentTaskId", "cloudKit": null, "cloudWrite": "patch", "sqliteOrder": 47, "sqliteType": "TEXT"},
         {"name": "planner", "sync": "content", "nullability": "optional", "sinceVersion": 3, "signature": "content", "sqliteColumn": "planner", "cloudKit": null, "cloudWrite": "patch", "sqliteOrder": 46, "sqliteType": "TEXT"},
         { "name": "id", "sync": "identity", "nullability": "required", "sinceVersion": 1, "signature": "content", "sqliteColumn": "id", "cloudKit": null, "cloudWrite": "managed", "sqliteOrder": 0, "sqliteType": null },
         { "name": "title", "sync": "content", "nullability": "required", "sinceVersion": 1, "signature": "content", "sqliteColumn": "title", "cloudKit": { "key": "title", "kind": "string" }, "cloudWrite": "patch", "sqliteOrder": 1, "sqliteType": null },
@@ -83,6 +84,7 @@
             "updatedAt": "2026-07-14T10:00:00.000Z"
         }],
         "location": "Test lab",
+        "parentTaskId": "parent-schema",
         "projectId": "project-schema",
         "sectionId": "section-schema",
         "areaId": "area-schema",

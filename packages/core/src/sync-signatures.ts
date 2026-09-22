@@ -115,6 +115,7 @@ export const normalizeTaskForContentComparison = (task: Task): Record<string, un
         assignedTo: task.assignedTo,
         taskMode: task.taskMode,
         planner: task.planner,
+        parentTaskId: task.parentTaskId,
         startTime: task.startTime,
         availableAt: task.availableAt,
         scheduledAt: task.scheduledAt,

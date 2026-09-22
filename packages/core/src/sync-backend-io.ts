@@ -304,8 +304,8 @@ export function createSyncBackendIO(ctx: SyncBackendContext, transport: SyncTran
 
 /** Planner metadata must never be sent where an older client can silently erase it. */
 export function assertPlannerSyncDestination(ctx: SyncBackendContext, data: AppData): void {
-    if (!data.tasks.some(task => task.planner)) return;
-    if (ctx.backend === 'cloudkit') throw new Error('CloudKit does not support work blocks yet. Use the upgraded JSON sync providers; no data was uploaded.');
+    if (!data.tasks.some(task => task.planner || task.parentTaskId)) return;
+    if (ctx.backend === 'cloudkit') throw new Error('CloudKit does not support work blocks or independent subtasks yet. Use the upgraded JSON sync providers; no data was uploaded.');
     if (ctx.backend === 'cloud' && ['dropbox','google-drive','onedrive'].includes(ctx.cloudProvider)) return;
     const path = decodeURIComponent(ctx.backend === 'webdav' ? ctx.webdav?.url ?? '' : ctx.backend === 'file' ? ctx.filePath ?? '' : ctx.cloud?.url ?? '');
     if (ctx.backend === 'cloud' && /\/v2\/data\/?$/i.test(path)) return;

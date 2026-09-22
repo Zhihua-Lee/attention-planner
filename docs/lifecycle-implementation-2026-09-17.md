@@ -28,13 +28,21 @@ The runtime runs in the foreground, on resume and after local/sync state changes
 
 The first planner mutation verifies a pre-planner backup. Migration is lazy and deterministic: an old timed start becomes `legacy:<task-id>`, exactly once per task. An old undated star is evidence requiring explicit day selection, not a fabricated choice for today. A cancelled migrated block never falls back to a legacy start. Conflicting old schedule values remain evidence in metadata.
 
-SQLite schema is version 12 with the optional JSON `planner` column, carried through shared native serialization, desktop Rust reads/writes, JSON snapshots, normalization, merge and export. PWA uses `attention-planner-data-v2`, copies valid `mindwtr-data` once, and leaves the old browser key untouched. Once v2 exists, old data is not read again. Use exported JSON and the app's import/restore workflow for recovery; do not edit database files live.
+SQLite schema is version 13 with the optional JSON `planner` and nullable `parentTaskId` columns, carried through shared native serialization, desktop Rust reads/writes, JSON snapshots, normalization, merge and export. PWA uses `attention-planner-data-v2`, copies valid `mindwtr-data` once, and leaves the old browser key untouched. Once v2 exists, old data is not read again. Use exported JSON and the app's import/restore workflow for recovery; do not edit database files live.
 
 All devices sharing upgraded data must run the upgraded client. Dropbox/OneDrive/Google Drive JSON locations use `attention-planner-v2.json`. For WebDAV or file sync, choose an isolated `attention-planner-v2` folder/file on every upgraded device. For self-hosted sync, deploy the upgraded server separately and explicitly configure `/v2/data`; it uses a separate file from `/v1/data` with the same authentication and locking boundary. This change **does not deploy the server or rewrite account settings automatically**. Export a backup before changing locations. The existing v1 task REST/MCP endpoints are not a new planner command API.
 
 CloudKit does not yet carry the planner schema, so upgraded planner uploads are rejected before writing, rather than silently dropping work blocks. Native mobile shares storage, merge and reminder logic, but the new complete interaction surface is the PWA/desktop UI. Do not downgrade a native client against the same upgraded local database. The isolated sync generation protects shared remote data, not arbitrary manual copying of native databases to old applications.
 
 ## Verification boundary
+
+### Independent subtasks and PWA interaction polish (2026-09-22)
+
+`parentTaskId` is content ownership, not an execution dependency or project container. Validated single/batch moves cannot create cycles and change no scheduling, reminder, checklist or completion field. Children retain their own NOW eligibility, reservations and recurrence. Completing/deleting a parent never cascades. Recurring successors retain their parent; parent recurrence does not clone descendants. Filtered/missing parents and concurrent sync cycles never make tasks disappear: the display projects a deterministic forest without rewriting the stored links. Both native SQLite paths and the shared row codec carry the field; CloudKit rejects hierarchy-bearing snapshots before upload.
+
+Inbox/day/unscheduled/completed task cards have handle-only mouse/touch dragging and an equivalent searchable picker for taps/keyboards. Parent and child details support returning through the navigation stack. Moves have guarded undo; child creation uses the same durable store, retries an unflushed identity, and keeps its device-local draft. No Project is required. Form actions stay outside the scrolling content and follow VisualViewport resize/pan at normal zoom; inputs retain 16px/44px touch sizing and Chinese IME confirmation is distinct from submit. Desktop Ctrl/Cmd+Enter saves content atomically. The existing lifecycle/calendar design is retained.
+
+Added tests cover deep/cyclic trees, atomic store validation, independent lifecycle, SQLite/JSON merge including detach, recurrence, unsupported destinations, desktop drag, mobile touch drag/picker, parent-child navigation, draft restoration, completion/deletion survival, IME and simulated software-keyboard viewport changes. Browser mobile emulation is not a physical iPhone/Safari keyboard test.
 
 ### PR #2 review follow-up
 

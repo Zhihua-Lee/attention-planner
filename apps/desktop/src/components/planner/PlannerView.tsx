@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { TaskHierarchyDrag, TaskTreeList } from './TaskTreeList';
+import { isInputComposition } from '../../lib/input-method';
 import { Plus } from 'lucide-react';
 import { activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
@@ -113,7 +115,7 @@ export function PlannerView({
     }
   }));
   const row = (task: Task) => <article key={task.id} data-task-id={task.id} className="rounded-lg border border-border bg-card p-3">
-        <button className="min-h-11 w-full break-words text-left text-sm font-medium hover:text-primary" onClick={() => openTaskDetails(task.id)}>{task.title}</button>
+        <button className="min-h-11 w-full break-words pr-12 text-left text-sm font-medium hover:text-primary" onClick={() => openTaskDetails(task.id)}>{task.title}</button>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{task.availableAt && <span>{l('Available', '可做起始')} {task.availableAt}</span>}{task.dueDate && <span>{l('Due', '截止')} {task.dueDate}</span>}{policy.executionBlock(task) && task.status !== 'inbox' && <span>{l('Not executable yet; plan kept', '目前不可执行，计划保留')}</span>}</div>
         <div className="mt-2 flex flex-wrap gap-2">{task.status === 'inbox' && <button className={button} onClick={() => run(() => editTask(task.id, () => ({
         status: 'next'
@@ -160,7 +162,7 @@ export function PlannerView({
     'next-action': l('An available next action', '当前可执行的一件事')
   };
   const calendar = <PlannerCalendar day={day} setDay={setDay} span={mode === 'calendar' ? span : 1} setSpan={setSpan} showViewSwitch={mode === 'calendar'} now={now} tasks={active} events={events} calendarTrusted={loaded && !calendarError} isBlocked={task => Boolean(policy.executionBlock(task))} capture={capture} openEvent={setSelectedEvent} run={run} />;
-  return <div className="space-y-5" data-testid={`planner-${mode}`}>
+  return <TaskHierarchyDrag><div className="space-y-5" data-testid={`planner-${mode}`}>
         <header className="flex items-center justify-between gap-2"><h1 className="text-2xl font-semibold">{{
           now: 'NOW',
           inbox: l('Inbox', '收件箱'),
@@ -174,8 +176,8 @@ export function PlannerView({
         e.preventDefault();
         void create();
       }}><input className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3" aria-label={l('Add task', '添加任务')} placeholder={l('Add task…', '记一件事…')} value={quick} onChange={e => setQuick(e.target.value)} onKeyDown={e => {
-          if (e.nativeEvent.isComposing && e.key === 'Enter') e.preventDefault();
-        }} /><button className={button} disabled={saving || !quick.trim()}>{l('Save', '保存')}</button><button className={button} type="button" onClick={() => capture()}>{l('Content and steps', '补充内容与安排')}</button></form><div className="space-y-2">{inbox.map(row)}</div>{!inbox.length && <p className="text-sm text-muted-foreground">{l('Nothing waiting to be clarified.', '没有待整理事项。')}</p>}</>}
+          if (isInputComposition(e.nativeEvent) && e.key === 'Enter') e.preventDefault();
+        }} /><button className={button} disabled={saving || !quick.trim()}>{l('Save', '保存')}</button><button className={button} type="button" onClick={() => capture()}>{l('Content and steps', '补充内容与安排')}</button></form><TaskTreeList tasks={inbox} render={row} listId="inbox" />{!inbox.length && <p className="text-sm text-muted-foreground">{l('Nothing waiting to be clarified.', '没有待整理事项。')}</p>}</>}
         {mode === 'now' && <><section className="space-y-4 rounded-xl border border-border bg-card p-5" data-testid="now-card" aria-label={l('Current action', '当前行动')}>
             {selection?.kind === 'event' ? <><p className="text-xs text-muted-foreground">{l('Current meeting', '当前会议')}</p><h2 className="text-xl font-semibold">{selection.event.title}</h2><p>{new Date(selection.event.start).toLocaleTimeString()} – {new Date(selection.event.end).toLocaleTimeString()}</p></> : selection?.kind === 'task' ? <>
                 <p className="text-xs text-muted-foreground">{reasonLabels[selection.reason]}</p><button className="min-h-11 text-left text-xl font-semibold hover:text-primary" onClick={() => openTaskDetails(selection.task.id)}>{selection.task.title}</button>
@@ -202,8 +204,8 @@ export function PlannerView({
         </section>{pending.length > 0 && <p className="text-sm">{l(`${pending.length} allocations need rescheduling. Open Calendar to see why.`, `${pending.length} 个工作时段待续排，可在日历查看原因。`)}</p>}</>}
         {(mode === 'calendar' || mode === 'day') && <>
             {active.some(t => taskPlanner(t).legacyFocus) && <details className="rounded-lg border border-border p-3"><summary className="min-h-11 cursor-pointer text-sm">{l('Old undated selections · choose their day', '旧版未注明日期的选择 · 指定哪天想做')}</summary>{active.filter(t => taskPlanner(t).legacyFocus).map(task => <div key={task.id} className="flex min-h-11 flex-wrap items-center gap-2 text-sm"><button className="underline" onClick={() => openTaskDetails(task.id)}>{task.title}</button><button className={button} onClick={() => run(() => editTask(task.id, (latest, c) => commitToDay(latest, day, true, c)))}>{l('Choose for this day', '选入这一天')}</button></div>)}</details>}
-            {committed.length > 0 && <section className="space-y-2"><h2 className="text-sm font-semibold">{l('Chosen for this day · not necessarily timed', '这一天想做 · 不代表已占用时段')}</h2><div className="grid gap-2 sm:grid-cols-2">{committed.map(row)}</div></section>}
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">{calendar}<aside className="space-y-3"><h2 className="font-semibold">{l('Tasks to arrange', '待安排任务')}</h2><p className="text-xs text-muted-foreground">{l('Future availability is shown, never hidden. Open a task to reserve multiple blocks.', '未来可用的任务仍可提前规划。打开详情可预留多个时段。')}</p><div className="max-h-[70dvh] space-y-2 overflow-y-auto">{active.filter(policy.isCandidate).filter(t => !activeWorkBlocks(t).length && !isCommittedOn(t, day)).map(row)}</div><details><summary className="min-h-11 cursor-pointer text-sm">{l('Waiting / paused tasks', '等待条件／暂不做')}</summary><div className="space-y-2">{active.filter(t => t.status !== 'inbox' && !policy.isCandidate(t)).map(row)}</div></details></aside></div>
+            {committed.length > 0 && <section className="space-y-2"><h2 className="text-sm font-semibold">{l('Chosen for this day · not necessarily timed', '这一天想做 · 不代表已占用时段')}</h2><TaskTreeList tasks={committed} render={row} listId="committed" /></section>}
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">{calendar}<aside className="space-y-3"><h2 className="font-semibold">{l('Tasks to arrange', '待安排任务')}</h2><p className="text-xs text-muted-foreground">{l('Future availability is shown, never hidden. Open a task to reserve multiple blocks.', '未来可用的任务仍可提前规划。打开详情可预留多个时段。')}</p><div className="max-h-[70dvh] space-y-2 overflow-y-auto"><TaskTreeList tasks={active.filter(policy.isCandidate).filter(t => !activeWorkBlocks(t).length && !isCommittedOn(t, day))} render={row} listId="unscheduled" /></div><details><summary className="min-h-11 cursor-pointer text-sm">{l('Waiting / paused tasks', '等待条件／暂不做')}</summary><div className="space-y-2"><TaskTreeList tasks={active.filter(t => t.status !== 'inbox' && !policy.isCandidate(t))} render={row} listId="waiting" /></div></details></aside></div>
             {pending.length > 0 && <section className="space-y-2"><h2 className="font-semibold">{l('Needs rescheduling', '待续排')}</h2>{pending.map(({
           task,
           block
@@ -218,7 +220,7 @@ export function PlannerView({
             <PlanningPreferences />
             <button className={button} onClick={downloadPlannerBackup}>{l('Export full backup', '导出完整备份')}</button>
         </>}
-        {mode === 'history' && <div className="space-y-2">{tasks.filter(t => t.status === 'done').map(row)}</div>}
+        {mode === 'history' && <div className="space-y-2"><TaskTreeList tasks={tasks.filter(t => t.status === 'done')} render={row} listId="history" /></div>}
         {selectedEvent && <CalendarEventDetails event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
-    </div>;
+    </div></TaskHierarchyDrag>;
 }

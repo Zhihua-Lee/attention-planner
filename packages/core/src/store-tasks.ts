@@ -39,6 +39,7 @@ import {
 import { resolveDefaultNewTaskAreaId } from './area-utils';
 import { findSelectableProjectByTitleAndArea } from './project-utils';
 import { buildNewProject } from './store-projects/project-actions';
+import { taskParentError } from './task-hierarchy';
 
 const SLOW_TASK_UPDATE_LOG_THRESHOLD_MS = 500;
 
@@ -121,6 +122,7 @@ const isExistingRecurringFollowUp = (existing: Task, candidate: Task): boolean =
     if (existing.status !== candidate.status) return false;
     if (existing.title.trim() !== candidate.title.trim()) return false;
     if (normalizeOptionalTaskField(existing.projectId) !== normalizeOptionalTaskField(candidate.projectId)) return false;
+    if (normalizeOptionalTaskField(existing.parentTaskId) !== normalizeOptionalTaskField(candidate.parentTaskId)) return false;
     if (normalizeOptionalTaskField(existing.sectionId) !== normalizeOptionalTaskField(candidate.sectionId)) return false;
     if (normalizeOptionalTaskField(existing.areaId) !== normalizeOptionalTaskField(candidate.areaId)) return false;
     if (normalizeOptionalTaskField(existing.startTime) !== normalizeOptionalTaskField(candidate.startTime)) return false;
@@ -499,6 +501,12 @@ export const createTaskActions = ({ set, get, getStorage, debouncedSave, trackIm
                 orderNum: resolvedOrder,
             };
 
+            const parentError = newTask.parentTaskId === undefined ? undefined
+                : taskParentError(nextAllTasks, newTask.id, newTask.parentTaskId);
+            if (parentError) {
+                set({ error: parentError });
+                return actionFail(parentError);
+            }
             if (newTask.isFocusedToday === true) {
                 // Starring at capture is an explicit "this is an actionable next action I'm
                 // doing today" decision, which is incompatible with the unprocessed Inbox
@@ -563,6 +571,12 @@ export const createTaskActions = ({ set, get, getStorage, debouncedSave, trackIm
             });
             set({ error: message });
             return actionFail(message);
+        }
+        const parentError = hasOwnField(updates, 'parentTaskId')
+            ? taskParentError(currentState._allTasks, id, updates.parentTaskId) : undefined;
+        if (parentError) {
+            set({ error: parentError });
+            return actionFail(parentError);
         }
         const preparedUpdates = prepareTaskUpdatesForStore({
             task: existingTask,
@@ -1141,6 +1155,18 @@ export const createTaskActions = ({ set, get, getStorage, debouncedSave, trackIm
             const message = `Tasks not found: ${missingIds.join(', ')}`;
             set({ error: message });
             return actionFail(message);
+        }
+        const hierarchyUpdates = updatesList.filter(item => hasOwnField(item.updates, 'parentTaskId'));
+        const parentUpdates = new Map(hierarchyUpdates.map(item => [item.id, item.updates]));
+        const prospectiveTasks = hierarchyUpdates.length
+            ? state._allTasks.map(task => parentUpdates.has(task.id) ? { ...task, ...parentUpdates.get(task.id) } : task)
+            : state._allTasks;
+        for (const { id, updates } of hierarchyUpdates) {
+            const parentError = taskParentError(prospectiveTasks, id, updates.parentTaskId);
+            if (parentError) {
+                set({ error: parentError });
+                return actionFail(parentError);
+            }
         }
         const preparedUpdatesById = new Map<string, Partial<Task>>();
         for (const { id, updates } of updatesList) {

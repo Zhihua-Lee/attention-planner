@@ -101,6 +101,7 @@ export function normalizeTaskForLoad(task: Task, nowIso: string = new Date().toI
     const next: Task = {
         ...rest,
         planner: readTaskPlanner(task.planner),
+        parentTaskId: typeof task.parentTaskId === 'string' && task.parentTaskId.trim() ? task.parentTaskId : undefined,
         createdAt: createdAtIso,
         updatedAt: updatedAtIso,
         status: normalizedStatus,

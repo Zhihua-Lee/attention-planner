@@ -15,7 +15,8 @@ const sorted = (values: Iterable<string>): string[] => Array.from(values).sort()
 
 // Reviewed allowlist baseline. The generative schema must stay aligned with
 // the former hand-written fields plus intentional, separately reviewed schema
-// extensions such as the 2026-08 split task-time patch fields.
+// extensions such as the 2026-08 split task-time patch fields and the
+// 2026-09 independent-subtask content relationship (patch-only, not a new v1 create API).
 const EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS = [
     'status', 'priority', 'taskMode', 'startTime', 'relativeStartOffset', 'dueDate', 'recurrence',
     'showFutureRecurrence', 'pushCount', 'tags', 'contexts', 'checklist', 'description',
@@ -26,7 +27,7 @@ const EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS = [
 
 const EXPECTED_CLOUD_TASK_PATCH_ALLOWED_PROP_KEYS = [
     'title', 'order', 'orderNum', 'boardOrder', 'focusOrder',
-    'availableAt', 'scheduledAt', 'snoozedUntil', 'planner',
+    'availableAt', 'scheduledAt', 'snoozedUntil', 'planner', 'parentTaskId',
     ...EXPECTED_CLOUD_TASK_CREATION_ALLOWED_PROP_KEYS,
 ];
 
