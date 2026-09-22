@@ -27,7 +27,6 @@ export function PlannerCalendar({ day, setDay, span, setSpan, showViewSwitch, no
     useEffect(() => {
         if (timeline.current) timeline.current.scrollTop = Math.max(0, (now.getHours() - 1) * PLANNER_HOUR_HEIGHT);
         // Start near the current hour on entry/date changes, not every clock tick.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [day, span]);
     const move = (amount: number) => {
         const date = new Date(`${day}T12:00:00`);
