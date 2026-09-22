@@ -10,6 +10,8 @@ Task titles in the primary Inbox, NOW, day calendar and global search open a sin
 
 Calendar is a first-class destination, with day/week time overview, appointments and adjacent unscheduled tasks. Empty time slots prefill capture. Clicking a block opens its task and work history; move/resize targets a block, not the task's total estimate. NOW preserves an explicitly chosen current task until it is completed, paused, ineligible or replaced; fixed appointments retain precedence.
 
+Calendar rendering keeps appointments and task reservations in one overlap-column layout, using the visible minimum touch height for short intervals. All-day appointments have a separate lane, with exclusive end-date handling. Long titles are line-clamped to the available height; full content stays accessible in details. Overflow belongs inside the timeline, not the page. These are presentation rules only: they never shift stored dates, change eligibility, or modify automatic rescheduling.
+
 ## Four responsibilities
 
 Content owns task identity, text, steps, attachments and optional Area/Project belonging. Workflow owns Inbox/Ready/Waiting/Someday/Done; Ready is a clarified task, not a promise of immediate availability. Time owns separate deadlines, availability and identified work allocations. Attention owns dated day intentions and snooze/current-work preferences. Existing planning policy remains the shared eligibility boundary: future/blocked plans stay visible, while NOW applies current execution constraints. Frame preference can use Area/Project selections without command syntax.
