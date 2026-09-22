@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
-import { activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, blockEnd, scheduleWork, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
+import { Plus } from 'lucide-react';
+import { activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
-import { checkReservation, editTask, openTaskDetails, setCurrentWork, downloadPlannerBackup } from '../../lib/lifecycle-actions';
+import { editTask, openTaskDetails, setCurrentWork, downloadPlannerBackup } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
 import { useUiStore } from '../../store/ui-store';
 import { RichMarkdown } from '../RichMarkdown';
@@ -10,6 +10,7 @@ import { QUICK_CAPTURE_EVENT } from '../capture/PwaCaptureHost';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 import { PlanningPreferences } from './PlanningPreferences';
 import { CalendarEventDetails } from './CalendarEventDetails';
+import { PlannerCalendar } from './PlannerCalendar';
 import type { ExternalCalendarEvent } from '@mindwtr/core';
 const button = 'min-h-11 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-40';
 export function PlannerView({
@@ -54,8 +55,7 @@ export function PlannerView({
     [saving, setSaving] = useState(false),
     [excluded, setExcluded] = useState<Set<string>>(new Set());
   const saveLock = useRef(false),
-    quickId = useRef<string | null>(null),
-    timeline = useRef<HTMLDivElement>(null);
+    quickId = useRef<string | null>(null);
   useEffect(() => {
     if (mode === 'calendar' || mode === 'day') showDate(day);
   }, [day, mode, showDate]);
@@ -159,100 +159,7 @@ export function PlannerView({
     frame: l('Fits your current preference', '符合当前时段偏好'),
     'next-action': l('An available next action', '当前可执行的一件事')
   };
-  const dayCount = mode === 'calendar' ? span : 1;
-  const dates = Array.from({
-    length: dayCount
-  }, (_, i) => {
-    const d = new Date(`${day}T12:00:00`);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
-  useEffect(() => {
-    if (timeline.current) timeline.current.scrollTop = Math.max(0, (now.getHours() - 1) * 64);
-  }, [mode]);
-  const moveDay = (amount: number) => {
-    const d = new Date(`${day}T12:00:00`);
-    d.setDate(d.getDate() + amount);
-    setDay(localPlanDate(d));
-  };
-  const calendar = <section className="min-w-0 rounded-xl border border-border bg-card" aria-label={l('Time overview', '时间总览')}>
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3"><div className="flex items-center gap-1"><button className={button} aria-label={l('Previous day', '前一天')} onClick={() => moveDay(-dayCount)}><ChevronLeft className="h-4 w-4" /></button><input type="date" aria-label={l('Planning date', '规划日期')} value={day} onChange={e => {
-          if (e.target.value) setDay(e.target.value);
-        }} className="min-h-11 rounded border border-border bg-background px-2" /><button className={button} aria-label={l('Next day', '后一天')} onClick={() => moveDay(dayCount)}><ChevronRight className="h-4 w-4" /></button><button className={button} onClick={() => setDay(localPlanDate(now))}>{l('Today', '今天')}</button></div>{mode === 'calendar' && <div className="flex gap-1"><button className={button} aria-pressed={span === 1} onClick={() => setSpan(1)}>{l('Day', '日')}</button><button className={button} aria-pressed={span === 7} onClick={() => setSpan(7)}>{l('Week', '周')}</button></div>}</header>
-        <div ref={timeline} className="max-h-[70dvh] overflow-auto" data-testid="planner-timeline">
-            <div className="grid" style={{
-        gridTemplateColumns: `3rem repeat(${dayCount}, minmax(${dayCount > 1 ? '84px' : '180px'},1fr))`,
-        minWidth: dayCount > 1 ? dayCount * 84 + 48 : undefined
-      }}>
-                <div className="sticky top-0 z-20 h-11 border-b border-border bg-card" />{dates.map(d => <div key={localPlanDate(d)} className="sticky top-0 z-20 h-11 border-b border-l border-border bg-card p-2 text-center text-xs font-medium">{d.toLocaleDateString([], {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric'
-          })}</div>)}
-                <div className="relative h-[1536px]">{Array.from({
-            length: 24
-          }, (_, h) => <span key={h} className="absolute right-1 text-[10px] text-muted-foreground" style={{
-            top: h * 64
-          }}>{String(h).padStart(2, '0')}:00</span>)}</div>
-                {dates.map(d => {
-          const date = localPlanDate(d),
-            start = new Date(`${date}T00:00:00`).getTime(),
-            end = new Date(`${date}T23:59:59`).getTime();
-          const place = (s: string, duration: number) => {
-            const dateValue = new Date(s);
-            return {
-              top: (dateValue.getHours() * 60 + dateValue.getMinutes()) * 64 / 60,
-              height: Math.max(28, duration * 64 / 60)
-            };
-          };
-          return <div key={date} className="relative h-[1536px] border-l border-border" data-calendar-day={date}>
-                        {Array.from({
-              length: 48
-            }, (_, half) => {
-              const slot = new Date(`${date}T${String(Math.floor(half / 2)).padStart(2, '0')}:${half % 2 ? '30' : '00'}:00`);
-              return <button type="button" key={half} aria-label={`${l('Reserve', '预留')} ${date} ${slot.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}`} className={`absolute left-0 w-full hover:bg-primary/10 focus:bg-primary/10 ${half % 2 ? 'border-t border-dashed border-border/35' : 'border-t border-border/70'}`} style={{
-                top: half * 32,
-                height: 32
-              }} onClick={() => capture(slot)} onDragOver={e => e.preventDefault()} onDrop={e => {
-                e.preventDefault();
-                try {
-                  const value = JSON.parse(e.dataTransfer.getData('application/x-attention-block'));
-                  if (value.taskId && value.blockId) void run(() => editTask(value.taskId, (latest, c) => {
-                    const b = taskPlanner(latest).blocks.find(x => x.id === value.blockId);
-                    if (!b) throw new Error('Block no longer exists');
-                    checkReservation(latest.id, b.id, slot.toISOString(), b.durationMinutes, events, loaded && !calendarError);
-                    return scheduleWork(latest, {
-                      id: b.id,
-                      startAt: slot.toISOString(),
-                      durationMinutes: b.durationMinutes,
-                      timeZone: b.timeZone
-                    }, c);
-                  }));
-                } catch {
-                  setError(l('Could not move this block.', '无法移动这个时段。'));
-                }
-              }} />;
-            })}
-                        {events.filter(e => Date.parse(e.start) < end && Date.parse(e.end) > start).map(e => {
-              const s = new Date(Math.max(start, Date.parse(e.start))).toISOString(),
-                minutes = (Math.min(end, Date.parse(e.end)) - Date.parse(s)) / 60000;
-              return <button type="button" key={e.id} onClick={() => setSelectedEvent(e)} aria-label={`${e.title}${e.location ? ` · ${e.location}` : ''}`} className="absolute inset-x-1 z-10 overflow-hidden rounded border border-border bg-muted p-1 text-left text-xs hover:bg-muted/80 focus-visible:outline-primary" style={place(s, minutes)} title={[e.title, e.location].filter(Boolean).join(' · ')}><span className="block truncate font-medium">{e.title}</span>{e.location && <span className="block truncate">{e.location}</span>}<span className="block text-[10px]">{l('Meeting · fixed', '会议 · 固定')}</span></button>;
-            })}
-                        {active.flatMap(task => activeWorkBlocks(task).filter(b => Date.parse(b.startAt) < end && blockEnd(b) > start).map(b => <button key={`${task.id}:${b.id}`} data-calendar-block={b.id} draggable onDragStart={e => e.dataTransfer.setData('application/x-attention-block', JSON.stringify({
-              taskId: task.id,
-              blockId: b.id
-            }))} onClick={() => openTaskDetails(task.id, b.id)} className="absolute inset-x-1 z-10 overflow-hidden rounded border border-primary/50 bg-primary/15 p-1 text-left text-xs font-medium hover:bg-primary/25" style={place(new Date(Math.max(start, Date.parse(b.startAt))).toISOString(), (Math.min(end, blockEnd(b)) - Math.max(start, Date.parse(b.startAt))) / 60000)} title={`${task.title} · ${b.durationMinutes} min`}>{task.title}<span className="block text-[10px] font-normal">{b.durationMinutes} min{policy.executionBlock(task) ? ` · ${l('blocked', '条件未满足')}` : ''}{b.origin === 'rollover' ? ` · ${l('moved', '已顺延')}` : ''}</span></button>))}
-                        {date === localPlanDate(now) && <div className="pointer-events-none absolute inset-x-0 z-20 border-t-2 border-primary" style={{
-              top: (now.getHours() * 60 + now.getMinutes()) * 64 / 60
-            }} />}
-                    </div>;
-        })}
-            </div>
-        </div>
-    </section>;
+  const calendar = <PlannerCalendar day={day} setDay={setDay} span={mode === 'calendar' ? span : 1} setSpan={setSpan} showViewSwitch={mode === 'calendar'} now={now} tasks={active} events={events} calendarTrusted={loaded && !calendarError} isBlocked={task => Boolean(policy.executionBlock(task))} capture={capture} openEvent={setSelectedEvent} run={run} />;
   return <div className="space-y-5" data-testid={`planner-${mode}`}>
         <header className="flex items-center justify-between gap-2"><h1 className="text-2xl font-semibold">{{
           now: 'NOW',
