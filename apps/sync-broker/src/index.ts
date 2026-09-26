@@ -1,4 +1,9 @@
 import webpush, { type PushSubscription } from 'web-push';
+import { createMcpAuthHandler, isMcpGrantActive, type McpAuthEnv, type McpAuthContext } from './mcp-auth';
+import { readMcpSnapshot, writeMcpSnapshot } from './mcp-drive';
+import { boundedBody, handleMcpHttp, mcpJson, safeMcpError } from './mcp-http';
+import { createMcpService, McpServiceError, type McpActor, type McpOperation } from './mcp-service';
+import { escapeHtml, mcpPage, renderMcpReview } from './mcp-pages';
 
 const GOOGLE_SCOPE = [
     'openid',
@@ -22,7 +27,7 @@ const GENERIC_NOTIFICATION = {
     url: '/?view=now',
 };
 
-interface Env {
+interface Env extends McpAuthEnv {
     USER_VAULTS: DurableObjectNamespace;
     NOTIFICATION_DEVICES: DurableObjectNamespace;
     PUBLIC_ORIGIN: string;
@@ -36,6 +41,7 @@ interface Env {
     VAPID_PRIVATE_KEY: string;
     LOCAL_DEV_EMAIL?: string;
     LOCAL_DEV_TOKEN?: string;
+    MCP_WORKSPACES?: DurableObjectNamespace;
 }
 
 type StoredOAuthState = {
@@ -473,6 +479,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/api/, '') || '/';
 
+    if (path.startsWith('/mcp/proposals/')) return handleMcpProposal(request, env);
+
     if (request.method === 'GET' && (path === '/session' || path === '/google/connect')) {
         return startGoogleOAuth(env, request);
     }
@@ -515,6 +523,114 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
         return deletePushDevice(env, email, request);
     }
     return errorJson('Not found', 404);
+}
+
+const MCP_CSRF_COOKIE = '__Host-attention_mcp_review';
+async function mcpWorkspaceRequest(env: Env, email: string, body: unknown): Promise<Response> {
+    if (!env.MCP_WORKSPACES || env.MCP_ENABLED !== 'true') return mcpJson({ error: 'MCP is not enabled.' }, 404);
+    return env.MCP_WORKSPACES.get(env.MCP_WORKSPACES.idFromName(email)).fetch(new Request('https://mcp.internal/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    }));
+}
+async function handleMcpProposal(request: Request, env: Env): Promise<Response> {
+    const path = new URL(request.url).pathname;
+    const id = path.match(/^\/api\/mcp\/proposals\/([a-f0-9]{64})$/)?.[1];
+    if (!id || env.MCP_ENABLED !== 'true') return mcpPage('未找到预览', '<p>预览不存在或接口尚未启用。</p>', 404);
+    if (!['GET', 'POST'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, POST' } });
+    // Only the owner's browser session can approve. An MCP bearer token cannot pass this check.
+    const email = await authenticatedEmail(request, env);
+    if (!email) {
+        if (request.method === 'POST') return mcpPage('需要登录', '<p>请先登录，再重新打开确认链接。</p>', 403);
+        return new Response(null, { status: 303, headers: { Location: `/api/google/connect?return=${encodeURIComponent(path)}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+    }
+    let command: unknown = { kind: 'review', email, id };
+    if (request.method === 'POST') {
+        if (assertSameOrigin(request, env)) return mcpPage('无法确认', '<p>请从原始确认页面提交。</p>', 403);
+        if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return mcpPage('无法确认', '<p>提交格式不正确。</p>', 415);
+        const form = new URLSearchParams(await boundedBody(request, 4096));
+        const csrf = form.get('csrf');
+        if (!csrf || !/^[A-Za-z0-9_-]{43}$/.test(csrf) || csrf !== requestCookie(request, MCP_CSRF_COOKIE)) return mcpPage('确认已失效', '<p>请刷新预览后再确认。</p>', 403);
+        const decision = form.get('decision');
+        if (decision !== 'approve' && decision !== 'reject') return mcpPage('无法确认', '<p>请选择确认或拒绝。</p>', 400);
+        command = { kind: 'decide', email, id, decision };
+    }
+    const result = await mcpWorkspaceRequest(env, email, command);
+    if (!result.ok) return mcpPage('暂时无法执行', `<p>${escapeHtml((await result.json<{ message?: string }>()).message ?? '请重新打开预览或重新连接。')}</p><p><a href="/api/mcp/connections">管理 AI 连接</a></p>`, result.status);
+    if (request.method === 'POST') {
+        const outcome = await result.json<{ status: string }>();
+        const statusText: Record<string, string> = { applied: '已保存到 Google Drive。打开 PWA 并同步后即可看到。', rejected: '已拒绝，没有修改任务。', conflict: '数据已变化，没有覆盖新内容。请让 AI 生成新的预览。', uncertain: '保存结果尚不能确认。请在聊天中检查操作状态，不要重复创建或批准新操作。' };
+        return mcpPage('操作结果', `<p role="status">${escapeHtml(statusText[outcome.status] ?? '请返回聊天查看操作状态。')}</p><p><a href="/">返回 Attention Planner</a></p>`);
+    }
+    const csrf = randomBase64Url();
+    const response = renderMcpReview(await result.json<McpOperation>(), csrf);
+    response.headers.append('Set-Cookie', `${MCP_CSRF_COOKIE}=${csrf}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=1800`);
+    return response;
+}
+
+/** Per-owner serialization; neither plaintext snapshots nor Google tokens are persisted here. */
+export class McpWorkspace {
+    private pending: Promise<unknown> = Promise.resolve();
+    private minute = 0;
+    private calls = 0;
+    constructor(private readonly state: DurableObjectState, private readonly env: Env) {}
+    async fetch(request: Request): Promise<Response> {
+        const run = this.pending.then(() => this.handle(request));
+        this.pending = run.catch(() => undefined);
+        return run;
+    }
+    private async handle(request: Request): Promise<Response> {
+        try {
+            const minute = Math.floor(Date.now() / 60_000);
+            if (minute !== this.minute) { this.minute = minute; this.calls = 0; }
+            if (++this.calls > 60) throw new McpServiceError('rate_limited', 'Too many task requests. Try again in a minute.', 429);
+            const input = await request.json<{ kind: string; email?: string; actor?: McpActor; name?: string; args?: unknown; id?: string; decision?: 'approve' | 'reject' }>();
+            const email = input.actor?.email ?? input.email;
+            if (!email || email !== normalizeEmail(this.env.ALLOWED_EMAIL)) throw new McpServiceError('forbidden', 'Account is not allowed.', 403);
+            let token: string | undefined;
+            const getToken = async () => {
+                if (token) return token;
+                const response = await issueGoogleAccessToken(this.env, email);
+                if (!response.ok) throw new McpServiceError('google_disconnected', '请先在 Attention Planner 重新连接 Google Drive。', 401);
+                token = (await response.json<{ accessToken: string }>()).accessToken;
+                return token;
+            };
+            const service = createMcpService({
+                origin: this.env.PUBLIC_ORIGIN,
+                grantActive: actor => isMcpGrantActive(this.env, actor as McpAuthContext),
+                read: async () => readMcpSnapshot(await getToken()),
+                write: async (snapshot, data) => writeMcpSnapshot(await getToken(), snapshot, data),
+                store: {
+                    get: async id => {
+                        const stored = await this.state.storage.get<{ encrypted: string; deleteAfter: number }>(`operation:${id}`);
+                        if (!stored || stored.deleteAfter <= Date.now()) return undefined;
+                        return JSON.parse(await decryptText(stored.encrypted, this.env.TOKEN_ENCRYPTION_KEY)) as McpOperation;
+                    },
+                    put: async operation => {
+                        const serialized = JSON.stringify(operation);
+                        if (new TextEncoder().encode(serialized).byteLength > 85_000) throw new McpServiceError('preview_too_large', '这个修改预览过大，请拆成较小修改或在 PWA 中编辑。', 413);
+                        const key = `operation:${operation.id}`;
+                        if (!await this.state.storage.get(key)) {
+                            const existing = await this.state.storage.list({ prefix: 'operation:', limit: 501 });
+                            if (existing.size >= 500) throw new McpServiceError('too_many_operations', '操作记录已满，请稍后再试。', 429);
+                        }
+                        const deleteAfter = Date.parse(operation.createdAt) + 7 * 24 * 60 * 60 * 1000;
+                        await this.state.storage.put(key, { encrypted: await encryptText(serialized, this.env.TOKEN_ENCRYPTION_KEY), deleteAfter });
+                        if (await this.state.storage.getAlarm() === null) await this.state.storage.setAlarm(Date.now() + 60 * 60 * 1000);
+                    },
+                },
+            });
+            if (input.kind === 'tool' && input.actor && input.name) return mcpJson(await service.call(input.actor, input.name, input.args));
+            if (input.kind === 'review' && input.id) return mcpJson(await service.review(email, input.id));
+            if (input.kind === 'decide' && input.id && (input.decision === 'approve' || input.decision === 'reject')) return mcpJson(await service.decide(email, input.id, input.decision));
+            return mcpJson({ error: 'Invalid internal operation.' }, 400);
+        } catch (error) { const safe = safeMcpError(error); return mcpJson(safe, safe.status); }
+    }
+    async alarm(): Promise<void> {
+        const stored = await this.state.storage.list<{ deleteAfter: number }>({ prefix: 'operation:' });
+        const expired = [...stored].filter(([, value]) => value.deleteAfter <= Date.now()).map(([key]) => key);
+        if (expired.length) await this.state.storage.delete(expired);
+        if (stored.size > expired.length) await this.state.storage.setAlarm(Date.now() + 60 * 60 * 1000);
+    }
 }
 
 export class UserVault {
@@ -651,12 +767,23 @@ export class NotificationDevice {
     }
 }
 
+const mcpHandler = createMcpAuthHandler<Env>({
+    authenticatedEmail,
+    handleDefault: handleRequest,
+    handleMcp: (request, env, _ctx, actor) => handleMcpHttp(request, actor, async (identity, name, args) => {
+        const response = await mcpWorkspaceRequest(env, identity.email, { kind: 'tool', actor: identity, name, args });
+        const result = await response.json<{ code?: string; message?: string }>();
+        if (!response.ok) throw new McpServiceError(result.code ?? 'service_error', result.message ?? 'Task service unavailable.', response.status);
+        return result;
+    }, env.PUBLIC_ORIGIN),
+});
 export default {
-    async fetch(request: Request, env: Env): Promise<Response> {
+    async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         try {
-            return await handleRequest(request, env);
-        } catch (error) {
-            console.error('Broker request failed', error instanceof Error ? error.message : 'Unknown error');
+            return await mcpHandler.fetch(request, env, ctx);
+        } catch {
+            // Do not log exception messages: private tool arguments can reach downstream validators.
+            console.error('Broker request failed');
             return errorJson('Request failed', 500);
         }
     },
@@ -671,4 +798,5 @@ export const __brokerTestUtils = {
     sanitizeReturnTo,
     validateReminders,
     validateSubscription,
+    handleMcpProposal,
 };

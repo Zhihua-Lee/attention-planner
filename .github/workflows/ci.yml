@@ -13,6 +13,28 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  sync-broker:
+    runs-on: ubuntu-latest
+    name: Remote MCP and Sync Broker
+    timeout-minutes: 15
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: ".bun-version"
+      - name: Install broker dependencies
+        run: bun install --frozen-lockfile --filter attention-planner-sync-broker --filter @mindwtr/core --ignore-scripts
+      - name: Typecheck broker
+        run: bun run --cwd apps/sync-broker typecheck
+      - name: Test protocol, authorization, approval and concurrency
+        run: bun run --cwd apps/sync-broker test
+      - name: Bundle Worker without deploying
+        run: cd apps/sync-broker && bun run wrangler deploy --dry-run --outdir dist
+
   documentation:
     runs-on: ubuntu-latest
     name: Documentation and Store Metadata

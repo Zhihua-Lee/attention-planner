@@ -2,7 +2,7 @@
 
 本文是 [Attention Planner](https://todo.onthat.top/) 的统一中文手册。它既说明如何使用当前线上版本，也记录最初提出的问题最终如何被实现、替代或保留为后续工作。
 
-Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的个人 PWA 分支。界面中仍有部分位置显示 Mindwtr 名称；本手册只描述 `todo.onthat.top` 已部署并验证的功能，不把设想写成现状。
+Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的个人 PWA 分支。界面中仍有部分位置显示 Mindwtr 名称。手册区分线上用法与待发布能力：新增远程 MCP 已有实现但默认关闭，尚未部署或完成真实客户端联调，不应把下文部署后用法误认为已经上线。
 
 > 这是一套帮助外置记忆、减少选择负担的工具，不是 ADHD 的诊断或治疗。若注意力、睡眠、饮食或日常生活问题持续造成明显影响，应同时考虑寻求专业评估和支持。
 
@@ -17,11 +17,12 @@ Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的
 7. [手机、电脑与 Google Drive 同步](#手机电脑与-google-drive-同步)
 8. [在 iPhone 上安装和启用通知](#在-iphone-上安装和启用通知)
 9. [Outlook 日历导入](#outlook-日历导入)
-10. [数据、隐私与安全边界](#数据隐私与安全边界)
-11. [备份、恢复与更换设备](#备份恢复与更换设备)
-12. [常见问题](#常见问题)
-13. [从最初问题到当前方案](#从最初问题到当前方案)
-14. [当前仍未实现的内容](#当前仍未实现的内容)
+10. [让 AI 读取和起草（远程 MCP）](#让-ai-读取和起草远程-mcp)
+11. [数据、隐私与安全边界](#数据隐私与安全边界)
+12. [备份、恢复与更换设备](#备份恢复与更换设备)
+13. [常见问题](#常见问题)
+14. [从最初问题到当前方案](#从最初问题到当前方案)
+15. [当前仍未实现的内容](#当前仍未实现的内容)
 
 ## 先记住这一条流程
 
@@ -346,7 +347,7 @@ Frame 可以跨午夜，并随 GTD 设置同步到其他设备。
 
 ```text
 电脑浏览器本地数据 ─┐
-                    ├─ Google Drive appDataFolder/data.json
+                    ├─ Google Drive appDataFolder/attention-planner-v2.json
 iPhone PWA 本地数据 ─┘
 ```
 
@@ -374,7 +375,7 @@ PWA 会在以下时机同步：
 
 ### 同步冲突
 
-同步写入会比较远端文件版本和 ETag。两个设备同时修改时，应产生可见冲突，而不是静默覆盖。
+同步写入会比较远端文件版本和 ETag。远程 MCP 对应的待发布 PWA 更新进一步要求强 ETag 和 `If-Match` 条件写入，并拒绝不明确的同名文件；启用 MCP 前，所有常用设备都必须更新。两个设备同时修改时，应产生可见冲突，而不是静默覆盖。
 
 出现冲突时：
 
@@ -413,7 +414,7 @@ PWA 会在以下时机同步：
 - PWA 关闭或锁屏后，服务器仍可发送已登记的 Web Push；
 - iOS 不允许 PWA 在后台任意持续运行；
 - 日历文件更新不等于 PWA 界面会每 30 分钟在后台自动刷新；
-- 服务器只保存推送端点、提醒时间和不可逆 ID，不保存任务标题或正文；
+- 推送子系统只保存推送端点、提醒时间和不可逆 ID，不保存任务标题或正文；可选 MCP 是单独授权的另一条数据路径；
 - 因此锁屏通知使用通用文字，打开应用后再查看具体任务。
 
 ## Outlook 日历导入
@@ -481,6 +482,43 @@ Recurrence
 - 不能把任务写入 Outlook；
 - 目前不是双向同步。
 
+## 让 AI 读取和起草（远程 MCP）
+
+**发布状态：代码已实现，默认关闭；本次尚未部署，ChatGPT、Codex 和真实 Drive 条件写入仍待联调。** 完整连接与验收步骤见 [远程 MCP 手册](./attention-planner-mcp.md)。
+
+启用后，你可以在 ChatGPT 或 Codex 中说：
+
+> 读取“准备 comp”的正文和独立子任务，帮我写一版复习提纲，另存为 Inbox 草稿，不改日期。
+
+或者：
+
+> 把“准备 comp”的正文精简一下，显示修改前后，让我确认再保存。
+
+这是同一个 Todo 系统：MCP server 放在 Cloudflare Worker，数据仍走 Google Drive。PWA 关闭时能读取的是最后同步到 Drive 的状态，不是设备上尚未上传的修改。AI 操作后打开 PWA 同步，才能看到结果；日期变化后，也让常用设备同步并更新提醒登记。
+
+### 哪些操作需要确认
+
+- 查询／读取：授权后可进行；新建独立任务或草稿：直接进入 Inbox。
+- 修改已有标题、正文、普通步骤和独立子任务父子关系：先生成预览。
+- 删除、完成、重新打开、修改日期、安排／移动／取消时间块：同样先询问，不是永久禁用。
+- 对预览打开 `todo.onthat.top/api/mcp/proposals/…`，由你核对并批准或拒绝；AI 不能通过 MCP 工具自行批准。24 小时后预览过期，数据被另一设备修改也可能使旧预览失效。
+
+删除是放入回收站，独立子任务仍保留。完成父任务不会完成子任务；周期任务生成的下一次日期会显示在预览中。重新打开不会静默删除下一次周期任务，也不会自动恢复已取消的时间块。
+
+### 连接和权限边界
+
+ChatGPT 和 Codex 分别连接 `https://todo.onthat.top/api/mcp` 并完成 OAuth。不要给 AI Google token、Google 密码或浏览器 Cookie；具体客户端入口见 [连接手册](./attention-planner-mcp.md)。连接成功还须分别验证网页、桌面和手机使用场景。
+
+第一版以读取为必需权限，新建和提出修改权限可选。**读取权限是任务库级，不是逐任务授权**；“每次只返回需要的字段”不等于 AI 被限制为永远只能读某个任务。如果不接受该 AI 具备查询任务库的权限，第一版不要连接它；目前不支持只创建而不读取。
+
+在 [AI 连接管理](https://todo.onthat.top/api/mcp/connections)撤销一个客户端，不影响其他连接和普通 PWA 同步。撤销有传播延迟，也不能撤回已经进入 AI 对话的内容。
+
+### 排程和隐私要注意什么
+
+第一版不读取 Outlook 导出，安排时间只检查任务时间块；每次确认都提醒你自行核对会议与课程。周期逻辑在远程 UTC 环境运行，带时刻的下一次日期尤其要检查夏令时变化。
+
+Cloudflare 会为安全合并处理整个应用同步快照，并加密暂存涉及任务的操作预览；操作记录七天后不可访问，后台按小时清理。相应 AI 提供商会收到工具结果，其保留和训练政策由具体账号／设置决定，不是本项目能统一保证的。
+
 ## 数据、隐私与安全边界
 
 ### 数据分别存在哪里
@@ -488,11 +526,14 @@ Recurrence
 | 内容 | 主要位置 | Cloudflare 是否接收内容 |
 | --- | --- | --- |
 | 当前设备任务数据 | 浏览器本地存储 | 否 |
-| 跨设备任务同步 | Google Drive 隐藏 `appDataFolder/data.json` | 否 |
+| 跨设备任务同步 | Google Drive 隐藏 `appDataFolder/attention-planner-v2.json` | 普通 PWA 同步不经过 Worker；可选 MCP 另行读取 |
 | Outlook 导出 | Google Drive 私有 `outlook-calendar.json` | 否 |
 | Google 长期授权 | 加密后的刷新令牌，Cloudflare Durable Object | 是，但不含任务或日历内容 |
-| 短时 Google 令牌 | 浏览器内存或会话存储 | Worker 负责换取，但不接收 Drive 文件 |
+| 短时 Google 令牌 | 浏览器内存或会话存储；MCP 执行时的 Worker 内存 | Worker 换取令牌；MCP 使用时会读取应用快照，不把 Google token 给 AI |
 | 推送登记 | 推送端点、提醒时间、不可逆 ID | 是，但不含任务标题或正文 |
+| 可选 MCP 执行 | Worker 请求内存中的完整应用快照 | 是，处理任务、项目及同步设置；不持久保存整库快照 |
+| 可选 MCP 操作记录 | 加密的 Durable Object，七天后不可访问并定期清理 | 是，含涉及任务的必要内容、前后预览和操作状态 |
+| AI 对话中的工具结果 | 实际调用的 AI 提供商 | 经 MCP 返回；保留与训练使用遵循该提供商及账号设置 |
 | PWA 程序文件 | Cloudflare Pages | 只是静态应用壳 |
 
 ### 为什么要使用自有域名
@@ -506,11 +547,12 @@ Google Drive 是跨设备和恢复路径，但本地浏览器仍保存当前工�
 
 ### Cloudflare 托管的风险边界
 
-Cloudflare 能提供 PWA 的 HTML、JavaScript、图标和安全响应头，也能处理 OAuth broker 与推送调度。当前设计通过以下方式缩小风险：
+Cloudflare 能提供 PWA 程序文件，也能处理 OAuth、推送和可选远程 MCP。启用 MCP 后不能再说“Cloudflare 只管授权、不接触正文”。当前设计通过以下方式缩小风险：
 
-- 任务和日历 JSON 由浏览器直接与 Google Drive 交换；
+- 普通同步与日历 JSON 由浏览器直连 Google Drive；远程 MCP 的正文处理单独授权；
 - 单账号登录限制；
 - 刷新令牌应用层加密；
+- MCP 令牌与 Google 令牌分离，修改预览在服务器加密暂存，已有任务写入须浏览器确认；
 - 最小 Google Drive 权限 `drive.appdata` 与 `drive.file`；
 - CSP、禁止 iframe、`nosniff`、no-referrer 和受限浏览器权限；
 - Outlook 导出只含六个展示字段。
@@ -541,11 +583,12 @@ Cloudflare 能提供 PWA 的 HTML、JavaScript、图标和安全响应头，也�
 建议按顺序处理：
 
 1. 导出需要保留的数据；
-2. 关闭 Power Automate 定时流；
-3. 在各设备取消推送订阅；
-4. 在 PWA 断开 Google Drive；
-5. 删除不再需要的 Google 第三方授权和 Power Automate Google Drive 连接；
-6. 最后再删除 `outlook-calendar.json` 或浏览器本地数据。
+2. 如果启用过 MCP，撤销各 AI 连接；需要整体停用时关闭服务开关；
+3. 关闭 Power Automate 定时流；
+4. 在各设备取消推送订阅；
+5. 在 PWA 断开 Google Drive；
+6. 删除不再需要的 Google 第三方授权和 Power Automate Google Drive 连接；
+7. 最后再删除 `outlook-calendar.json` 或浏览器本地数据。撤销连接不会自动删除 AI 对话副本或立即清除未到期的加密操作记录。
 
 ## 常见问题
 
@@ -617,7 +660,8 @@ Power Automate 更新的是 Drive 文件。iOS 不允许关闭的 PWA 每 30 分
 | 公开 Outlook ICS 丢失标题和地点 | 停用旧 ICS，导出最小 JSON 字段 | **已解决正式来源** |
 | 是否能从 PWA 写回 Outlook | 规划过独立日历投影和有限双向模型 | **尚未实现** |
 | PWA 是否必须部署到 VPS | 静态壳部署在 Cloudflare Pages，自有域名提供稳定入口 | **已解决**：不需要 VPS |
-| Cloudflare 会不会保存个人数据 | Pages 只托管静态壳；任务和日历文件由浏览器直连 Drive | **已缩小风险**：broker 仍保存加密刷新令牌和最小推送元数据 |
+| Cloudflare 会不会保存个人数据 | Pages 托管静态壳；普通同步直连 Drive；可选 MCP 在 Worker 处理应用快照并加密暂存操作预览 | **边界已明确**：开启 MCP 会扩大正文处理范围，不等于公开数据，也不能承诺服务端从不接触正文 |
+| 希望在 AI 对话里读任务、打草稿或修改安排 | Cloudflare 远程 MCP 对接同一 Drive 文件；新建进 Inbox，已有内容、删除、完成、日期和排程先询问 | **代码已实现、默认关闭**：ChatGPT／Codex、真实 Drive 条件写入和手机接入仍待发布验收 |
 | 更换 `pages.dev` 地址后本地数据为什么像消失 | 固定使用 `todo.onthat.top`，并用 Google Drive 做跨设备同步 | **已解决入口稳定性** |
 | OneDrive 能否作为个人同步后端 | 先用最小 AppFolder 权限实验，遇到真实 Graph `Access denied` | **未作为生产方案**：没有用更宽权限绕过，改用 Google Drive |
 | Google Drive 是否需要频繁手动授权 | 单账号 broker 加密保存刷新令牌，浏览器自动领取短时令牌 | **已解决长期授权** |
@@ -655,6 +699,7 @@ Power Automate 更新的是 Drive 文件。iOS 不允许关闭的 PWA 每 30 分
 ## 相关文档
 
 - [Attention Planner Alpha：架构、验证和边界](./attention-planner-alpha.md)
+- [远程 MCP：AI 读取、草稿与确认修改](./attention-planner-mcp.md)
 - [Outlook 日历经 Google Drive 导入 PWA](./outlook-google-drive-export.md)
 - [隐私说明](./PRIVACY.md)
 - [线上隐私政策](https://todo.onthat.top/privacy.html)
