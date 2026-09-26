@@ -18,7 +18,7 @@ export function CaptureContentFields({ t, description, checklist, onChange }: {
     const updateSteps = useCallback((_id: string, patch: Partial<Task>) => {
         onChange({ checklist: patch.checklist });
     }, [onChange]);
-    return <TaskContentSection t={t} body={
+    return <TaskContentSection t={t} checklist={checklist} body={
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <label htmlFor={draftId} className="text-xs font-semibold">{t('taskEdit.descriptionLabel')}</label>

@@ -21,7 +21,7 @@ for(const width of [1280,390]){
     await draft.getByRole('button',{name:'Close',exact:true}).click();await page.reload();
     await page.getByTestId('workspace-actions').getByRole('button',{name:/add task/i}).click();
     await expect(draft.getByLabel('What do you need to do?')).toHaveValue('Unfinished draft');
-    await draft.getByText('Content and steps',{exact:true}).click();await expect(draft.getByRole('textbox',{name:'Content',exact:true})).toHaveValue('Do not lose this thought');
+    await expect(draft.getByRole('textbox',{name:'Content',exact:true})).toBeVisible();await expect(draft.getByRole('textbox',{name:'Content',exact:true})).toHaveValue('Do not lose this thought');
     expect(await readTasks(page)).toHaveLength(1);
  });
 }

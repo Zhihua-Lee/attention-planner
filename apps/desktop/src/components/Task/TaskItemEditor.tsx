@@ -9,6 +9,7 @@ import {
     type Project,
     type Section,
     type TaskDraft,
+    type Task,
     type TaskDraftSetter,
     type TaskEditorFieldId,
     type TaskEditorSectionId,
@@ -27,6 +28,7 @@ import { TaskContentSection } from './TaskContentSection';
 interface TaskItemEditorProps {
     t: (key: string) => string;
     draft: TaskDraft;
+    checklist?: Task['checklist'];
     setField: TaskDraftSetter;
     autoFocusTitle?: boolean;
     resetCopilotDraft: () => void;
@@ -108,6 +110,7 @@ function ensureTokenPrefix(value: string, prefix: '@' | '#'): string {
 export function TaskItemEditor({
     t,
     draft,
+    checklist,
     setField,
     autoFocusTitle = false,
     resetCopilotDraft,
@@ -443,7 +446,7 @@ export function TaskItemEditor({
                         </div>
                     )}
                 </div>
-            <TaskContentSection t={t} body={renderField('description')} steps={draft.status !== 'reference' ? renderField('checklist') : undefined} />
+            <TaskContentSection t={t} checklist={checklist} body={renderField('description')} steps={draft.status !== 'reference' ? renderField('checklist') : undefined} />
             {aiEnabled && copilotSuggestion && !copilotApplied && (
                 <button
                     type="button"

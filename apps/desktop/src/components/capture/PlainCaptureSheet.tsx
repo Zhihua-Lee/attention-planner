@@ -35,6 +35,8 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
     const panelRef = useRef<HTMLDivElement>(null);
     const savingRef = useRef(false);
     const [saving, setSaving] = useState(false);
+    const [contentExpanded, setContentExpanded] = useState<boolean | undefined>();
+    useEffect(() => { if (!isOpen) setContentExpanded(undefined); }, [isOpen]);
     // The host stays mounted while closed, so closing never discards a draft or
     // creates a half-filled task. Only a successful capture resets this state.
     const draftKey = 'attention-planner:capture-draft:v2';
@@ -225,8 +227,8 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                             <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><Repeat2 className="h-4 w-4" />{text('Repeat?', '重复（可选）')}<ChevronDown className="ml-auto h-4 w-4" /></summary>
                             <RepeatPicker value={draft.recurrence} onChange={value=>{set('recurrence',value);set('repeat','');}}/>
                         </details>
-                        <details className="rounded-lg border border-border p-3">
-                            <summary className="min-h-11 cursor-pointer content-center text-sm font-medium">{text('Content and steps', '正文、步骤与归属（可选）')}</summary>
+                        <details open={contentExpanded ?? Boolean(draft.description || draft.checklist?.length || initialRequest?.expandContent)} className="rounded-lg border border-border p-3">
+                            <summary onClick={event => { event.preventDefault(); setContentExpanded(!(contentExpanded ?? Boolean(draft.description || draft.checklist?.length || initialRequest?.expandContent))); }} className="min-h-11 cursor-pointer content-center text-sm font-medium">{text('Content and steps', '正文、步骤与归属（可选）')}</summary>
                             <label className="mt-3 block text-sm">{text('Belongs to', '属于哪件事或哪个领域')}
                                 <select value={draft.container} onChange={event => set('container', event.target.value)} className={inputClass}>
                                     <option value="">{text('No assignment needed', '暂不分类')}</option>

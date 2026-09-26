@@ -29,7 +29,7 @@ test('drag nests an independent task, preserves content and timing, and supports
 
 test('parent completion and deletion leave the child visible and independently editable', async ({ page }) => {
     await openApp(page, [task('Parent'), task('Child', { parentTaskId: 'Parent' })]); await inbox(page);
-    await page.locator('[data-task-id="Parent"]').getByRole('button', { name: 'Complete', exact: true }).click();
+    await page.locator('[data-task-id="Parent"]').getByRole('checkbox', { name: 'Complete task', exact: true }).click();
     await expect(page.locator('[data-task-id="Parent"]')).toHaveCount(0);
     await expect(page.locator('[data-task-id="Child"]')).toBeVisible();
     await expect(page.locator('[data-tree-task="Child"]')).toHaveAttribute('data-tree-depth', '0');
@@ -39,8 +39,8 @@ test('parent completion and deletion leave the child visible and independently e
     await expect(detail.getByRole('heading', { name: 'Child', exact: true })).toBeVisible();
     await detail.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
-    const row = page.locator('[data-task-id="Parent"]'); await row.getByRole('button', { name: 'More options' }).click();
-    await row.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    const row = page.locator('[data-task-id="Parent"]');
+    await row.getByRole('button', { name: 'Delete task', exact: true }).click();
     await expect(page.locator('[data-task-id="Child"]')).toBeVisible();
     expect((await readTasks(page)).find((item: { id: string }) => item.id === 'Child').deletedAt).toBeUndefined();
 });

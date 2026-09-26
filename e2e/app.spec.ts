@@ -22,13 +22,7 @@ const createInboxTask = async (page: import('@playwright/test').Page, title: str
 
 const deleteInboxTask = async (page: import('@playwright/test').Page, title: string) => {
     const taskItem = page.locator('[data-task-id]', { hasText: title });
-    await taskItem.hover();
-    await taskItem.getByRole('button', { name: /more options/i }).click();
-    await page.getByRole('menu', { name: /more options/i }).getByRole('menuitem', { name: /^delete$/i }).click();
-    const confirmDialog = page.getByRole('dialog');
-    if (await confirmDialog.isVisible().catch(() => false)) {
-        await confirmDialog.getByRole('button', { name: /^delete$/i }).click();
-    }
+    await taskItem.getByRole('button', { name: 'Delete task', exact: true }).click();
     await expect(taskItem).toHaveCount(0);
 };
 

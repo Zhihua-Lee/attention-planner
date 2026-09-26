@@ -1218,6 +1218,7 @@ export const TaskItem = memo(function TaskItem({
         <TaskItemEditor
             t={t}
             draft={draft}
+            checklist={task.checklist}
             setField={setField}
             autoFocusTitle={autoFocusTitle}
             resetCopilotDraft={resetCopilotDraft}
