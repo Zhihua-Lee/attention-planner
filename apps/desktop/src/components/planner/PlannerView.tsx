@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TaskHierarchyDrag, TaskTreeList } from './TaskTreeList';
+import { PlannerTaskCard } from './PlannerTaskCard';
 import { isInputComposition } from '../../lib/input-method';
 import { Plus } from 'lucide-react';
 import { activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
@@ -114,26 +115,7 @@ export function PlannerView({
       expandContent: !!quick
     }
   }));
-  const row = (task: Task) => <article key={task.id} data-task-id={task.id} className="rounded-lg border border-border bg-card p-3">
-        <button className="min-h-11 w-full break-words pr-12 text-left text-sm font-medium hover:text-primary" onClick={() => openTaskDetails(task.id)}>{task.title}</button>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{task.availableAt && <span>{l('Available', '可做起始')} {task.availableAt}</span>}{task.dueDate && <span>{l('Due', '截止')} {task.dueDate}</span>}{policy.executionBlock(task) && task.status !== 'inbox' && <span>{l('Not executable yet; plan kept', '目前不可执行，计划保留')}</span>}</div>
-        <div className="mt-2 flex flex-wrap gap-2">{task.status === 'inbox' && <button className={button} onClick={() => run(() => editTask(task.id, () => ({
-        status: 'next'
-      })))}>{l('Ready to plan', '已想清楚，加入待办')}</button>}
-            {task.status !== 'done' && <button className={button} onClick={() => run(async () => {
-        if (!(await completeTaskWithUndo(task.id, t))) throw new Error(l('Could not save completion.', '未能保存完成操作。'));
-      })}>{l('Complete', '完成')}</button>}
-            {task.status === 'done' && <button className={button} onClick={() => run(() => editTask(task.id, () => ({
-        status: 'next'
-      })))}>{l('Reopen', '重新打开')}</button>}
-            <button className={button} onClick={() => openTaskDetails(task.id)}>{l('Details / arrange', '详情／安排')}</button>
-            <details className="relative"><summary className={`${button} cursor-pointer`} role="button" aria-label={l('More options', '更多操作')}>{l('More', '更多')}</summary><div role="menu" aria-label={l('More options', '更多操作')} className="absolute right-0 z-30 min-w-36 rounded border border-border bg-card p-2 shadow-lg"><button role="menuitem" className={button} onClick={() => run(async () => {
-            const result = await useTaskStore.getState().deleteTask(task.id);
-            if (!result.success) throw new Error(result.error);
-            await flushPendingSave();
-            useUiStore.getState().showToast(l('Moved to Trash', '已移到回收站'), 'info');
-          })}>{l('Delete', '删除')}</button></div></details>
-        </div></article>;
+  const row = (task: Task) => <PlannerTaskCard key={task.id} task={task} blocked={Boolean(policy.executionBlock(task))} />;
   const projection = tasks.filter(visibleInArea).map(task => ({
     ...task,
     areaId: task.areaId || projects.find(p => p.id === task.projectId)?.areaId,
@@ -172,10 +154,10 @@ export function PlannerView({
         }[mode]}</h1>{mode !== 'now' && isFocusMode && <button className={button} onClick={() => capture()}><Plus className="mr-1 inline h-4 w-4" />{l('Add task', '添加任务')}</button>}</header>
         {error && <p role="alert" className="rounded border border-destructive p-3 text-sm text-destructive">{error}</p>}
         {(mode === 'calendar' || mode === 'day' || mode === 'now') && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{!loaded ? l('Loading calendars…', '正在读取日历…') : calendarError ? l('Calendar unavailable; automatic moves are paused.', '日历读取失败，已暂停自动移动。') : l('Calendar constraints loaded', '已读取日历约束')}</span><button className="min-h-11 px-2 underline" onClick={refresh}>{l('Refresh', '刷新')}</button>{calendarError && <details><summary>{l('Details', '详情')}</summary>{calendarError}</details>}</div>}
-        {mode === 'inbox' && <><p className="text-sm text-muted-foreground">{l('Write it down first. Organize or schedule only when you need to.', '先写下来。需要的时候再整理或安排，不必先决定分类。')}</p><form className="flex gap-2" onSubmit={e => {
+        {mode === 'inbox' && <><p className="text-sm text-muted-foreground">{l('Write it down first. Organize or schedule only when you need to.', '先写下来。需要的时候再整理或安排，不必先决定分类。')}</p><form className="flex flex-wrap gap-2" onSubmit={e => {
         e.preventDefault();
         void create();
-      }}><input className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3" aria-label={l('Add task', '添加任务')} placeholder={l('Add task…', '记一件事…')} value={quick} onChange={e => setQuick(e.target.value)} onKeyDown={e => {
+      }}><input className="min-h-11 min-w-0 basis-full sm:basis-0 flex-1 rounded-lg border border-border bg-card px-3" aria-label={l('Add task', '添加任务')} placeholder={l('Add task…', '记一件事…')} value={quick} onChange={e => setQuick(e.target.value)} onKeyDown={e => {
           if (isInputComposition(e.nativeEvent) && e.key === 'Enter') e.preventDefault();
         }} /><button className={button} disabled={saving || !quick.trim()}>{l('Save', '保存')}</button><button className={button} type="button" onClick={() => capture()}>{l('Content and steps', '补充内容与安排')}</button></form><TaskTreeList tasks={inbox} render={row} listId="inbox" />{!inbox.length && <p className="text-sm text-muted-foreground">{l('Nothing waiting to be clarified.', '没有待整理事项。')}</p>}</>}
         {mode === 'now' && <><section className="space-y-4 rounded-xl border border-border bg-card p-5" data-testid="now-card" aria-label={l('Current action', '当前行动')}>

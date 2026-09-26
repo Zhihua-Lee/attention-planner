@@ -1,0 +1,61 @@
+import { expect, test } from '@playwright/test';
+import { DATA_KEY, inbox, openApp, openTask, readTasks } from './planner-helpers';
+
+for (const width of [1280, 390]) {
+    test(`task cards support round trips, completion and deletion recovery at ${width}px`, async ({ page }, info) => {
+        await page.setViewportSize({ width, height: 844 });
+        await page.clock.install({ time: new Date('2026-09-25T14:00:00Z') });
+        const title = 'Prepare a long research report with several independent steps 准备研究报告';
+        await openApp(page, [{ id: 'card', title, status: 'inbox', description: 'Keep this body', dueDate: '2040-01-05', tags: [], contexts: [], createdAt: '2026-01-01T09:00:00Z', updatedAt: '2026-01-01T09:00:00Z', checklist: [{ id: 'step', title: 'Read notes', isCompleted: false }] }]);
+        await inbox(page);
+        const card = page.locator('[data-task-id="card"]');
+        await expect(card.getByRole('button', { name: 'More options' })).toHaveCount(0);
+        await expect(card.getByRole('button', { name: 'Details / arrange' })).toHaveCount(0);
+        await expect(card).toContainText('Steps 0/1');
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        const checkbox = card.getByRole('checkbox', { name: 'Complete task', exact: true });
+        expect((await checkbox.locator('..').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        await page.screenshot({ path: info.outputPath('task-card.png'), fullPage: true });
+        await card.getByRole('button', { name: 'Ready to plan', exact: true }).click();
+        await expect(card).toHaveCount(0);
+        await page.locator('[data-sidebar-item][data-view="plan"]').click();
+        await card.getByRole('button', { name: 'Move to Inbox', exact: true }).click();
+        await inbox(page); await expect(card).toBeVisible();
+        expect((await readTasks(page))[0]).toMatchObject({ status: 'inbox', description: 'Keep this body', dueDate: '2040-01-05' });
+        await checkbox.click(); await expect(card).toHaveCount(0);
+        await page.getByRole('status').filter({ hasText: 'marked Done' }).getByRole('button', { name: 'Undo', exact: true }).click(); await expect(card).toBeVisible();
+        await card.getByRole('button', { name: 'Delete task', exact: true }).click(); await expect(card).toHaveCount(0);
+        await page.getByRole('status').filter({ hasText: 'Moved to Trash' }).getByRole('button', { name: 'Undo', exact: true }).click(); await expect(card).toBeVisible();
+        const detail = await openTask(page, title);
+        await detail.getByRole('button', { name: 'Edit content', exact: true }).click();
+        await expect(detail.getByPlaceholder('Item name', { exact: true })).toBeVisible();
+        await detail.locator('summary').filter({ hasText: 'Checklist' }).click();
+        await detail.getByRole('textbox', { name: 'Content', exact: true }).fill('Edited body');
+        await expect(detail.getByPlaceholder('Item name', { exact: true })).not.toBeVisible();
+        await detail.getByRole('button', { name: 'Save changes', exact: true }).click();
+        await detail.getByRole('button', { name: 'Add to this day', exact: true }).click();
+        await detail.getByRole('button', { name: 'Reserve a work block', exact: true }).click();
+        await detail.getByLabel('Start time', { exact: true }).fill('2026-09-27T10:00');
+        await detail.getByRole('button', { name: 'Save reservation', exact: true }).click();
+        await expect(detail.getByLabel('Start time', { exact: true })).toHaveCount(0);
+        const planned = (await readTasks(page))[0].planner;
+        expect(planned.blocks).toHaveLength(1);
+        await detail.getByRole('button', { name: 'Move to Inbox', exact: true }).click();
+        const returned = (await readTasks(page))[0].planner;
+        expect(returned.days).toEqual(planned.days);
+        expect(returned.blocks).toEqual(planned.blocks);
+        await detail.getByRole('button', { name: 'Back', exact: true }).click();
+        await page.reload(); await inbox(page); await expect(card).toBeVisible();
+        expect((await readTasks(page))[0].checklist).toHaveLength(1);
+        await page.evaluate(key => {
+            const data = JSON.parse(localStorage.getItem(key)!);
+            data.settings = { ...data.settings, language: 'zh', theme: 'dark' };
+            localStorage.setItem(key, JSON.stringify(data));
+        }, DATA_KEY);
+        await page.reload(); await inbox(page);
+        await expect(card.getByRole('checkbox', { name: '完成任务', exact: true })).toBeVisible();
+        await expect(card.getByRole('button', { name: '加入待办', exact: true })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: info.outputPath('task-card-dark-zh.png'), fullPage: true });
+    });
+}

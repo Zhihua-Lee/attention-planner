@@ -4,6 +4,7 @@ import { flushPendingSave, changeWork, commitToDay, contentDraftPatch, createNex
 import { useLanguage } from '../../contexts/language-context';
 import { checkReservation, editTask, setCurrentWork, TASK_OPEN_EVENT } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
+import { returnTaskToInbox } from '../../lib/return-task-to-inbox';
 import { useUiStore } from '../../store/ui-store';
 import { ModalPortal } from '../ModalPortal';
 import { CaptureContentFields } from '../Task/CaptureContentFields';
@@ -323,6 +324,7 @@ function TaskDetail({
                   setDraft(structuredClone(task));
                 }}>{l('Edit content', '编辑内容')}</button>
                 {task.status === 'inbox' && <button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, () => ({ status: 'next' })), l('Ready to plan. No date is required.', '已加入待办，不必现在指定日期。'))}>{l('Ready to plan', '加入待办')}</button>}
+                {!closed && task.status !== 'inbox' && <button className={button} disabled={busy} onClick={() => run(() => returnTaskToInbox(task.id, zh))}>{l('Move to Inbox', '移回收集箱')}</button>}
                 {!closed && <><button className={button} disabled={busy || !!reason} onClick={() => setCurrentWork(task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} disabled={busy} onClick={() => run(async () => {
                     if (!(await completeTaskWithUndo(task.id, t))) throw new Error(l('Completion failed.', '完成操作未保存。'));
                     setCurrentWork(null);
