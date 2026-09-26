@@ -69,7 +69,7 @@ PWA 在打开 Calendar、回到前台或手动刷新时从 Google Drive 直接�
 - 修改已有正文、标题、清单、父子关系，以及删除、完成、重新打开、修改日期和时间块，都先产生预览，由账号所有者在浏览器确认后执行。
 - 读取权限覆盖可查询的整个任务库，不是逐任务授权；工具按需返回字段，不返回设置、附件或 Outlook 导出。Cloudflare 为安全合并会在请求期间处理完整应用同步快照。
 - PWA 关闭时也可操作 Drive 上最后同步的内容，但看不到设备尚未同步的修改；重新打开 PWA 后同步查看结果。
-- 本次代码默认 `MCP_ENABLED=false`，尚未部署或完成真实 ChatGPT／Codex、Google Drive 条件写入联调。启用步骤、权限和限制见 [远程 MCP 手册](./docs/attention-planner-mcp.md)。
+- 远程 MCP 默认 `MCP_ENABLED=false`；部署不等于启用，需完成生产配置及真实 ChatGPT／Codex、Google Drive 条件写入验收。启用步骤、权限和限制见 [远程 MCP 手册](./docs/attention-planner-mcp.md)。
 
 ### 当前边界
 

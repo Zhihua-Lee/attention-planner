@@ -1,4 +1,4 @@
-const CACHE_NAME = 'attention-planner-pwa-v6';
+const CACHE_NAME = 'attention-planner-pwa-v7';
 const PRECACHE_URLS = ['/', '/index.html', '/manifest.webmanifest', '/icon.png', '/logo.png'];
 const STATIC_DESTINATIONS = new Set(['script', 'style', 'image', 'font', 'manifest', 'worker']);
 
@@ -33,6 +33,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // OAuth, owner-only approval pages and API responses must never enter the
+  // offline shell cache, including top-level GET navigations to these routes.
+  if (url.pathname === '/api' || url.pathname.startsWith('/api/')
+    || url.pathname === '/.well-known' || url.pathname.startsWith('/.well-known/')) return;
 
   // OAuth responses contain one-time authorization material in the URL and
   // must be handled only by MSAL's dedicated, non-cacheable redirect bridge.

@@ -2,7 +2,7 @@
 
 本文是 [Attention Planner](https://todo.onthat.top/) 的统一中文手册。它既说明如何使用当前线上版本，也记录最初提出的问题最终如何被实现、替代或保留为后续工作。
 
-Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的个人 PWA 分支。界面中仍有部分位置显示 Mindwtr 名称。手册区分线上用法与待发布能力：新增远程 MCP 已有实现但默认关闭，尚未部署或完成真实客户端联调，不应把下文部署后用法误认为已经上线。
+Attention Planner 是基于 [Mindwtr](https://github.com/dongdongbh/Mindwtr) 的个人 PWA 分支。界面中仍有部分位置显示 Mindwtr 名称。手册区分线上用法与待启用能力：远程 MCP 默认关闭，部署后仍需完成生产配置及真实客户端联调，不应把下文连接步骤误认为线上已经开放。
 
 > 这是一套帮助外置记忆、减少选择负担的工具，不是 ADHD 的诊断或治疗。若注意力、睡眠、饮食或日常生活问题持续造成明显影响，应同时考虑寻求专业评估和支持。
 
@@ -484,7 +484,7 @@ Recurrence
 
 ## 让 AI 读取和起草（远程 MCP）
 
-**发布状态：代码已实现，默认关闭；本次尚未部署，ChatGPT、Codex 和真实 Drive 条件写入仍待联调。** 完整连接与验收步骤见 [远程 MCP 手册](./attention-planner-mcp.md)。
+**启用条件：远程 MCP 默认关闭；生产配置、ChatGPT／Codex 和真实 Drive 条件写入验收完成后才能使用。** 完整连接与验收步骤见 [远程 MCP 手册](./attention-planner-mcp.md)。
 
 启用后，你可以在 ChatGPT 或 Codex 中说：
 
@@ -667,7 +667,7 @@ Power Automate 更新的是 Drive 文件。iOS 不允许关闭的 PWA 每 30 分
 | Google Drive 是否需要频繁手动授权 | 单账号 broker 加密保存刷新令牌，浏览器自动领取短时令牌 | **已解决长期授权** |
 | iPhone PWA 关闭后是否完全没有通知 | Cloudflare Worker + Web Push 保存最小提醒调度信息 | **已实现**：每台设备需启用；iOS 仍限制任意后台执行 |
 | Outlook 与 Google Drive 必须使用同一账号吗 | 学校 Outlook 由 Power Automate 读取，个人 Google Drive 保存私有导出 | **不需要同一账号** |
-| 源码应放在哪里，是否长期留在本地 | GitHub 是版本和部署真相；只在需要时临时检出并在验证后删除 | **已采用** |
+| 源码应放在哪里，是否长期留在本地 | GitHub 是版本和部署真相；经用户更新确认，本地开发检出保留在 D 盘，不再自动清理 | **已采用** |
 | 没有统一教程，配置和日常使用割裂 | 本手册统一使用、同步、通知、Outlook、隐私和项目演变 | **本次解决** |
 
 ### 最初产品思想保留了什么
