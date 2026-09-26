@@ -1,5 +1,5 @@
 > [!NOTE]
-> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds attention frames and NOW selection, Google Drive synchronization, read-only Outlook calendar adapters, a single-account Google-authenticated long-lived OAuth broker, and privacy-preserving Web Push reminders. See the public [privacy policy](https://todo.onthat.top/privacy.html) and [`apps/sync-broker`](./apps/sync-broker) for the server design. Task and exported calendar JSON travel directly between the PWA and Google Drive; the broker stores no task or calendar content.
+> This repository hosts the **Attention Planner** personal PWA fork at [todo.onthat.top](https://todo.onthat.top). It adds NOW/Inbox/Plan, Google Drive synchronization, read-only Outlook adapters, Google OAuth and Web Push. Ordinary PWA synchronization exchanges JSON directly with Drive. An **optional, disabled-by-default remote MCP service** lets AI clients work with the same task data; when enabled, its Cloudflare Worker processes the application snapshot and temporarily stores encrypted operation previews. See the [privacy policy source](./apps/desktop/public/privacy.html), [MCP guide](./docs/attention-planner-mcp.md) and [broker design](./apps/sync-broker). This code change does not establish a live MCP deployment.
 >
 > 本仓库是 **Attention Planner** 个人 PWA 分支。上游项目为 [dongdongbh/Mindwtr](https://github.com/dongdongbh/Mindwtr)，本分支继续采用 AGPL-3.0。
 
@@ -16,7 +16,7 @@
 1. 打开 [todo.onthat.top](https://todo.onthat.top)。应用可以离线使用，未连接云端时数据只保存在当前浏览器的本地存储中。
 2. 前往「设置 → 同步」，选择 **Google Drive** 并连接获准的 Google 账号。
 3. 页面显示“已长期授权”后，短时访问令牌会自动刷新；应用启动、回到前台、数据变化或手动点击“立即同步”时会同步。
-4. 任务数据写入 Google Drive 隐藏的 `appDataFolder`，不会出现在普通 Drive 文件列表中。PWA 直接读写任务 JSON，Cloudflare Worker 不接收任务标题、描述或笔记。
+4. 任务数据写入 Google Drive 隐藏的 `appDataFolder/attention-planner-v2.json`，不会出现在普通 Drive 文件列表中。普通 PWA 同步由浏览器直接读写；可选远程 MCP 是另一条经明确授权、由 Cloudflare 服务处理正文的数据路径。
 
 Google Drive 同步与 Outlook 日历是两套相互独立的连接，可以分别使用个人 Google 账号和学校 Microsoft 账号。长期授权表示通常不必反复手动登录，不表示 iOS 会允许 PWA 在后台持续运行。
 
@@ -43,7 +43,7 @@ Google Drive 同步与 Outlook 日历是两套相互独立的连接，可以分�
 4. 查询建议为过去 30 天至未来 365 天，每 30 分钟运行一次。`Select` 只输出 `id`、`title`、`start`、`end`、`location`、`allDay`；开始/结束应使用带时区的输出。
 5. `Update file` 选择 `outlook-calendar.json`，内容选择 `Select` 的输出。不要创建共享链接，也不要导出正文、参会者、会议链接或组织者。
 
-PWA 在打开 Calendar、回到前台或手动刷新时从 Google Drive 直接读取该文件。Cloudflare Worker 只负责 Google OAuth 与短时令牌，不接收日历文件。Power Automate 的 Google Drive 连接由 Microsoft 管理，权限范围比 PWA 的 `drive.file` 更宽，因此该连接只应保留在受信任的个人账号并定期检查。
+PWA 在打开 Calendar、回到前台或手动刷新时从 Google Drive 直接读取该文件。此日历路径的 Worker 只负责 Google OAuth 与短时令牌，不接收该日历文件；远程 MCP 也不读取此导出。Power Automate 的 Google Drive 连接由 Microsoft 管理，权限范围比 PWA 的 `drive.file` 更宽，因此该连接只应保留在受信任的个人账号并定期检查。
 
 完整、可复现的 Power Automate 字段映射、验证步骤、安全边界和故障排查见 [`docs/outlook-google-drive-export.md`](./docs/outlook-google-drive-export.md)。
 
@@ -61,12 +61,22 @@ PWA 在打开 Calendar、回到前台或手动刷新时从 Google Drive 直接�
 
 学校 Microsoft 365 租户可能禁止用户自行授权第三方应用。如果出现 `Need admin approval`，需要学校管理员批准；此时使用上面的 Power Automate 私有 Drive 导出方案。公开 ICS 可能把所有受保护事件显示成 `Private Appointment`，不适合作为正式来源。计划中的“将任务时间块写入独立 Outlook 日历”和有限双向修改尚未实现。
 
+### AI 读取与草稿（远程 MCP，默认关闭）
+
+目标入口是 ChatGPT 和 Codex，共用 `https://todo.onthat.top/api/mcp`；服务运行在 Cloudflare Worker，任务仍以 Google Drive 为跨设备数据源。仓库中的旧 `apps/mcp-server` 连接本地数据库或 Mindwtr Cloud，不等于已经连接本 PWA。
+
+- 第一版连接必须授权任务库读取，新建和提议权限可选；新建任务／草稿默认直接进入 Inbox。
+- 修改已有正文、标题、清单、父子关系，以及删除、完成、重新打开、修改日期和时间块，都先产生预览，由账号所有者在浏览器确认后执行。
+- 读取权限覆盖可查询的整个任务库，不是逐任务授权；工具按需返回字段，不返回设置、附件或 Outlook 导出。Cloudflare 为安全合并会在请求期间处理完整应用同步快照。
+- PWA 关闭时也可操作 Drive 上最后同步的内容，但看不到设备尚未同步的修改；重新打开 PWA 后同步查看结果。
+- 本次代码默认 `MCP_ENABLED=false`，尚未部署或完成真实 ChatGPT／Codex、Google Drive 条件写入联调。启用步骤、权限和限制见 [远程 MCP 手册](./docs/attention-planner-mcp.md)。
+
 ### 当前边界
 
 - Google Drive：已部署并在线验证长期授权与同步。
 - Outlook：支持直接 Graph 只读适配器，以及学校租户受限时的 Power Automate → 私人 Google Drive 只读导出；写入和双向同步未实现。
 - iPhone：可安装 PWA、离线使用和接收 Web Push；实际推送权限必须在 iPhone 上由用户授予并逐设备测试。
-- 源码与部署：GitHub 是版本真相；Cloudflare Pages 托管无数据的 PWA 静态壳，Worker 只处理登录、短时令牌和不含任务内容的提醒调度元数据。
+- 源码与部署：GitHub 是版本真相；Cloudflare Pages 托管 PWA 静态壳。普通授权和推送不上传正文；启用远程 MCP 后，Worker 额外处理应用数据并加密暂存操作预览，相应 AI 提供商会收到工具返回的内容。
 
 <div align="center">
 
