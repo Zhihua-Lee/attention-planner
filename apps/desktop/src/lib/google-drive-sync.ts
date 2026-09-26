@@ -15,6 +15,8 @@ const GOOGLE_DRIVE_SCOPE = [
 ].join(' ');
 const DRIVE_API_ROOT = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v3';
+const DRIVE_CONDITIONAL_API_ROOT = 'https://www.googleapis.com/drive/v2';
+const DRIVE_CONDITIONAL_UPLOAD_ROOT = 'https://www.googleapis.com/upload/drive/v2';
 const DATA_FILE_NAME = 'attention-planner-v2.json';
 const TOKEN_EXPIRY_SKEW_MS = 30_000;
 const DEFAULT_CLIENT_ID = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
@@ -74,6 +76,7 @@ type StoredToken = {
 
 type DriveFileMetadata = {
     id?: string;
+    etag?: string;
     md5Checksum?: string;
     modifiedTime?: string;
     name?: string;
@@ -332,7 +335,7 @@ function escapeDriveQueryString(value: string): string {
 
 async function listDataFiles(): Promise<DriveFileMetadata[]> {
     const params = new URLSearchParams({
-        fields: 'files(id,name,version,modifiedTime,md5Checksum)',
+        fields: 'files(id,name,version,modifiedTime,md5Checksum),nextPageToken,incompleteSearch',
         orderBy: 'modifiedTime desc',
         pageSize: '10',
         q: `name = '${escapeDriveQueryString(DATA_FILE_NAME)}' and trashed = false`,
@@ -340,12 +343,24 @@ async function listDataFiles(): Promise<DriveFileMetadata[]> {
     });
     const response = await googleDriveFetch(`${DRIVE_API_ROOT}/files?${params}`);
     if (!response.ok) throw await parseGoogleApiError(response, `Google Drive file lookup failed (${response.status}).`);
-    const payload = await response.json() as { files?: DriveFileMetadata[] };
-    const files = Array.isArray(payload.files) ? payload.files.filter((file) => file.id) : [];
-    if (files.length > 1) {
-        throw new Error('Google Drive contains multiple app sync files. Sync stopped to avoid choosing the wrong copy.');
+    const payload = await response.json() as {
+        files?: DriveFileMetadata[];
+        nextPageToken?: unknown;
+        incompleteSearch?: unknown;
+    } | null;
+    if (!payload || !Array.isArray(payload.files)
+        || (payload.nextPageToken !== undefined && typeof payload.nextPageToken !== 'string')
+        || (payload.incompleteSearch !== undefined && typeof payload.incompleteSearch !== 'boolean')) {
+        throw new Error('Google Drive returned an invalid app sync file list.');
     }
-    return files;
+    if (payload.files.length > 1 || payload.nextPageToken || payload.incompleteSearch) {
+        throw new Error('Google Drive returned multiple or incomplete app sync files. Sync stopped to avoid choosing the wrong copy.');
+    }
+    if (payload.files.some(file => !file || typeof file.id !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(file.id)
+        || file.name !== DATA_FILE_NAME || typeof file.version !== 'string' || !/^\d{1,30}$/.test(file.version))) {
+        throw new Error('Google Drive returned invalid app sync file metadata.');
+    }
+    return payload.files;
 }
 
 async function readMetadata(): Promise<DriveFileMetadata | null> {
@@ -356,12 +371,19 @@ export async function downloadGoogleDriveAppData(): Promise<GoogleDriveDownloadR
     const metadata = await readMetadata();
     if (!metadata?.id) return { data: null, revision: null };
     const response = await googleDriveFetch(`${DRIVE_API_ROOT}/files/${encodeURIComponent(metadata.id)}?alt=media`);
+    if (response.status === 404) throw new GoogleDriveConflictError();
     if (!response.ok) throw await parseGoogleApiError(response, `Google Drive download failed (${response.status}).`);
+    let data: AppData;
     try {
-        return { data: await response.json() as AppData, revision: metadata.version ?? null };
+        data = await response.json() as AppData;
     } catch {
         throw new Error('Invalid Google Drive sync data: the remote file is not valid JSON.');
     }
+    // A media download and its earlier list result are separate requests. Do not
+    // attach an old version to newer content (or upload a merge based on that pair).
+    const after = await readMetadata();
+    if (after?.id !== metadata.id || after.version !== metadata.version) throw new GoogleDriveConflictError();
+    return { data, revision: metadata.version ?? null };
 }
 
 function createMultipartBody(data: AppData): { body: Blob; contentType: string } {
@@ -402,26 +424,36 @@ async function updateDataFile(
     if (!metadata?.id || metadata.version !== expectedRevision) throw new GoogleDriveConflictError();
 
     const metadataResponse = await googleDriveFetch(
-        `${DRIVE_API_ROOT}/files/${encodeURIComponent(metadata.id)}?fields=id,version`,
+        `${DRIVE_CONDITIONAL_API_ROOT}/files/${encodeURIComponent(metadata.id)}?fields=id,version,etag`,
     );
     if (metadataResponse.status === 404) throw new GoogleDriveConflictError();
     if (!metadataResponse.ok) {
         throw await parseGoogleApiError(metadataResponse, `Google Drive metadata request failed (${metadataResponse.status}).`);
     }
     const freshMetadata = await metadataResponse.json() as DriveFileMetadata;
-    if (freshMetadata.version !== expectedRevision) throw new GoogleDriveConflictError();
+    if (freshMetadata?.id !== metadata.id || freshMetadata.version !== expectedRevision) throw new GoogleDriveConflictError();
 
     const headers = new Headers({ 'Content-Type': 'application/json' });
-    const eTag = metadataResponse.headers.get('etag');
-    if (eTag) headers.set('If-Match', eTag);
+    // v2 exposes the file's ETag in JSON. Its matching v2 media endpoint must
+    // enforce the precondition even when another client writes after this read.
+    // Never substitute a v3 response-header ETag or fall back to a blind upload.
+    const eTag = freshMetadata.etag;
+    if (typeof eTag !== 'string' || !/^"[\x21\x23-\x7e]{1,512}"$/.test(eTag)) {
+        throw new Error('Google Drive did not provide a strong file ETag. Sync stopped without uploading data.');
+    }
+    headers.set('If-Match', eTag);
     const response = await googleDriveFetch(
-        `${DRIVE_UPLOAD_ROOT}/files/${encodeURIComponent(metadata.id)}?uploadType=media&fields=id,version`,
-        { body: JSON.stringify(data), headers, method: 'PATCH' },
+        `${DRIVE_CONDITIONAL_UPLOAD_ROOT}/files/${encodeURIComponent(metadata.id)}?uploadType=media&fields=id,version`,
+        { body: JSON.stringify(data), headers, method: 'PUT' },
     );
     if (response.status === 409 || response.status === 412) throw new GoogleDriveConflictError();
     if (!response.ok) throw await parseGoogleApiError(response, `Google Drive upload failed (${response.status}).`);
     const updated = await response.json() as DriveFileMetadata;
-    return { revision: updated.version ?? null };
+    if (updated?.id !== metadata.id || typeof updated.version !== 'string' || !/^\d{1,30}$/.test(updated.version)
+        || BigInt(updated.version) <= BigInt(expectedRevision)) {
+        throw new Error('Google Drive returned an invalid upload result. Sync again to verify the remote data.');
+    }
+    return { revision: updated.version };
 }
 
 export async function uploadGoogleDriveAppData(

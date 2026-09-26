@@ -3,11 +3,15 @@
   "name": "attention-planner-broker",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-23",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": true,
   "routes": [
     {
       "pattern": "todo.onthat.top/api/*",
+      "zone_name": "onthat.top"
+    },
+    {
+      "pattern": "todo.onthat.top/.well-known/oauth-*",
       "zone_name": "onthat.top"
     }
   ],
@@ -20,6 +24,10 @@
       {
         "name": "NOTIFICATION_DEVICES",
         "class_name": "NotificationDevice"
+      },
+      {
+        "name": "MCP_WORKSPACES",
+        "class_name": "McpWorkspace"
       }
     ]
   },
@@ -27,14 +35,19 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["UserVault", "NotificationDevice"]
+    },
+    {
+      "tag": "v2-mcp",
+      "new_sqlite_classes": ["McpWorkspace"]
     }
   ],
   "vars": {
+    "MCP_ENABLED": "false",
     "PUBLIC_ORIGIN": "https://todo.onthat.top",
     "GOOGLE_REDIRECT_URI": "https://todo.onthat.top/api/google/callback",
     "VAPID_SUBJECT": "https://todo.onthat.top/privacy.html"
   },
   "observability": {
-    "enabled": true
+    "enabled": false
   }
 }

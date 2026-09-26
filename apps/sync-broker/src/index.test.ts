@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// These are broker utility tests. The actual OAuth provider runs in workerd integration tests.
+vi.mock('./mcp-auth', () => ({ createMcpAuthHandler: (handlers: { handleDefault: unknown }) => ({ fetch: handlers.handleDefault }), isMcpGrantActive: () => false }));
 
 import { __brokerTestUtils } from './index';
 
