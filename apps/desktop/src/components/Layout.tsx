@@ -24,14 +24,14 @@ export function Layout(props: LayoutProps) {
     const isFocusMode = useUiStore(state => state.isFocusMode);
     return <PlannerEnvironment><TaskDetailLauncher.Provider value={openTaskDetails}>
         <LegacyLayout {...props}>
-            {!isFocusMode && <div className="sticky top-0 z-20 mb-4 flex items-center justify-between gap-3 border-b border-border bg-background py-2" data-testid="workspace-actions">
+            {!isFocusMode && <div className="sticky top-0 z-20 mb-6 flex items-center justify-between gap-3 border-b border-border/70 bg-background/95 py-3 backdrop-blur-sm" data-testid="workspace-actions">
                 <button type="button" onClick={() => props.onViewChange('calendar')}
                     aria-current={props.currentView === 'calendar' ? 'page' : undefined}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-foreground hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none">
                     <CalendarDays className="h-5 w-5" aria-hidden="true" />{t('nav.calendar')}
                 </button>
                 <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_EVENT, { detail: { captureMode: 'text' } }))}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-[background-color,box-shadow] hover:bg-primary/90 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 motion-reduce:transition-none">
                     <Plus className="h-5 w-5" aria-hidden="true" />{t('nav.addTask')}
                 </button>
             </div>}

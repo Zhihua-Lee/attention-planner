@@ -18,6 +18,38 @@ export function taskParentError(tasks: readonly Task[], taskId: string, parentTa
 }
 
 export type TaskTreeRow = { task: Task; depth: number };
+export type TaskDropPosition = 'before' | 'inside' | 'after';
+
+const treeOrder = (task: Task): number => Number.isFinite(task.order) ? task.order!
+    : Number.isFinite(task.orderNum) ? task.orderNum! : 0;
+
+/** Persist placement in one batch; hidden siblings keep their relative order. */
+export function taskPlacementUpdates(
+    tasks: readonly Task[], taskId: string, targetId: string | undefined, position: TaskDropPosition = 'inside',
+): Array<{ id: string; updates: Partial<Task> }> {
+    const live = tasks.filter(task => !task.deletedAt && !task.purgedAt);
+    const source = live.find(task => task.id === taskId);
+    const target = targetId ? live.find(task => task.id === targetId) : undefined;
+    if (!source) throw new Error('The task is no longer available.');
+    if ((targetId && !target) || (position !== 'inside' && !target)) throw new Error('The destination is no longer available.');
+    if (taskId === targetId) throw new Error('A task cannot be dropped onto itself.');
+    const parentTaskId = position === 'inside' ? target?.id : target?.parentTaskId;
+    const error = taskParentError(live, taskId, parentTaskId);
+    if (error) throw new Error(error);
+    if (position === 'inside' && source.parentTaskId === parentTaskId) return [];
+    const siblings = live.filter(task => task.parentTaskId === parentTaskId && task.id !== taskId)
+        .sort((a, b) => treeOrder(a) - treeOrder(b));
+    const targetIndex = target ? siblings.findIndex(task => task.id === target.id) : -1;
+    if (position !== 'inside' && targetIndex < 0) throw new Error('The destination has moved. Try again.');
+    const index = position === 'inside' ? siblings.length : targetIndex + (position === 'after' ? 1 : 0);
+    siblings.splice(index, 0, source);
+    return siblings.flatMap((task, order) => {
+        const updates: Partial<Task> = {};
+        if (task.order !== order || task.orderNum !== order) Object.assign(updates, { order, orderNum: order });
+        if (task.id === taskId && task.parentTaskId !== parentTaskId) updates.parentTaskId = parentTaskId;
+        return Object.keys(updates).length ? [{ id: task.id, updates }] : [];
+    });
+}
 
 /**
  * A projection, never a data rewrite. Filtered/missing/deleted parents leave children
@@ -54,6 +86,8 @@ export function taskTreeRows(tasks: readonly Task[]): TaskTreeRow[] {
         siblings.push(task);
         children.set(parent, siblings);
     }
+    // Stable sorting preserves legacy/input order until a user explicitly reorders.
+    for (const siblings of children.values()) siblings.sort((a, b) => treeOrder(a) - treeOrder(b));
     const pending = (children.get(undefined) ?? []).map(task => ({ task, depth: 0 })).reverse();
     const result: TaskTreeRow[] = [];
     while (pending.length) {
