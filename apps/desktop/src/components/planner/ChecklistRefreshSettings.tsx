@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { buildRRuleString, checklistDescendants, checklistEndImpact, checklistEndPreview, checklistLocalDay, checklistTargetPolicy,
     generateUUID, parseRRuleString, resolveChecklistRefresh, useTaskStore,
     type ChecklistRefreshEnd, type ChecklistRefreshPolicy, type ChecklistRefreshSchedule, type ChecklistRefreshTarget, type RecurrenceByDay, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { saveChecklistPolicy, syncChecklistEnd } from '../../lib/checklist-refresh-actions';
+import { checklistRuleDraftDirty, checklistRuleDrafts, type ChecklistRuleDraft } from '../../lib/checklist-rule-drafts';
 import { RepeatPicker } from './RepeatPicker';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 
@@ -24,69 +25,93 @@ function EndDatePicker({ value, onChange, prefix = '' }: { value: ChecklistRefre
         {value.mode === 'date' && <input type="date" required aria-label={`${prefix}${l('End date', '结束日期')}`} className={input} value={value.date ?? ''} onChange={event => onChange({ mode: 'date', date: event.target.value })} />}
     </div>;
 }
-function PolicyEditor({ task, itemId, disabled, onBusyChange, onDirtyChange, onSaved }: {
-    task: Task; itemId?: string; disabled: boolean; onBusyChange?: (busy: boolean) => void; onDirtyChange: (dirty: boolean) => void; onSaved: () => void;
+function PolicyEditor({ task, itemId, disabled, onBusyChange, onDirtyChange, onSaved, onDiscarded }: {
+    task: Task; itemId?: string; disabled: boolean; onBusyChange?: (busy: boolean) => void; onDirtyChange: (dirty: boolean) => void;
+    onSaved: (backupCleared: boolean) => void; onDiscarded: (backupCleared: boolean) => void;
 }) {
     const tasks = useTaskStore(state => state._allTasks), { now } = usePlannerEnvironment();
     const { language } = useLanguage(), zh = language.startsWith('zh'), l = (en: string, cn: string) => zh ? cn : en;
-    // A private settings draft, with an explicit stale-write check at Save.
-    const [base] = useState(() => checklistTargetPolicy(task, itemId));
+    const ruleId = useId();
+    const target = { taskId: task.id, itemId };
     const inherited = resolveChecklistRefresh(task, itemId, tasks, true);
-    const [initial] = useState(() => base?.schedule ?? inherited.schedule);
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-    const [mode, setMode] = useState<ChecklistRefreshPolicy['mode']>(base?.mode ?? 'inherit');
-    const [schedule, setSchedule] = useState<ChecklistRefreshSchedule>(() => initial ?? {
-        id: '', frequency: 'weekly', interval: 1, weekdays: [2, 4], startDate: checklistLocalDay(now, zone), time: '06:00', timeZone: zone,
+    const [restored] = useState(() => checklistRuleDrafts.load(target));
+    // Restoring keeps the original base so the existing stale-write check still protects remote edits.
+    const [draft, setDraft] = useState<ChecklistRuleDraft>(() => {
+        if (restored.draft) return restored.draft;
+        const base = checklistTargetPolicy(task, itemId), initial = base?.schedule ?? inherited.schedule;
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        return { base, initial, mode: base?.mode ?? 'inherit', schedule: initial ?? {
+            id: '', frequency: 'weekly', interval: 1, weekdays: [2, 4], startDate: checklistLocalDay(now, zone), time: '06:00', timeZone: zone,
+        }, end: base?.end ?? { mode: 'inherit' }, paused: !!base?.pausedAt };
     });
-    const [end, setEnd] = useState<ChecklistRefreshEnd>(base?.end ?? { mode: 'inherit' });
-    const [paused, setPaused] = useState(!!base?.pausedAt), [busy, setBusy] = useState(false), [error, setError] = useState('');
-    const lock = useRef(false);
-    const dirty = mode !== (base?.mode ?? 'inherit') || JSON.stringify(end) !== JSON.stringify(base?.end ?? { mode: 'inherit' })
-        || paused !== !!base?.pausedAt || mode === 'custom' && JSON.stringify(schedule) !== JSON.stringify(initial);
+    const draftRef = useRef(draft);
+    const { base, initial, mode, schedule, end, paused } = draft;
+    const [busy, setBusy] = useState(false), [error, setError] = useState('');
+    const [backupError, setBackupError] = useState(restored.error);
+    const lock = useRef(false), dirty = checklistRuleDraftDirty(draft);
     useEffect(() => { onDirtyChange(dirty); }, [dirty, onDirtyChange]);
+    const change = (patch: Partial<ChecklistRuleDraft>) => {
+        const next = { ...draftRef.current, ...patch };
+        // Write in the input event, not an effect/cleanup: a switch or close can immediately unmount us.
+        draftRef.current = next;
+        setBackupError(checklistRuleDrafts.save(target, next) ? undefined : 'storage');
+        setDraft(next);
+        setError('');
+    };
+    const changeSchedule = (patch: Partial<ChecklistRefreshSchedule>) => change({ schedule: { ...draftRef.current.schedule, ...patch } });
     const save = async () => {
         if (lock.current) return;
         lock.current = true; setBusy(true); onBusyChange?.(true); setError('');
         try {
             const sameCadence = initial && JSON.stringify({ ...initial, id: '' }) === JSON.stringify({ ...schedule, id: '' });
-            await saveChecklistPolicy({ taskId: task.id, itemId }, base, { mode, schedule: mode === 'custom'
+            await saveChecklistPolicy(target, base, { mode, schedule: mode === 'custom'
                 ? { ...schedule, id: sameCadence ? initial.id : generateUUID() } : undefined, end, paused });
-            onSaved();
+            onSaved(checklistRuleDrafts.clear(target));
         } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
         finally { lock.current = false; setBusy(false); onBusyChange?.(false); }
     };
     return <form onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-3">
         <fieldset disabled={disabled || busy} className="min-w-0 space-y-3">
-            <label className="block text-sm">{l('Refresh rule', '刷新规则')}<select className={input} value={mode} onChange={event => setMode(event.target.value as ChecklistRefreshPolicy['mode'])}>
-                <option value="inherit">{l('Follow parent / checklist', '跟随父清单／当前清单')}</option>
-                <option value="custom">{l('Set independently', '单独设置')}</option>
-                <option value="off">{l('Do not refresh', '不刷新（一次性）')}</option>
-            </select></label>
+            <div>
+                <label htmlFor={ruleId} className="block text-sm">{l('Refresh rule', '刷新规则')}</label>
+                <select id={ruleId} className={input} value={mode} onChange={event => change({ mode: event.target.value as ChecklistRefreshPolicy['mode'] })}>
+                    <option value="inherit">{l('Follow parent / checklist', '跟随父清单／当前清单')}</option>
+                    <option value="custom">{l('Set independently', '单独设置')}</option>
+                    <option value="off">{l('Do not refresh', '不刷新（一次性）')}</option>
+                </select>
+            </div>
             {mode === 'custom' && <>
                 <RepeatPicker calendarOnly value={{ rule: schedule.frequency, strategy: 'strict', rrule: buildRRuleString(schedule.frequency,
                     schedule.weekdays?.map(day => weekdays[day - 1]), schedule.interval, { byMonthDay: schedule.monthDays }) }} onChange={value => {
-                    if (!value) { setMode('off'); return; }
+                    if (!value) { change({ mode: 'off' }); return; }
                     const rule = typeof value === 'string' ? { rule: value } : value;
                     const parsed = rule.rrule ? parseRRuleString(rule.rrule) : undefined;
-                    setSchedule(current => ({ ...current, frequency: rule.rule, interval: parsed?.interval ?? 1,
+                    changeSchedule({ frequency: rule.rule, interval: parsed?.interval ?? 1,
                         weekdays: rule.rule === 'weekly' ? (parsed?.byDay ?? rule.byDay ?? []).map(day => weekdays.indexOf(day) + 1) : undefined,
-                        monthDays: parsed?.byMonthDay ?? rule.byMonthDay }));
+                        monthDays: parsed?.byMonthDay ?? rule.byMonthDay });
                 }} />
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="text-sm">{l('Start date', '开始日期')}<input required type="date" className={input} value={schedule.startDate} onChange={event => setSchedule(s => ({ ...s, startDate: event.target.value }))} /></label>
-                    <label className="text-sm">{l('Refresh time', '刷新时刻')}<input required type="time" className={input} value={schedule.time} onChange={event => setSchedule(s => ({ ...s, time: event.target.value }))} /></label>
+                    <label className="text-sm">{l('Start date', '开始日期')}<input required type="date" className={input} value={schedule.startDate} onChange={event => changeSchedule({ startDate: event.target.value })} /></label>
+                    <label className="text-sm">{l('Refresh time', '刷新时刻')}<input required type="time" className={input} value={schedule.time} onChange={event => changeSchedule({ time: event.target.value })} /></label>
                 </div>
-                <label className="block text-sm">{l('Timezone', '时区')}<input required className={input} value={schedule.timeZone} placeholder="America/Chicago" onChange={event => setSchedule(s => ({ ...s, timeZone: event.target.value }))} /></label>
+                <label className="block text-sm">{l('Timezone', '时区')}<input required className={input} value={schedule.timeZone} placeholder="America/Chicago" onChange={event => changeSchedule({ timeZone: event.target.value })} /></label>
             </>}
-            <EndDatePicker value={end} onChange={setEnd} />
+            <EndDatePicker value={end} onChange={value => change({ end: value })} />
             <p className="text-xs leading-5 text-muted-foreground">{l('The end date includes that whole local day. It is independent of the repeat rule: a child may inherit either setting or override it, including a later end date.', '结束日期包含当天，按刷新规则的时区计算。频率和结束日期分别继承；子清单可单独延长或取消结束日期。')}</p>
-            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={paused} onChange={event => setPaused(event.target.checked)} />{l('Pause refreshing', '暂停刷新')}</label>
+            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={paused} onChange={event => change({ paused: event.target.checked })} />{l('Pause refreshing', '暂停刷新')}</label>
             {inherited.pausedAt && !base?.pausedAt && <p className="text-xs text-muted-foreground">{l('A parent is paused. Resume it to allow this subtree to advance.', '父清单已暂停，需要先恢复父清单，本分支才会进入新一轮。')}</p>}
             {mode === 'inherit' && <p className="text-xs text-muted-foreground">{inherited.schedule
                 ? l(`Inherited: ${inherited.schedule.time} · ${inherited.schedule.timeZone}`, `当前继承：${inherited.schedule.time} · ${inherited.schedule.timeZone}`)
                 : l('No parent rule: this item currently does not refresh.', '没有可继承的规则，目前不刷新。')}</p>}
+            {dirty && <p className="text-xs leading-5 text-muted-foreground">{l('This target has an unapplied draft. Switching targets or closing details keeps it; Save applies it and Discard reloads the latest saved settings.', '当前对象有未应用的草稿。切换对象或关闭详情会保留；保存后才生效，放弃草稿会读取最新已保存设置。')}</p>}
+            {backupError && <p role="alert" className="text-sm text-destructive">{backupError === 'invalid'
+                ? l('The saved rule draft could not be restored. It has not been applied. Discard it explicitly to clear this backup.', '无法恢复这份规则草稿，未应用任何修改。可明确放弃草稿以清除此备份。')
+                : l('Browser storage is unavailable. Drafts stay in memory when switching or closing details; keep this page open.', '浏览器无法备份草稿。切换对象或关闭详情仍会在内存保留，但请不要刷新或关闭页面。')}</p>}
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-            <button type="submit" className={`${button} bg-primary text-primary-foreground`}>{l('Save refresh settings', '保存刷新设置')}</button>
+            <div className="flex flex-wrap gap-2">
+                <button type="submit" className={`${button} bg-primary text-primary-foreground`}>{l('Save refresh settings', '保存刷新设置')}</button>
+                {(dirty || backupError === 'invalid') && <button type="button" className={button} onClick={() => onDiscarded(checklistRuleDrafts.clear(target))}>{l('Discard rule draft', '放弃规则草稿')}</button>}
+            </div>
         </fieldset>
     </form>;
 }
@@ -141,21 +166,35 @@ function BulkEndEditor({ task, disabled, onBusyChange, onSaved }: { task: Task; 
 }
 export function ChecklistRefreshSettings({ task, disabled = false, onBusyChange }: { task: Task; disabled?: boolean; onBusyChange?: (busy: boolean) => void }) {
     const { language } = useLanguage(), zh = language.startsWith('zh'), l = (en: string, cn: string) => zh ? cn : en;
+    const tasks = useTaskStore(state => state._allTasks);
+    const configureId = useId();
     const [itemId, setItemId] = useState(''), [revision, setRevision] = useState(0), [message, setMessage] = useState('');
-    const [busy, setBusy] = useState(false), [policyDirty, setPolicyDirty] = useState(false);
+    const [busy, setBusy] = useState(false), [policyDirty, setPolicyDirty] = useState(false), [cleanupFailed, setCleanupFailed] = useState(false);
     const busyChanged = (value: boolean) => { setBusy(value); onBusyChange?.(value); };
-    const saved = () => { setMessage(l('Refresh settings saved.', '刷新设置已保存。')); setRevision(value => value + 1); };
+    const reset = (backupCleared: boolean, discarded = false) => {
+        setCleanupFailed(!backupCleared);
+        setMessage(discarded ? l('Rule draft discarded.', '规则草稿已放弃。') : l('Refresh settings saved.', '刷新设置已保存。'));
+        setPolicyDirty(false); setRevision(value => value + 1);
+    };
+    const subtreeTargets = [task, ...checklistDescendants(tasks, task.id)].flatMap(t => [
+        { taskId: t.id }, ...(t.checklist ?? []).map(item => ({ taskId: t.id, itemId: item.id })),
+    ]);
+    const pendingDrafts = policyDirty || checklistRuleDrafts.hasDrafts(subtreeTargets);
     return <details className="space-y-3 rounded-xl border border-border p-3" data-testid="checklist-refresh-settings" data-planner-form>
         <summary className="min-h-11 cursor-pointer font-medium">{l('Checklist refresh', '清单定时刷新')}</summary>
         <p className="text-xs leading-5 text-muted-foreground">{l('Keep the list and item identities. Each scheduled round has its own completion record; missed rounds do not create extra tasks. Changing the cadence starts a new schedule version; changing only the end date keeps existing completion records.', '保留清单和条目，每轮单独记录完成情况；漏做不会堆积成新任务。改变频率或刷新时刻会开启新规则版本，仅修改结束日期不会清除已有的完成记录。')}</p>
-        <label className="block text-sm">{l('Configure', '设置对象')}<select className={input} value={itemId} disabled={disabled || busy} onChange={event => { setItemId(event.target.value); setMessage(''); }}>
-            <option value="">{l('This checklist default (also inherited by child lists)', '当前清单默认（子清单也可继承）')}</option>
-            {task.checklist?.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
-        </select></label>
-        <PolicyEditor key={`${task.id}:${itemId}:${revision}`} task={task} itemId={itemId || undefined} disabled={disabled || busy} onBusyChange={busyChanged} onDirtyChange={setPolicyDirty} onSaved={saved} />
-        {policyDirty && <p className="text-xs text-muted-foreground">{l('Save the rule draft before batch syncing end dates.', '先保存当前规则草稿，再批量同步结束日期。')}</p>}
-        <BulkEndEditor task={task} disabled={disabled || busy || policyDirty} onBusyChange={busyChanged} onSaved={saved} />
+        <div>
+            <label htmlFor={configureId} className="block text-sm">{l('Configure', '设置对象')}</label>
+            <select id={configureId} className={input} value={itemId} disabled={disabled || busy} onChange={event => { setItemId(event.target.value); setMessage(''); }}>
+                <option value="">{l('This checklist default (also inherited by child lists)', '当前清单默认（子清单也可继承）')}</option>
+                {task.checklist?.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
+            </select>
+        </div>
+        <PolicyEditor key={`${task.id}:${itemId}:${revision}`} task={task} itemId={itemId || undefined} disabled={disabled || busy} onBusyChange={busyChanged} onDirtyChange={setPolicyDirty} onSaved={cleared => reset(cleared)} onDiscarded={cleared => reset(cleared, true)} />
+        {pendingDrafts && <p className="text-xs text-muted-foreground">{l('Save or discard pending rule drafts in this checklist and its children before batch syncing end dates.', '请先保存或放弃当前清单及子清单中的规则草稿，再批量同步结束日期。')}</p>}
+        <BulkEndEditor task={task} disabled={disabled || busy || pendingDrafts} onBusyChange={busyChanged} onSaved={() => reset(true)} />
         {message && <p role="status" className="text-sm text-primary">{message}</p>}
+        {cleanupFailed && <p role="alert" className="text-sm text-destructive">{l('The old draft backup could not be removed from browser storage. It is cleared in this session, but may return after reload.', '无法清除浏览器中的旧草稿备份。本次会话已清除，但刷新后可能再次出现。')}</p>}
         <p className="text-xs leading-5 text-muted-foreground">{l('Refreshing is not a notification. While closed, no background job is required: opening the app computes the current round. An end date stops new rounds and keeps the last one; choose Do not refresh before permanently completing a list.', '刷新不等于提醒。关闭应用时不需要后台常驻，再打开直接显示当前轮。到结束日期后保留最后一轮，不再刷新；需要永久完成清单时，先将刷新规则设为“不刷新”。')}</p>
     </details>;
 }

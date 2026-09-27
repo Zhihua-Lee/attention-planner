@@ -56,7 +56,7 @@ export function RepeatPicker({
   };
   return <div className="space-y-3">
         <label className="block text-sm">{l('Repeat', '重复')}
-            <select className={cls} value={recurrence?.rule ?? ''} onChange={event => {
+            <select aria-label={l('Repeat', '重复')} className={cls} value={recurrence?.rule ?? ''} onChange={event => {
         const rule = event.target.value as RecurrenceRule;
         if (!rule) onChange(undefined);else update({
           rule,
@@ -89,7 +89,7 @@ export function RepeatPicker({
         })}
             </div>}
             {recurrence.rule === 'monthly' && recurrence.strategy !== 'fluid' && <label className="block text-sm">{l('Monthly date', '每月哪天')}
-                <select className={cls} value={monthDays?.length === 1 ? String(monthDays[0]) : byDay?.length || monthDays?.length ? 'custom' : ''} onChange={event => update({
+                <select aria-label={l('Monthly date', '每月哪天')} className={cls} value={monthDays?.length === 1 ? String(monthDays[0]) : byDay?.length || monthDays?.length ? 'custom' : ''} onChange={event => update({
           byDay: undefined,
           byMonthDay: event.target.value ? [Number(event.target.value)] : undefined
         })}>
@@ -101,7 +101,7 @@ export function RepeatPicker({
                 </select>
             </label>}
             {!calendarOnly && <><label className="block text-sm">{l('Stop repeating', '何时停止重复')}
-                <select className={cls} value={endMode} onChange={event => update({
+                <select aria-label={l('Stop repeating', '何时停止重复')} className={cls} value={endMode} onChange={event => update({
           count: event.target.value === 'count' ? 10 : undefined,
           until: event.target.value === 'until' ? new Date().toISOString().slice(0, 10) : undefined
         })}>
@@ -114,7 +114,7 @@ export function RepeatPicker({
             count: n
           });
         }} /></label>}
-            {endMode === 'until' && <label className="block text-sm">{l('Last repeat date', '最后重复日期')}<input className={cls} type="date" value={until?.slice(0, 10) ?? ''} onChange={event => update({
+            {endMode === 'until' && <label className="block text-sm">{l('Last repeat date', '最后重复日期')}<input type="date" className={cls} value={until?.slice(0, 10) ?? ''} onChange={event => update({
           until: event.target.value || undefined
         })} /></label>}</>}
             <p className="text-xs text-muted-foreground">{calendarOnly ? l('Calendar-based refresh; completing a round does not shift the next refresh.', '按日历刷新，完成本轮不会推迟下一次刷新。') : l(`Every ${interval} ${units[recurrence.rule]}${recurrence.strategy === 'fluid' ? ' after completion' : ''}. This rule applies to this occurrence and future successors, not the individual work blocks.`, `每隔 ${interval} ${units[recurrence.rule]}重复${recurrence.strategy === 'fluid' ? '，从完成后计算' : ''}。用于本次及以后各次，不会重复复制本次的工作时段。`)}</p>
