@@ -4,8 +4,10 @@ import { useLanguage } from '../../contexts/language-context';
 /** The same structured recurrence draft is used by capture and editing. */
 export function RepeatPicker({
   value,
-  onChange
+  onChange,
+  calendarOnly = false
 }: {
+  calendarOnly?: boolean;
   value: Task['recurrence'];
   onChange: (value: Task['recurrence']) => void;
 }) {
@@ -54,7 +56,7 @@ export function RepeatPicker({
   };
   return <div className="space-y-3">
         <label className="block text-sm">{l('Repeat', '重复')}
-            <select className={cls} value={recurrence?.rule ?? ''} onChange={event => {
+            <select aria-label={l('Repeat', '重复')} className={cls} value={recurrence?.rule ?? ''} onChange={event => {
         const rule = event.target.value as RecurrenceRule;
         if (!rule) onChange(undefined);else update({
           rule,
@@ -62,7 +64,7 @@ export function RepeatPicker({
           byMonthDay: undefined
         });
       }}>
-                <option value="">{l('Does not repeat', '不重复')}</option>
+                {!calendarOnly && <option value="">{l('Does not repeat', '不重复')}</option>}
                 {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((rule, i) => <option key={rule} value={rule}>{[l('Daily', '按天'), l('Weekly', '按周'), l('Monthly', '按月'), l('Yearly', '按年')][i]}</option>)}
             </select>
         </label>
@@ -75,9 +77,9 @@ export function RepeatPicker({
           });
         }} />
             </label>
-            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={recurrence.strategy === 'fluid'} onChange={event => update({
+            {!calendarOnly && <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={recurrence.strategy === 'fluid'} onChange={event => update({
           strategy: event.target.checked ? 'fluid' : 'strict'
-        })} />{l('Count from completion', '从本次完成后计时')}</label>
+        })} />{l('Count from completion', '从本次完成后计时')}</label>}
             {recurrence.rule === 'weekly' && recurrence.strategy !== 'fluid' && <div className="flex flex-wrap gap-1" aria-label={l('Weekdays', '星期')}>
                 {(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as RecurrenceByDay[]).map((day, i) => {
           const selected = byDay?.includes(day) ?? false;
@@ -87,7 +89,7 @@ export function RepeatPicker({
         })}
             </div>}
             {recurrence.rule === 'monthly' && recurrence.strategy !== 'fluid' && <label className="block text-sm">{l('Monthly date', '每月哪天')}
-                <select className={cls} value={monthDays?.length === 1 ? String(monthDays[0]) : byDay?.length || monthDays?.length ? 'custom' : ''} onChange={event => update({
+                <select aria-label={l('Monthly date', '每月哪天')} className={cls} value={monthDays?.length === 1 ? String(monthDays[0]) : byDay?.length || monthDays?.length ? 'custom' : ''} onChange={event => update({
           byDay: undefined,
           byMonthDay: event.target.value ? [Number(event.target.value)] : undefined
         })}>
@@ -98,8 +100,8 @@ export function RepeatPicker({
                     {byDay?.length || (monthDays?.length ?? 0) > 1 ? <option value="custom" disabled>{l('Existing custom pattern (preserved)', '原有自定义规则（保留）')}</option> : null}
                 </select>
             </label>}
-            <label className="block text-sm">{l('Stop repeating', '何时停止重复')}
-                <select className={cls} value={endMode} onChange={event => update({
+            {!calendarOnly && <><label className="block text-sm">{l('Stop repeating', '何时停止重复')}
+                <select aria-label={l('Stop repeating', '何时停止重复')} className={cls} value={endMode} onChange={event => update({
           count: event.target.value === 'count' ? 10 : undefined,
           until: event.target.value === 'until' ? new Date().toISOString().slice(0, 10) : undefined
         })}>
@@ -112,10 +114,10 @@ export function RepeatPicker({
             count: n
           });
         }} /></label>}
-            {endMode === 'until' && <label className="block text-sm">{l('Last repeat date', '最后重复日期')}<input className={cls} type="date" value={until?.slice(0, 10) ?? ''} onChange={event => update({
+            {endMode === 'until' && <label className="block text-sm">{l('Last repeat date', '最后重复日期')}<input type="date" className={cls} value={until?.slice(0, 10) ?? ''} onChange={event => update({
           until: event.target.value || undefined
-        })} /></label>}
-            <p className="text-xs text-muted-foreground">{l(`Every ${interval} ${units[recurrence.rule]}${recurrence.strategy === 'fluid' ? ' after completion' : ''}. This rule applies to this occurrence and future successors, not the individual work blocks.`, `每隔 ${interval} ${units[recurrence.rule]}重复${recurrence.strategy === 'fluid' ? '，从完成后计算' : ''}。用于本次及以后各次，不会重复复制本次的工作时段。`)}</p>
+        })} /></label>}</>}
+            <p className="text-xs text-muted-foreground">{calendarOnly ? l('Calendar-based refresh; completing a round does not shift the next refresh.', '按日历刷新，完成本轮不会推迟下一次刷新。') : l(`Every ${interval} ${units[recurrence.rule]}${recurrence.strategy === 'fluid' ? ' after completion' : ''}. This rule applies to this occurrence and future successors, not the individual work blocks.`, `每隔 ${interval} ${units[recurrence.rule]}重复${recurrence.strategy === 'fluid' ? '，从完成后计算' : ''}。用于本次及以后各次，不会重复复制本次的工作时段。`)}</p>
         </>}
     </div>;
 }

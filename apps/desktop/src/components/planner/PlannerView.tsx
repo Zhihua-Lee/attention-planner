@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TaskHierarchyDrag, TaskTreeList } from './TaskTreeList';
 import { PlannerTaskCard } from './PlannerTaskCard';
+import { ChecklistProgress } from './ChecklistProgress';
 import { isInputComposition } from '../../lib/input-method';
 import { Plus } from 'lucide-react';
-import { activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
+import { hasActiveChecklistRound, projectChecklist, activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails, setCurrentWork, downloadPlannerBackup } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -32,6 +33,7 @@ export function PlannerView({
   const tasks = useTaskStore(s => s.tasks),
     projects = useTaskStore(s => s.projects),
     gtd = useTaskStore(s => s.settings.gtd);
+  const allTasks = useTaskStore(s => s._allTasks);
   const {
     now,
     events,
@@ -116,20 +118,22 @@ export function PlannerView({
     }
   }));
   const row = (task: Task) => <PlannerTaskCard key={task.id} task={task} blocked={Boolean(policy.executionBlock(task))} />;
+  const roundComplete = (task: Task) => hasActiveChecklistRound(task, allTasks, now) && projectChecklist(task, allTasks, now)!.every(item => item.isCompleted);
   const projection = tasks.filter(visibleInArea).map(task => ({
     ...task,
     areaId: task.areaId || projects.find(p => p.id === task.projectId)?.areaId,
     isFocusedToday: isCommittedOn(task, localPlanDate(now))
   }));
+  // Completed rounds are excluded from suggestion, not from the list: they still hold their place in sequential projects.
   const recommended = selectNow({
     tasks: projection,
     projects,
     now,
     events,
     frames: gtd?.attentionFrames,
-    excludedTaskIds: excluded
+    excludedTaskIds: new Set([...excluded, ...projection.filter(roundComplete).map(task => task.id)])
   });
-  const current = tasks.find(t => visibleInArea(t) && t.id === currentId && !excluded.has(t.id) && !policy.executionBlock(t) && (!t.snoozedUntil || Date.parse(t.snoozedUntil) <= now.getTime()));
+  const current = tasks.find(t => t.id === currentId && visibleInArea(t) && !excluded.has(t.id) && !policy.executionBlock(t) && (!t.snoozedUntil || Date.parse(t.snoozedUntil) <= now.getTime()) && !roundComplete(t));
   const selection = recommended?.kind === 'event' ? recommended : current ? {
     kind: 'task' as const,
     task: current,
@@ -164,15 +168,10 @@ export function PlannerView({
             {selection?.kind === 'event' ? <><p className="text-xs text-muted-foreground">{l('Current meeting', '当前会议')}</p><h2 className="text-xl font-semibold">{selection.event.title}</h2><p>{new Date(selection.event.start).toLocaleTimeString()} – {new Date(selection.event.end).toLocaleTimeString()}</p></> : selection?.kind === 'task' ? <>
                 <p className="text-xs text-muted-foreground">{reasonLabels[selection.reason]}</p><button className="min-h-11 text-left text-xl font-semibold hover:text-primary" onClick={() => openTaskDetails(selection.task.id)}>{selection.task.title}</button>
                 {selection.task.description && <RichMarkdown markdown={selection.task.description} />}
-                {!!selection.task.checklist?.length && <div className="space-y-2">{selection.task.checklist.map(step => <label key={step.id} className="flex min-h-11 items-center gap-3 rounded border border-border p-2"><input type="checkbox" checked={step.isCompleted} onChange={() => run(() => editTask(selection.task.id, latest => ({
-                checklist: latest.checklist?.map(s => s.id === step.id ? {
-                  ...s,
-                  isCompleted: !s.isCompleted
-                } : s)
-              })))} /><span className={step.isCompleted ? 'line-through text-muted-foreground' : ''}>{step.title}</span></label>)}</div>}
+                {!!selection.task.checklist?.length && <ChecklistProgress task={selection.task} />}
                 <div className="flex flex-wrap gap-2"><button className={`${button} bg-primary text-primary-foreground`} onClick={() => setCurrentWork(selection.task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} onClick={() => openTaskDetails(selection.task.id)}>{l('Progress / details', '进度／详情')}</button><button className={button} onClick={() => run(async () => {
               if (await completeTaskWithUndo(selection.task.id, t)) setCurrentWork(null);
-            })}>{l('Complete task', '完成任务')}</button><button className={button} onClick={() => run(() => editTask(selection.task.id, () => ({
+            })}>{hasActiveChecklistRound(selection.task, allTasks, now) ? l('Complete current round', '完成本轮清单') : l('Complete task', '完成任务')}</button><button className={button} onClick={() => run(() => editTask(selection.task.id, () => ({
               snoozedUntil: new Date(now.getTime() + 30 * 60000).toISOString()
             })))}>{l('Hide suggestion for 30 min', '30分钟后再推荐')}</button><button className={button} onClick={() => {
               setExcluded(old => new Set([...old, selection.task.id]));

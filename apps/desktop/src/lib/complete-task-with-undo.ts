@@ -1,7 +1,8 @@
-import { flushPendingSave, restoreCompletedWork, translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
+import { flushPendingSave, hasActiveChecklistRound, restoreCompletedWork, translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
 import { useUiStore } from '../store/ui-store';
 import { registerUndoableAction } from './undo-registry';
 import { reportError } from './report-error';
+import { setChecklistRoundCompletion } from './checklist-refresh-actions';
 
 type TranslateFn = (key: string) => string;
 
@@ -16,6 +17,11 @@ export async function completeTaskWithUndo(taskId: string, t: TranslateFn): Prom
     const task = state.tasks.find((candidate) => candidate.id === taskId);
     if (!task || task.deletedAt || ['done', 'archived', 'reference'].includes(task.status)) return false;
     try {
+        // Only a live round is completed in place; an ended or not-yet-started list completes the task.
+        if (hasActiveChecklistRound(task, state._allTasks, new Date())) {
+            await setChecklistRoundCompletion(taskId, true, (state.settings.language ?? 'en').startsWith('zh'));
+            return true;
+        }
         const result = await state.updateTask(taskId, { status: 'done', ...(!task.planner ? { isFocusedToday: false } : {}) });
         if (!result.success) throw new Error(result.error || 'Failed to complete task');
         await flushPendingSave();

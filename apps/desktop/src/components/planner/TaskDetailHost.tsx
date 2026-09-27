@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
-import { flushPendingSave, changeWork, commitToDay, contentDraftPatch, createNextRecurringTask, createPlanningPolicy, estimateMinutes, isCommittedOn, localPlanDate, localPlanInput, planDatePart, planTimePart, planDateValue, plannerTimeZone, scheduleWork, skipRecurringWork, taskPlanner, useTaskStore, type Task, type WorkBlock } from '@mindwtr/core';
+import { changeWork, commitToDay, checklistContentDraftPatch, checklistDraftState, hasActiveChecklistRound, projectChecklist, createNextRecurringTask, createPlanningPolicy, estimateMinutes, isCommittedOn, localPlanDate, localPlanInput, planDatePart, planTimePart, planDateValue, plannerTimeZone, scheduleWork, skipRecurringWork, taskPlanner, useTaskStore, type ChecklistDraftState, type Task, type WorkBlock } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { checkReservation, editTask, setCurrentWork, TASK_OPEN_EVENT } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -13,6 +13,8 @@ import { RepeatPicker } from './RepeatPicker';
 import { useDialogHistory } from './useDialogHistory';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 import { TaskRelations } from './TaskRelations';
+import { ChecklistProgress } from './ChecklistProgress';
+import { ChecklistRefreshSettings } from './ChecklistRefreshSettings';
 import { useVisibleViewport } from '../../hooks/use-visible-viewport';
 import { isInputComposition } from '../../lib/input-method';
 export function TaskDetailHost() {
@@ -56,6 +58,7 @@ function TaskDetail({
   const projects = useTaskStore(s => s.projects),
     areas = useTaskStore(s => s.areas),
     tasks = useTaskStore(s => s.tasks);
+  const allTasks = useTaskStore(s => s._allTasks);
   const {
     now,
     events,
@@ -73,6 +76,7 @@ function TaskDetail({
   const [restored] = useState<{
     base: Task;
     draft: Partial<Task>;
+    checklistSnapshot?: ChecklistDraftState;
   } | null>(() => {
     try {
       const value = JSON.parse(localStorage.getItem(draftKey) || 'null');
@@ -83,6 +87,7 @@ function TaskDetail({
   });
   const [base, setBase] = useState<Task | null>(restored?.base ?? null),
     [draft, setDraft] = useState<Partial<Task>>(restored?.draft ?? {});
+  const [checklistSnapshot, setChecklistSnapshot] = useState<ChecklistDraftState>(restored?.checklistSnapshot ?? {});
   const [exit, setExit] = useState(false),
     [error, setError] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
@@ -100,7 +105,9 @@ function TaskDetail({
   const panel = useRef<HTMLDivElement>(null),
     lock = useRef(false);
   const editing = !!base,
-    dirty = editing && JSON.stringify(draft) !== JSON.stringify(base);
+    dirty = editing && JSON.stringify(draft) !== JSON.stringify(base ? { ...base, checklist: base.checklist?.map(item => ({
+      ...item, isCompleted: checklistSnapshot[item.id]?.completed ?? item.isCompleted
+    })) } : base);
   useEffect(() => {
     if (editing) titleInput.current?.focus();
   }, [editing]);
@@ -140,12 +147,13 @@ function TaskDetail({
     try {
       localStorage.setItem(draftKey, JSON.stringify({
         base,
-        draft
+        draft,
+        checklistSnapshot
       }));
     } catch {
       setError(l('This browser cannot back up the edit draft. Keep this page open.', '浏览器无法备份编辑草稿，请不要关闭页面。'));
     }
-  }, [base, draft, draftKey]);
+  }, [base, draft, draftKey, checklistSnapshot]);
   const changeDate = (key: 'availableAt' | 'dueDate', day: string, time: string) => {
     try {
       setDraft(old => ({
@@ -175,7 +183,7 @@ function TaskDetail({
   const save = async (andClose = false) => {
     if (!base) return;
     await run(async () => {
-      await editTask(taskId, latest => contentDraftPatch(base, draft, latest));
+      await editTask(taskId, (latest, clock) => checklistContentDraftPatch(base, draft, latest, useTaskStore.getState()._allTasks, checklistSnapshot, clock.now, clock.deviceId));
       localStorage.removeItem(draftKey);
       setBase(null);
       setExit(false);
@@ -193,6 +201,7 @@ function TaskDetail({
   const policy = useMemo(() => createPlanningPolicy(tasks, projects, now), [tasks, projects, now]);
   const reason = task ? policy.executionBlock(task) : 'lifecycle';
   const closed = !task || ['done', 'archived', 'reference'].includes(task.status) || !!task.deletedAt;
+  const recurringChecklist = !!task && hasActiveChecklistRound(task, allTasks, now);
   const blockReason = {
     workflow: task?.status === 'inbox' ? l('Captured · not yet activated', '已记下 · 尚未加入待办') : task?.status === 'waiting' ? l('Waiting for a condition', '正在等待条件') : l('Paused by choice', '主动暂不做'),
     project: l('The project is paused', '所属项目暂停'),
@@ -237,27 +246,6 @@ function TaskDetail({
     });
     setReservation(null);
   }, l('Time reserved.', '时段已预留。'));
-  const toggleStep = (id: string) => run(async () => {
-    let prior = false;
-    await editTask(taskId, latest => {
-      prior = latest.checklist?.find(s => s.id === id)?.isCompleted ?? false;
-      return {
-        checklist: latest.checklist?.map(s => s.id === id ? {
-          ...s,
-          isCompleted: !s.isCompleted
-        } : s)
-      };
-    });
-    useUiStore.getState().showToast(l('Step updated', '步骤已更新'), 'info', 8000, {
-      label: l('Undo', '撤销'),
-      onClick: () => void run(() => editTask(taskId, latest => ({
-        checklist: latest.checklist?.map(s => s.id === id && s.isCompleted === !prior ? {
-          ...s,
-          isCompleted: prior
-        } : s)
-      })))
-    });
-  });
   return <ModalPortal><div style={viewport} className="fixed inset-0 z-[65] flex justify-end bg-black/45" onClick={e => {
       if (e.target === e.currentTarget) close();
     }}>
@@ -320,29 +308,25 @@ function TaskDetail({
                 <div className="flex flex-wrap gap-2 text-xs">{task.availableAt && <span>{l('Available', '可执行起始')} {task.availableAt}</span>}{task.dueDate && <span className={Date.parse(task.dueDate.length === 10 ? `${task.dueDate}T23:59:59` : task.dueDate) < now.getTime() ? 'text-destructive' : ''}>{l('Due', '截止')} {task.dueDate}</span>}{task.timeEstimate && <span>{l('Total estimate', '总预计')} {estimateMinutes(task.timeEstimate)} min</span>}</div>
                 {reason && <p className="rounded-lg border border-border bg-muted p-3 text-sm">{blockReason}{!closed && l(' · Still visible for planning.', ' · 仍可查看和提前规划。')}</p>}
                 <div className="flex flex-wrap gap-2"><button ref={editButton} className={button} onClick={() => {
-                  setBase(structuredClone(task));
-                  setDraft(structuredClone(task));
+                  const original = structuredClone(task), clock = new Date(), currentTasks = useTaskStore.getState()._allTasks;
+                  setBase(original);
+                  setDraft({ ...original, checklist: projectChecklist(original, currentTasks, clock) });
+                  setChecklistSnapshot(checklistDraftState(original, currentTasks, clock));
                 }}>{l('Edit content', '编辑内容')}</button>
                 {task.status === 'inbox' && <button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, () => ({ status: 'next' })), l('Ready to plan. No date is required.', '已加入待办，不必现在指定日期。'))}>{l('Ready to plan', '加入待办')}</button>}
                 {!closed && task.status !== 'inbox' && <button className={button} disabled={busy} onClick={() => run(() => returnTaskToInbox(task.id, zh))}>{l('Move to Inbox', '移回收集箱')}</button>}
                 {!closed && <><button className={button} disabled={busy || !!reason} onClick={() => setCurrentWork(task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} disabled={busy} onClick={() => run(async () => {
                     if (!(await completeTaskWithUndo(task.id, t))) throw new Error(l('Completion failed.', '完成操作未保存。'));
                     setCurrentWork(null);
-                  })}>{task.recurrence ? l('Complete this occurrence', '完成本次') : l('Complete task', '完成任务')}</button></>}
+                  })}>{recurringChecklist ? l('Complete current round', '完成本轮清单') : task.recurrence ? l('Complete this occurrence', '完成本次') : l('Complete task', '完成任务')}</button></>}
                 {task.status === 'done' && <button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, () => ({
                   status: 'next'
                 })), l('Task reopened. Past reservations remain closed.', '任务已重新打开，历史时段不会自动重启。'))}>{l('Reopen task', '重新打开任务')}</button>}
                 </div>
                 {task.description && <RichMarkdown markdown={task.description} />}
-                {!!task.checklist?.length && <section aria-label={l('Steps', '步骤')} className="space-y-2">{task.checklist.map(step => <label key={step.id} className="flex min-h-11 items-start gap-3 rounded border border-border p-3"><input type="checkbox" className="mt-1" checked={step.isCompleted} disabled={busy || closed} onChange={() => toggleStep(step.id)} /><span className={step.isCompleted ? 'text-muted-foreground line-through' : ''}>{step.title}</span>{!step.isCompleted && !closed && <button type="button" className="ml-auto min-h-11 shrink-0 px-2 text-xs underline" disabled={busy} aria-label={`${l('Move step to Inbox', '提升为独立任务')}: ${step.title}`} onClick={e => {
-                    e.preventDefault();
-                    void run(async () => {
-                      const result = await useTaskStore.getState().promoteChecklistItem(task.id, step.id);
-                      if (!result.success) throw new Error(result.error);
-                      await flushPendingSave();
-                    }, l('Moved to Inbox as an independent task.', '已移到收件箱，作为独立任务。'));
-                  }}>{l('Make task', '独立成任务')}</button>}</label>)}</section>}
+                {!!task.checklist?.length && <ChecklistProgress task={task} closed={busy || closed || relationBusy} allowPromote onBusyChange={setRelationBusy} />}
                 <TaskRelations task={task} onOpenTask={onOpenTask} onBusyChange={setRelationBusy} />
+                <ChecklistRefreshSettings task={task} disabled={busy || closed || relationBusy} onBusyChange={setRelationBusy} />
                 {!closed && <section className="space-y-3 border-t border-border pt-4"><h2 className="font-semibold">{l('Plan this task', '安排这件事')}</h2>
                     <div className="flex flex-wrap items-end gap-2"><label className="text-sm">{l('Choose a day', '哪天想做')}<input type="date" className={input} value={day} onChange={e => setDay(e.target.value)} /></label><button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, (latest, clock) => ({
                     ...commitToDay(latest, day, !isCommittedOn(latest, day), clock),

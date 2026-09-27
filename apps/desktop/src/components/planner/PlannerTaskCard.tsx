@@ -1,16 +1,22 @@
 import { useRef, useState } from 'react';
 import { ArrowRight, Check, Inbox, Trash2 } from 'lucide-react';
-import { flushPendingSave, useTaskStore, type Task } from '@mindwtr/core';
+import { flushPendingSave, hasActiveChecklistRound, projectChecklist, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
 import { returnTaskToInbox } from '../../lib/return-task-to-inbox';
 import { registerUndoableAction } from '../../lib/undo-registry';
 import { useUiStore } from '../../store/ui-store';
+import { setChecklistRoundCompletion } from '../../lib/checklist-refresh-actions';
+import { usePlannerEnvironment } from './usePlannerEnvironment';
 
 export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolean }) {
     const { language, t } = useLanguage(), zh = language.startsWith('zh');
     const l = (en: string, cn: string) => zh ? cn : en;
+    const tasks = useTaskStore(state => state._allTasks), { now } = usePlannerEnvironment();
+    const checklist = projectChecklist(task, tasks, now);
+    const recurring = hasActiveChecklistRound(task, tasks, now);
+    const checked = recurring ? !!checklist?.length && checklist.every(item => item.isCompleted) : task.status === 'done';
     const lock = useRef(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -40,21 +46,22 @@ export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolea
     return <article data-task-id={task.id} className="planner-task-card min-w-0 rounded-xl border border-border/80 bg-card p-3 shadow-sm transition-[border-color,box-shadow] hover:border-primary/30 hover:shadow-md motion-reduce:transition-none sm:p-4">
         <div className="flex items-start gap-1 pr-11">
             <label className="relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg hover:bg-muted">
-                <input type="checkbox" checked={task.status === 'done'} disabled={busy}
-                    aria-label={task.status === 'done' ? l('Reopen task', '重新打开任务') : l('Complete task', '完成任务')}
+                <input type="checkbox" checked={checked} disabled={busy}
+                    aria-label={recurring ? (checked ? l('Reopen current round', '重新打开本轮清单') : l('Complete current round', '完成本轮清单')) : task.status === 'done' ? l('Reopen task', '重新打开任务') : l('Complete task', '完成任务')}
                     className="h-5 w-5 cursor-pointer appearance-none rounded-full border-2 border-muted-foreground/60 bg-card checked:border-primary checked:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                     onChange={() => void run(async () => {
-                        if (task.status === 'done') await editTask(task.id, () => ({ status: 'next' }));
+                        if (recurring) await setChecklistRoundCompletion(task.id, !checked, zh);
+                        else if (task.status === 'done') await editTask(task.id, () => ({ status: 'next' }));
                         else if (!(await completeTaskWithUndo(task.id, t))) throw new Error(l('Could not save completion.', '未能保存完成操作。'));
                     })} />
-                {task.status === 'done' && <Check aria-hidden="true" className="pointer-events-none absolute h-3.5 w-3.5 text-primary-foreground" />}
+                {checked && <Check aria-hidden="true" className="pointer-events-none absolute h-3.5 w-3.5 text-primary-foreground" />}
             </label>
-            <button className={`min-h-11 min-w-0 flex-1 break-words py-2 text-left text-[15px] font-semibold leading-6 [overflow-wrap:anywhere] hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${task.status === 'done' ? 'text-muted-foreground line-through' : ''}`} onClick={() => openTaskDetails(task.id)}>{task.title}</button>
+            <button className={`min-h-11 min-w-0 flex-1 break-words py-2 text-left text-[15px] font-semibold leading-6 [overflow-wrap:anywhere] hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${checked ? 'text-muted-foreground line-through' : ''}`} onClick={() => openTaskDetails(task.id)}>{task.title}</button>
         </div>
         <div className="ml-12 flex flex-wrap gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
             {task.availableAt && <span>{l('Available', '可做起始')} {task.availableAt}</span>}
             {task.dueDate && <span>{l('Due', '截止')} {task.dueDate}</span>}
-            {!!task.checklist?.length && <span>{l('Steps', '步骤')} {task.checklist.filter(step => step.isCompleted).length}/{task.checklist.length}</span>}
+            {!!checklist?.length && <span>{recurring ? l('This round', '本轮') : l('Steps', '步骤')} {checklist.filter(step => step.isCompleted).length}/{checklist.length}</span>}
             {blocked && task.status !== 'inbox' && <span>{l('Not executable yet; plan kept', '目前不可执行，计划保留')}</span>}
         </div>
         <div className="ml-12 mt-1 flex items-center justify-between gap-1">
