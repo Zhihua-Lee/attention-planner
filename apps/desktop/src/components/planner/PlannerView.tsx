@@ -15,6 +15,7 @@ import { usePlannerEnvironment } from './usePlannerEnvironment';
 import { PlanningPreferences } from './PlanningPreferences';
 import { CalendarEventDetails } from './CalendarEventDetails';
 import { PlannerCalendar } from './PlannerCalendar';
+import { buildPlannerCalendarDay } from './planner-calendar-layout';
 import type { ExternalCalendarEvent } from '@mindwtr/core';
 const button = 'min-h-11 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-40';
 export function PlannerView({
@@ -139,7 +140,14 @@ export function PlannerView({
     task: current,
     reason: 'current'
   } : recommended;
-  const nextConstraint = events.filter(e => Date.parse(e.start) > now.getTime()).sort((a, b) => a.start.localeCompare(b.start))[0];
+  // NOW shows the rest of today (appointments and reservations), not only the single next appointment.
+  const today = localPlanDate(now);
+  const todayView = mode === 'now' ? buildPlannerCalendarDay(today, active, events) : null;
+  const todayRest = todayView?.timed.filter(item => Date.parse(item.end) > now.getTime()) ?? [];
+  const todayChosen = mode === 'now' ? active.filter(task => isCommittedOn(task, today)) : [];
+  const nextConstraint = todayRest.find(item => Date.parse(item.start) > now.getTime())
+    ?? events.filter(e => !e.allDay && Date.parse(e.start) > now.getTime()).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0];
+  const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const reasonLabels: Record<string, string> = {
     current: l('Continue your chosen task', '继续你已选择的任务'),
     scheduled: l('Your reserved time', '已预留的工作时段'),
@@ -181,7 +189,20 @@ export function PlannerView({
             setExcluded(new Set());
             setCurrentWork(null);
           }}>{l('Reset suggestions', '重新查看建议')}</button></>}
-            {nextConstraint && <p className="border-t border-border pt-3 text-sm">{l('Next fixed appointment', '下一项固定安排')}：{new Date(nextConstraint.start).toLocaleString()} · {nextConstraint.title}</p>}
+            {nextConstraint && <p className="border-t border-border pt-3 text-sm">{l('Next up', '下一项安排')}：{new Date(nextConstraint.start).toLocaleString()} · {nextConstraint.title}</p>}
+        </section>
+        <section className="space-y-3 rounded-xl border border-border p-4" data-testid="now-today" aria-label={l('Today', '今天')}>
+            <h2 className="font-semibold">{l('Rest of today', '今天剩余安排')}</h2>
+            {!!todayView?.allDay.length && <div className="flex flex-wrap gap-2">{todayView.allDay.map(event => <button key={event.id} className="min-h-11 rounded-full border border-border px-3 text-sm hover:bg-muted" onClick={() => setSelectedEvent(event)}>{l('All day', '全天')} · {event.title}</button>)}</div>}
+            {todayRest.length ? <ul className="space-y-1">{todayRest.map(item => {
+              const live = Date.parse(item.start) <= now.getTime();
+              return <li key={item.id}><button className={`flex min-h-11 w-full items-baseline gap-3 rounded-lg px-2 py-1 text-left text-sm hover:bg-muted ${live ? 'bg-primary/10' : ''}`} onClick={() => item.kind === 'event' ? setSelectedEvent(item.event) : openTaskDetails(item.task.id, item.block.id)}>
+                <span className="shrink-0 tabular-nums text-muted-foreground">{clock(item.start)}–{clock(item.end)}</span>
+                <span className="min-w-0 flex-1 break-words">{item.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{live ? l('Now', '进行中') : item.kind === 'event' ? l('Calendar', '日程') : l('Reserved', '已预留')}</span>
+              </button></li>;
+            })}</ul> : <p className="text-sm text-muted-foreground">{l('No more timed items today.', '今天没有其余定时安排。')}</p>}
+            {todayChosen.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">{l('Chosen for today · not necessarily timed', '今天想做 · 不代表已占用时段')}</h3><TaskTreeList tasks={todayChosen} render={row} listId="now-today" /></div>}
         </section>{pending.length > 0 && <p className="text-sm">{l(`${pending.length} allocations need rescheduling. Open Calendar to see why.`, `${pending.length} 个工作时段待续排，可在日历查看原因。`)}</p>}</>}
         {(mode === 'calendar' || mode === 'day') && <>
             {active.some(t => taskPlanner(t).legacyFocus) && <details className="rounded-lg border border-border p-3"><summary className="min-h-11 cursor-pointer text-sm">{l('Old undated selections · choose their day', '旧版未注明日期的选择 · 指定哪天想做')}</summary>{active.filter(t => taskPlanner(t).legacyFocus).map(task => <div key={task.id} className="flex min-h-11 flex-wrap items-center gap-2 text-sm"><button className="underline" onClick={() => openTaskDetails(task.id)}>{task.title}</button><button className={button} onClick={() => run(() => editTask(task.id, (latest, c) => commitToDay(latest, day, true, c)))}>{l('Choose for this day', '选入这一天')}</button></div>)}</details>}

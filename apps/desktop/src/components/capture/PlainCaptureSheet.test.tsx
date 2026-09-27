@@ -163,6 +163,37 @@ describe('plain capture interaction', () => {
         openHost();
         expect(screen.getByLabelText('What do you need to do?')).toHaveValue('Unfinished thought');
     });
+    it('does not carry an abandoned slot reservation into the next capture', async () => {
+        render(<PwaCaptureHost />);
+        act(() => { window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_EVENT, { detail: { initialProps: { scheduledAt: '2026-09-18T14:30:00Z', status: 'next' } } })); });
+        expect(screen.getByRole('button', { name: 'Add to calendar' })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /^Close$/ }));
+        openHost();
+        fillTitle();
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        await waitFor(() => expect(mocks.addTask).toHaveBeenCalledOnce());
+        expect(mocks.addTask.mock.calls[0][1]).toMatchObject({ status: 'inbox', planner: { blocks: [] } });
+    });
+    it('returns a slot capture to the Inbox when its time is cleared', async () => {
+        render(<PwaCaptureHost />);
+        act(() => { window.dispatchEvent(new CustomEvent(QUICK_CAPTURE_EVENT, { detail: { initialProps: { scheduledAt: '2026-09-18T14:30:00Z', status: 'next' } } })); });
+        fillTitle();
+        fireEvent.click(screen.getByRole('button', { name: 'Clear dates' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        await waitFor(() => expect(mocks.addTask).toHaveBeenCalledOnce());
+        expect(mocks.addTask.mock.calls[0][1].status).toBe('inbox');
+    });
+    it('saves a task chosen for today to the Inbox unless Ready is chosen', async () => {
+        render(<PlainCaptureSheet isOpen onClose={vi.fn()} />);
+        fillTitle();
+        fireEvent.click(screen.getByText('When?'));
+        fireEvent.click(screen.getByRole('button', { name: 'Choose today (no time reserved)' }));
+        expect(screen.getByRole('button', { name: 'Just capture' })).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Inbox' }));
+        await waitFor(() => expect(mocks.addTask).toHaveBeenCalledOnce());
+        const props = mocks.addTask.mock.calls[0][1];
+        expect(props.status).toBe('inbox'); expect(props.planner.days).toHaveLength(1);
+    });
     it('never dispatches a legacy request when plain capture opens or closes', () => {
         const legacy = vi.fn();
         window.addEventListener(LEGACY_CAPTURE_EVENT, legacy);

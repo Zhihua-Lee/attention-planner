@@ -60,7 +60,8 @@ export function preparePlainCapture(draft: PlainCaptureDraft): PlainCaptureResul
         ok: true,
         title,
         props: {
-            status: schedule || draft.plannedDay ? 'next' : draft.destination,
+            // Only a reserved time needs Ready: an inbox block could never run. Choosing a day keeps the chosen destination.
+            status: schedule ? 'next' : draft.destination,
             ...(draft.availableAt ? { availableAt:draft.availableAt } : {}),
             ...(draft.checklist ? { checklist: checklistForSave(draft.checklist) } : {}),
             // Whitespace can carry Markdown meaning; only discard an empty note.
