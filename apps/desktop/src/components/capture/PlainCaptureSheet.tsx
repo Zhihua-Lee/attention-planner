@@ -50,16 +50,18 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
     useEffect(()=>{try{localStorage.setItem(draftKey,JSON.stringify({draft,pendingId:pendingId.current}));}catch{setError(text('Draft could not be backed up in this browser. Keep this window open.','浏览器无法备份草稿，请不要关闭页面。'));}},[draft]);
     const applyRequest=(request:CaptureRequest)=>{
         const props = request.initialProps;
-        setDraft(current => ({ ...current,
+        // An untitled leftover (e.g. a stray calendar-slot tap) must not carry its time or destination into a new capture.
+        setDraft(current => ({ ...(current.title.trim() ? current : { ...emptyPlainCapture(), description: current.description, checklist: current.checklist }),
             ...(request.initialValue ? {title:request.initialValue} : {}),
-            ...(props?.status === 'next' ? {destination:'next' as const} : {}),
+            // A slot's 'next' comes from its reservation; clearing that time returns to the user's own choice.
+            ...((props?.status === 'next' || props?.status === 'inbox') && !props.scheduledAt && !props.startTime?.includes('T') ? {destination:props.status} : {}),
             ...(props?.description !== undefined ? {description:props.description} : {}),
             ...(props?.checklist ? {checklist:props.checklist} : {}),
             ...(props?.recurrence ? {recurrence:props.recurrence} : {}),
             ...(props?.availableAt ? {availableAt:props.availableAt.slice(0,10)} : {}),
             ...(props?.dueDate ? {dueDate:props.dueDate.slice(0,10)} : {}),
             ...(props?.isFocusedToday ? {plannedDay:localPlanDate(new Date())} : {}),
-            ...(props?.scheduledAt || props?.startTime?.includes('T') ? {scheduledAt:localPlanInput(new Date(props.scheduledAt || props.startTime!)),destination:'next' as const} : {}),
+            ...(props?.scheduledAt || props?.startTime?.includes('T') ? {scheduledAt:localPlanInput(new Date(props.scheduledAt || props.startTime!))} : {}),
             ...(props?.projectId ? {container:`project:${props.projectId}`} : props?.areaId ? {container:`area:${props.areaId}`} : {}),
         }));
     };
@@ -78,6 +80,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
     }), shallow);
     const showToast = useUiStore((state) => state.showToast);
     const hasDraft = JSON.stringify(draft) !== JSON.stringify(emptyPlainCapture());
+    const effectiveDestination = draft.scheduledAt ? 'next' : draft.destination;
     const set = <K extends keyof PlainCaptureDraft>(key: K, value: PlainCaptureDraft[K]) => {
         // Once created, this sheet only retries persistence. Edit the task after
         // that succeeds; never accept changes which the retry would not save.
@@ -201,11 +204,12 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                             <p className="mt-1 text-xs text-muted-foreground">{text('A name is enough. Dates and organization are optional; no special syntax is needed.', '只写一句话就能保存。时间和归属都可稍后补，不需要特殊语法。')}</p>
                         </div>
                         <div className="flex flex-wrap gap-2" role="group" aria-label={text('Save destination', '保存去向')}>
-                            {(['inbox', 'next'] as const).map(destination => <button key={destination} type="button" aria-pressed={draft.destination === destination}
+                            {(['inbox', 'next'] as const).map(destination => <button key={destination} type="button" aria-pressed={effectiveDestination === destination}
                                 onClick={() => set('destination', destination)} disabled={Boolean(draft.scheduledAt)}
-                                className={`min-h-11 rounded-md border px-3 text-sm disabled:opacity-50 ${draft.destination === destination ? 'border-primary bg-primary/10' : 'border-border'}`}>
+                                className={`min-h-11 rounded-md border px-3 text-sm disabled:opacity-50 ${effectiveDestination === destination ? 'border-primary bg-primary/10' : 'border-border'}`}>
                                 {destination === 'inbox' ? text('Just capture', '先记下来') : text('Ready to plan', '已想清楚，加入待办')}
                             </button>)}
+                            {draft.scheduledAt && <p className="basis-full text-xs text-muted-foreground">{text('A reserved time is Ready automatically. Clear the time to save it to the Inbox.', '预留了时段会自动加入待办；清除时间即可存入收件箱。')}</p>}
                         </div>
                         <details open={Boolean(draft.scheduledAt||draft.plannedDay)} className="rounded-lg border border-border p-3">
                             <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarDays className="h-4 w-4" />{text('When?', '时间安排（可选）')}<ChevronDown className="ml-auto h-4 w-4" /></summary>
@@ -214,10 +218,9 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                                 <label className="block text-sm">{text('Reserve a time', '准备什么时候做')}
                                     <input type="datetime-local" value={draft.scheduledAt} onChange={event => set('scheduledAt', event.target.value)} className={inputClass} />
                                 </label>
+                                <p className="text-xs text-muted-foreground">{text('A reserved time appears on the calendar and makes the task Ready; it is not a deadline. Choosing only a day keeps it where you chose.', '预留时段会出现在日历并加入待办，不是截止时间；只选“哪天想做”不会改变保存去向。')}</p>
                                 {draft.scheduledAt&&<label className="block text-sm">{text('Minutes for this block','本次安排几分钟')}<input type="number" min={1} max={1440} value={draft.durationMinutes??30} onChange={e=>set('durationMinutes',e.target.valueAsNumber)} className={inputClass}/></label>}
-                                <label className="block text-sm">{text('Available from (optional)','最早可执行日期（可选）')}<input type="date" value={draft.availableAt??''} onChange={e=>set('availableAt',e.target.value)} className={inputClass}/></label>
-                                <p className="text-xs text-muted-foreground">{text('This creates a calendar reservation and makes the task Ready, not a deadline.', '填写后会加入待办并出现在日历；这不是截止时间。')}</p>
-                                <label className="block text-sm">{text('Must finish by', '最晚哪天必须完成')}
+                                <label className="block text-sm">{text('Available from (optional)','最早可执行日期（可选）')}<input type="date" value={draft.availableAt??''} onChange={e=>set('availableAt',e.target.value)} className={inputClass}/></label>                                <label className="block text-sm">{text('Must finish by', '最晚哪天必须完成')}
                                     <input type="date" value={draft.dueDate} onChange={event => set('dueDate', event.target.value)} className={inputClass} />
                                 </label>
                                 <button type="button" className="min-h-11 px-2 text-sm text-primary" onClick={() => { set('scheduledAt', ''); set('dueDate', ''); set('plannedDay',''); set('availableAt',''); }}>{text('Clear dates', '清除时间')}</button>
@@ -249,7 +252,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                         {hasDraft && <button type="button" disabled={saving || Boolean(pendingId.current && useTaskStore.getState()._allTasks.some(task => task.id === pendingId.current && !task.deletedAt))} className="min-h-11 text-sm underline disabled:opacity-40" onClick={() => { pendingId.current = null; setDraft(emptyPlainCapture()); setError(null); }}>{text('Clear this draft', '清空这份草稿')}</button>}
                         <button type="button" onClick={()=>close()} disabled={saving} className="min-h-11 rounded-md px-3 text-sm hover:bg-muted disabled:opacity-40">{text('Close · keep draft', '关闭，保留本次草稿')}</button>
                         <button type="submit" disabled={saving || !draft.title.trim()} className="min-h-11 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-40">
-                            {saving ? text('Adding…', '正在添加…') : draft.scheduledAt ? text('Add to calendar', '添加到日历') : draft.destination === 'inbox' ? text('Add to Inbox', '存入收件箱') : text('Add task', '加入待办')}
+                            {saving ? text('Adding…', '正在添加…') : draft.scheduledAt ? text('Add to calendar', '添加到日历') : effectiveDestination === 'inbox' ? text('Add to Inbox', '存入收件箱') : text('Add task', '加入待办')}
                         </button>
                     </footer>
                 </form>

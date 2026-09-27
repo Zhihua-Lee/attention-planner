@@ -17,6 +17,10 @@ describe('plain capture contract', () => {
     });
     it('requires a nonblank title', () => expect(preparePlainCapture(emptyPlainCapture())).toEqual({ ok: false, error: 'title' }));
     it('supports clarified but unscheduled tasks', () => expect(props({ destination: 'next' }).status).toBe('next'));
+    it('keeps the chosen destination when only a day is chosen', () => {
+        expect(props({ plannedDay: '2026-09-18' }).status).toBe('inbox');
+        expect(props({ plannedDay: '2026-09-18', destination: 'next' }).status).toBe('next');
+    });
     it('uses an instant for reservations, not availability or deadlines', () => {
         const result = props({ scheduledAt: '2026-09-18T09:30' });
         expect(result.scheduledAt).toBe(new Date(2026, 8, 18, 9, 30).toISOString());
