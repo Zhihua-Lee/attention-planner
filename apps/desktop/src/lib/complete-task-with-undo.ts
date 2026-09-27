@@ -1,4 +1,4 @@
-import { flushPendingSave, hasRecurringChecklist, restoreCompletedWork, translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
+import { flushPendingSave, hasActiveChecklistRound, restoreCompletedWork, translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
 import { useUiStore } from '../store/ui-store';
 import { registerUndoableAction } from './undo-registry';
 import { reportError } from './report-error';
@@ -17,7 +17,8 @@ export async function completeTaskWithUndo(taskId: string, t: TranslateFn): Prom
     const task = state.tasks.find((candidate) => candidate.id === taskId);
     if (!task || task.deletedAt || ['done', 'archived', 'reference'].includes(task.status)) return false;
     try {
-        if (hasRecurringChecklist(task, state._allTasks, new Date())) {
+        // Only a live round is completed in place; an ended or not-yet-started list completes the task.
+        if (hasActiveChecklistRound(task, state._allTasks, new Date())) {
             await setChecklistRoundCompletion(taskId, true, (state.settings.language ?? 'en').startsWith('zh'));
             return true;
         }

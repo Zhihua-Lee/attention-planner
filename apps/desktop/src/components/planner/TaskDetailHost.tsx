@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
-import { changeWork, commitToDay, checklistContentDraftPatch, checklistDraftState, hasRecurringChecklist, projectChecklist, createNextRecurringTask, createPlanningPolicy, estimateMinutes, isCommittedOn, localPlanDate, localPlanInput, planDatePart, planTimePart, planDateValue, plannerTimeZone, scheduleWork, skipRecurringWork, taskPlanner, useTaskStore, type ChecklistDraftState, type Task, type WorkBlock } from '@mindwtr/core';
+import { changeWork, commitToDay, checklistContentDraftPatch, checklistDraftState, hasActiveChecklistRound, projectChecklist, createNextRecurringTask, createPlanningPolicy, estimateMinutes, isCommittedOn, localPlanDate, localPlanInput, planDatePart, planTimePart, planDateValue, plannerTimeZone, scheduleWork, skipRecurringWork, taskPlanner, useTaskStore, type ChecklistDraftState, type Task, type WorkBlock } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { checkReservation, editTask, setCurrentWork, TASK_OPEN_EVENT } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -201,7 +201,7 @@ function TaskDetail({
   const policy = useMemo(() => createPlanningPolicy(tasks, projects, now), [tasks, projects, now]);
   const reason = task ? policy.executionBlock(task) : 'lifecycle';
   const closed = !task || ['done', 'archived', 'reference'].includes(task.status) || !!task.deletedAt;
-  const recurringChecklist = !!task && hasRecurringChecklist(task, allTasks, now);
+  const recurringChecklist = !!task && hasActiveChecklistRound(task, allTasks, now);
   const blockReason = {
     workflow: task?.status === 'inbox' ? l('Captured · not yet activated', '已记下 · 尚未加入待办') : task?.status === 'waiting' ? l('Waiting for a condition', '正在等待条件') : l('Paused by choice', '主动暂不做'),
     project: l('The project is paused', '所属项目暂停'),

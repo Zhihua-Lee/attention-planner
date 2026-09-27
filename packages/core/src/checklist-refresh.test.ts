@@ -2,7 +2,7 @@ import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Task } from './types';
 import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistEndPreview, checklistEndUpdates, checklistHistory, checklistItemState,
-    checklistLocalDay, checklistRefreshData, hasRecurringChecklist, makeChecklistPolicy, mergeChecklistRefresh, projectChecklist,
+    checklistLocalDay, checklistRefreshData, hasActiveChecklistRound, hasRecurringChecklist, makeChecklistPolicy, mergeChecklistRefresh, projectChecklist,
     updateChecklistPolicy, validateChecklistRefresh, validateChecklistSchedule, type ChecklistRefreshPolicy, type ChecklistRefreshSchedule } from './checklist-refresh';
 
 const now = new Date('2026-09-29T12:00:00Z'); // Tuesday 07:00 in Chicago.
@@ -76,6 +76,14 @@ describe('checklist recurrence projection', () => {
     it('uses a new version for a changed cadence, without recycling previous marks', () => {
         const t = complete(configured()); t.planner!.checklistRefresh!.defaults!.schedule!.id = 'series-b';
         assert.equal(view(t).completed, false); assert.equal(checklistHistory(t, t.checklist![0], [t], now).filter(x => x.completed).length, 1);
+    });
+    it('has an active round only between the first period and the end date', () => {
+        const t = configured(policy({ end: { mode: 'date', date: '2026-10-01' } }));
+        assert.equal(hasActiveChecklistRound(t, [t], new Date('2026-09-28T12:00:00Z')), false);
+        assert.equal(hasActiveChecklistRound(t, [t], now), true);
+        assert.equal(hasActiveChecklistRound(t, [t], new Date('2026-10-06T12:00:00Z')), false);
+        assert.equal(hasRecurringChecklist(t, [t], new Date('2026-10-06T12:00:00Z')), true);
+        assert.equal(hasActiveChecklistRound({ ...t, status: 'done', completedAt: now.toISOString() }, [t], now), false);
     });
     it('marks a round, not the permanent lifecycle of a live recurring checklist', () => {
         const t = complete(configured()); assert.equal(t.status, 'next'); assert.equal(hasRecurringChecklist(t, [t], now), true);

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ArrowRight, Check, Inbox, Trash2 } from 'lucide-react';
-import { flushPendingSave, hasRecurringChecklist, projectChecklist, useTaskStore, type Task } from '@mindwtr/core';
+import { flushPendingSave, hasActiveChecklistRound, projectChecklist, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -15,7 +15,7 @@ export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolea
     const l = (en: string, cn: string) => zh ? cn : en;
     const tasks = useTaskStore(state => state._allTasks), { now } = usePlannerEnvironment();
     const checklist = projectChecklist(task, tasks, now);
-    const recurring = !['done', 'archived', 'reference'].includes(task.status) && hasRecurringChecklist(task, tasks, now);
+    const recurring = hasActiveChecklistRound(task, tasks, now);
     const checked = recurring ? !!checklist?.length && checklist.every(item => item.isCompleted) : task.status === 'done';
     const lock = useRef(false);
     const [busy, setBusy] = useState(false);

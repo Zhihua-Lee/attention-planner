@@ -1,5 +1,5 @@
 import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistEndImpact, checklistEndUpdates, checklistItemState, checklistRefreshData, checklistTargetPolicy,
-    flushPendingSave, hasRecurringChecklist, makeChecklistPolicy, taskPlanner, updateChecklistPolicy, useTaskStore,
+    flushPendingSave, hasActiveChecklistRound, makeChecklistPolicy, taskPlanner, updateChecklistPolicy, useTaskStore,
     type Task, type ChecklistRefreshEnd, type ChecklistRefreshPolicy, type ChecklistRefreshTarget, type checklistEndPreview } from '@mindwtr/core';
 import { editTask, ensurePlannerBackup } from './lifecycle-actions';
 import { registerUndoableAction } from './undo-registry';
@@ -46,7 +46,7 @@ export async function setChecklistCompletion(taskId: string, changes: Completion
 }
 export async function setChecklistRoundCompletion(taskId: string, completed: boolean, zh: boolean) {
     const state = useTaskStore.getState(), task = state._allTasks.find(t => t.id === taskId), now = new Date();
-    if (!task || !hasRecurringChecklist(task, state._allTasks, now)) throw new Error(zh ? '清单刷新规则已改变。' : 'The checklist refresh rule changed.');
+    if (!task || !hasActiveChecklistRound(task, state._allTasks, now)) throw new Error(zh ? '清单刷新规则已改变。' : 'The checklist refresh rule changed.');
     const changes = (task.checklist ?? []).flatMap(item => {
         const period = checklistItemState(task, item, state._allTasks, now);
         return period.recurring && !period.cycle ? [] : [{ itemId: item.id, completed, cycleId: period.cycle?.id }];

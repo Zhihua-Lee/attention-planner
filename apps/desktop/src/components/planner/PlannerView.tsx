@@ -4,7 +4,7 @@ import { PlannerTaskCard } from './PlannerTaskCard';
 import { ChecklistProgress } from './ChecklistProgress';
 import { isInputComposition } from '../../lib/input-method';
 import { Plus } from 'lucide-react';
-import { hasRecurringChecklist, projectChecklist, activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
+import { hasActiveChecklistRound, projectChecklist, activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails, setCurrentWork, downloadPlannerBackup } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -118,21 +118,22 @@ export function PlannerView({
     }
   }));
   const row = (task: Task) => <PlannerTaskCard key={task.id} task={task} blocked={Boolean(policy.executionBlock(task))} />;
-  const roundComplete = (task: Task) => hasRecurringChecklist(task, allTasks, now) && projectChecklist(task, allTasks, now)!.every(item => item.isCompleted);
-  const projection = tasks.filter(visibleInArea).filter(task => !roundComplete(task)).map(task => ({
+  const roundComplete = (task: Task) => hasActiveChecklistRound(task, allTasks, now) && projectChecklist(task, allTasks, now)!.every(item => item.isCompleted);
+  const projection = tasks.filter(visibleInArea).map(task => ({
     ...task,
     areaId: task.areaId || projects.find(p => p.id === task.projectId)?.areaId,
     isFocusedToday: isCommittedOn(task, localPlanDate(now))
   }));
+  // Completed rounds are excluded from suggestion, not from the list: they still hold their place in sequential projects.
   const recommended = selectNow({
     tasks: projection,
     projects,
     now,
     events,
     frames: gtd?.attentionFrames,
-    excludedTaskIds: excluded
+    excludedTaskIds: new Set([...excluded, ...projection.filter(roundComplete).map(task => task.id)])
   });
-  const current = tasks.find(t => !roundComplete(t) && visibleInArea(t) && t.id === currentId && !excluded.has(t.id) && !policy.executionBlock(t) && (!t.snoozedUntil || Date.parse(t.snoozedUntil) <= now.getTime()));
+  const current = tasks.find(t => t.id === currentId && visibleInArea(t) && !excluded.has(t.id) && !policy.executionBlock(t) && (!t.snoozedUntil || Date.parse(t.snoozedUntil) <= now.getTime()) && !roundComplete(t));
   const selection = recommended?.kind === 'event' ? recommended : current ? {
     kind: 'task' as const,
     task: current,
@@ -170,7 +171,7 @@ export function PlannerView({
                 {!!selection.task.checklist?.length && <ChecklistProgress task={selection.task} />}
                 <div className="flex flex-wrap gap-2"><button className={`${button} bg-primary text-primary-foreground`} onClick={() => setCurrentWork(selection.task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} onClick={() => openTaskDetails(selection.task.id)}>{l('Progress / details', '进度／详情')}</button><button className={button} onClick={() => run(async () => {
               if (await completeTaskWithUndo(selection.task.id, t)) setCurrentWork(null);
-            })}>{hasRecurringChecklist(selection.task, allTasks, now) ? l('Complete current round', '完成本轮清单') : l('Complete task', '完成任务')}</button><button className={button} onClick={() => run(() => editTask(selection.task.id, () => ({
+            })}>{hasActiveChecklistRound(selection.task, allTasks, now) ? l('Complete current round', '完成本轮清单') : l('Complete task', '完成任务')}</button><button className={button} onClick={() => run(() => editTask(selection.task.id, () => ({
               snoozedUntil: new Date(now.getTime() + 30 * 60000).toISOString()
             })))}>{l('Hide suggestion for 30 min', '30分钟后再推荐')}</button><button className={button} onClick={() => {
               setExcluded(old => new Set([...old, selection.task.id]));

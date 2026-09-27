@@ -283,6 +283,10 @@ export function projectChecklist(task: Task, tasks: readonly Task[], now = new D
 export function hasRecurringChecklist(task: Task, tasks: readonly Task[], now = new Date()): boolean {
     return !!task.checklist?.some(item => { const state = checklistItemState(task, item, tasks, now); return state.recurring; });
 }
+/** A started, not-yet-ended round exists. Otherwise completing the task means completing the whole task. */
+export function hasActiveChecklistRound(task: Task, tasks: readonly Task[], now = new Date()): boolean {
+    return !!task.checklist?.some(item => { const state = checklistItemState(task, item, tasks, now); return state.recurring && !state.ended && !!state.cycle; });
+}
 export function checklistDraftState(task: Task, tasks: readonly Task[], now = new Date()): ChecklistDraftState {
     return Object.fromEntries((task.checklist ?? []).map(item => {
         const state = checklistItemState(task, item, tasks, now);
