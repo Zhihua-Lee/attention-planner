@@ -1,6 +1,7 @@
 /** The planner owns allocations and dated intentions, never task completion. */
 import type { Task } from './types';
 import { checklistForSave } from './task-checklist';
+import { mergeChecklistRefresh, validateChecklistRefresh, type ChecklistRefreshData } from './checklist-refresh';
 
 export type PlanStamp = { revision: number; manualRevision: number; updatedAt: string; deviceId: string; manualAt?: string; manualBy?: string };
 export type BlockHistory = { startAt: string; durationMinutes: number; at: string; reason: string };
@@ -20,6 +21,7 @@ export type DayCommitment = PlanStamp & { date: string; selected: boolean };
 export type TaskPlanner = {
     version: 1;
     contentStamp?: PlanStamp;
+    checklistRefresh?: ChecklistRefreshData;
     blocks: WorkBlock[];
     days: DayCommitment[];
     /** Kept as evidence, NOT silently interpreted as today's commitment. */
@@ -57,6 +59,7 @@ export function readTaskPlanner(value: unknown): TaskPlanner | undefined {
     if (value === undefined || value === null) return undefined;
     if (!plain(value) || value.version !== 1 || !Array.isArray(value.blocks) || !Array.isArray(value.days)) throw new Error('Unsupported or invalid planner data; update the app or restore a backup.');
     if (value.contentStamp !== undefined && (!plain(value.contentStamp) || !validStamp(value.contentStamp))) throw new Error('Invalid planner content version.');
+    validateChecklistRefresh(value.checklistRefresh);
     const ids = new Set<string>();
     for (const b of value.blocks) {
         if (!plain(b) || typeof b.id !== 'string' || !b.id || ids.has(b.id) || !validStamp(b) || !validDate(b.startAt)
@@ -164,6 +167,7 @@ export function mergeTaskPlanners(a: TaskPlanner | undefined, b: TaskPlanner | u
     const contentStamp = !a.contentStamp ? b.contentStamp : !b.contentStamp ? a.contentStamp : recordCompare(a.contentStamp,b.contentStamp)>=0 ? a.contentStamp : b.contentStamp;
     const days = merge(a.days,b.days,v=>v.date);
     return { version: 1, contentStamp, blocks: merge(a.blocks,b.blocks,v=>v.id), days,
+        checklistRefresh: mergeChecklistRefresh(a.checklistRefresh, b.checklistRefresh),
         skippedAt: [a.skippedAt,b.skippedAt].filter((s):s is string=>!!s).sort().pop(),
         legacyFocus: days.length ? undefined : a.legacyFocus || b.legacyFocus || undefined,
         legacySchedule: [a.legacySchedule,b.legacySchedule].filter((s):s is string=>!!s).sort()[0] };
