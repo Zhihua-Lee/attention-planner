@@ -10,8 +10,8 @@ test('drag nests an independent task, preserves content and timing, and supports
     const target = await page.locator('[data-task-id="Parent"]').boundingBox();
     if (!source || !target) throw new Error('Missing drag targets');
     await page.mouse.move(source.x + 20, source.y + 20); await page.mouse.down();
-    await page.mouse.move(target.x + 100, target.y + 35, { steps: 15 });
-    await expect(page.getByText('Release to make an independent subtask here')).toBeVisible();
+    await page.mouse.move(target.x + 100, target.y + target.height / 2, { steps: 15 });
+    await expect(page.getByText('Nest as a subtask', { exact: true })).toBeVisible();
     await page.mouse.up();
     await expect.poll(() => parentOf(page, 'Child')).toBe('Parent');
     await expect(page.locator('[data-tree-task="Child"]')).toHaveAttribute('data-tree-depth', '1');
@@ -81,8 +81,8 @@ test.describe('phone hierarchy', () => {
         const cdp = await page.context().newCDPSession(page);
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x + 20, y: from.y + 20 }] });
         await page.waitForTimeout(240); // Exercise TouchSensor's deliberate long-press threshold.
-        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: to.x + 90, y: to.y + 35 }] });
-        await expect(page.getByText('Release to make an independent subtask here')).toBeVisible();
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: to.x + 90, y: to.y + to.height / 2 }] });
+        await expect(page.getByText('Nest as a subtask', { exact: true })).toBeVisible();
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
         await expect.poll(() => parentOf(page, 'Child')).toBe('Parent');
         await expect(page.getByRole('dialog', { name: 'Move task', exact: true })).toHaveCount(0);

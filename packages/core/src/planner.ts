@@ -1,5 +1,6 @@
 /** The planner owns allocations and dated intentions, never task completion. */
 import type { Task } from './types';
+import { checklistForSave } from './task-checklist';
 
 export type PlanStamp = { revision: number; manualRevision: number; updatedAt: string; deviceId: string; manualAt?: string; manualBy?: string };
 export type BlockHistory = { startAt: string; durationMinutes: number; at: string; reason: string };
@@ -239,11 +240,21 @@ export function contentDraftPatch(base: Partial<Task>, draft: Partial<Task>, lat
     const keys = ['title','description','checklist','dueDate','availableAt','timeEstimate','projectId','areaId','recurrence'] as const;
     const patch: Partial<Task> = {};
     for (const key of keys) {
-        if (JSON.stringify(base[key]) === JSON.stringify(draft[key])) continue;
-        if (JSON.stringify(base[key]) !== JSON.stringify(latest[key]) && JSON.stringify(draft[key]) !== JSON.stringify(latest[key])) {
+        const before = key === 'checklist' ? checklistForSave(base.checklist) : base[key];
+        const value = key === 'checklist' ? checklistForSave(draft.checklist) : draft[key];
+        const current = key === 'checklist' ? checklistForSave(latest.checklist) : latest[key];
+        if (JSON.stringify(before) === JSON.stringify(value)) {
+            // Clean legacy empty rows on Save, but leave a newer remote checklist alone.
+            if (key === 'checklist' && JSON.stringify(before) === JSON.stringify(current)
+                && JSON.stringify(latest.checklist) !== JSON.stringify(current)) {
+                patch.checklist = checklistForSave(latest.checklist);
+            }
+            continue;
+        }
+        if (JSON.stringify(before) !== JSON.stringify(current) && JSON.stringify(value) !== JSON.stringify(current)) {
             throw new Error(`This task's ${key} changed on another device. Keep this draft and reopen the latest task before saving.`);
         }
-        Object.assign(patch, { [key]: draft[key] });
+        Object.assign(patch, { [key]: value });
     }
     if (typeof patch.title === 'string' && !patch.title.trim()) throw new Error('Write a task name first.');
     for (const key of ['availableAt', 'dueDate'] as const) {

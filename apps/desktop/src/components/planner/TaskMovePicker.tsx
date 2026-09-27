@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { taskParentError, useTaskStore } from '@mindwtr/core';
+import { taskParentError, useTaskStore, type TaskDropPosition } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { useVisibleViewport } from '../../hooks/use-visible-viewport';
 import { isInputComposition } from '../../lib/input-method';
-import { moveTaskWithUndo } from '../../lib/move-task-with-undo';
+import { placeTaskWithUndo } from '../../lib/move-task-with-undo';
 import { ModalPortal } from '../ModalPortal';
 import { useDialogHistory } from './useDialogHistory';
 
-export function TaskMovePicker({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+export function TaskMovePicker({ taskId, onClose, previousTaskId, nextTaskId }: {
+    taskId: string; onClose: () => void; previousTaskId?: string; nextTaskId?: string;
+}) {
     const tasks = useTaskStore(state => state._allTasks);
     const task = tasks.find(item => item.id === taskId);
     const { language } = useLanguage(), zh = language.startsWith('zh');
@@ -24,10 +26,10 @@ export function TaskMovePicker({ taskId, onClose }: { taskId: string; onClose: (
         search.current?.focus();
         return () => { if (previous?.isConnected) previous.focus(); };
     }, []);
-    const move = async (parentTaskId?: string) => {
+    const move = async (targetId?: string, position: TaskDropPosition = 'inside') => {
         if (lock.current) return;
         lock.current = true; setBusy(true); setError('');
-        try { await moveTaskWithUndo(taskId, parentTaskId, zh); lock.current = false; close(); }
+        try { await placeTaskWithUndo(taskId, targetId, position, zh); lock.current = false; close(); }
         catch (error) { setError(error instanceof Error ? error.message : String(error)); }
         finally { lock.current = false; setBusy(false); }
     };
@@ -45,7 +47,11 @@ export function TaskMovePicker({ taskId, onClose }: { taskId: string; onClose: (
             }
         }}>
             <header className="mb-3 flex shrink-0 items-center justify-between gap-2"><h2 className="min-w-0 break-words font-semibold">{l('Move', '移动')}：{task?.title}</h2><button className={button} disabled={busy} onClick={() => close()}>{l('Cancel', '取消')}</button></header>
-            <p className="mb-3 text-xs text-muted-foreground">{l('Only the parent changes. Content, dates, reminders and completion stay independent.', '只改变父子归属，正文、日期、提醒和完成状态保持独立。')}</p>
+            <p className="mb-3 text-xs text-muted-foreground">{l('Change order or parent. Content, dates, reminders and completion stay independent.', '调整顺序或父子归属，正文、日期、提醒和完成状态保持独立。')}</p>
+            {(previousTaskId || nextTaskId) && <div role="group" aria-label={l('Task order', '任务顺序')} className="mb-4 flex gap-2">
+                <button className={`${button} flex-1`} disabled={busy || !previousTaskId} onClick={() => move(previousTaskId, 'before')}>{l('Move up', '上移')}</button>
+                <button className={`${button} flex-1`} disabled={busy || !nextTaskId} onClick={() => move(nextTaskId, 'after')}>{l('Move down', '下移')}</button>
+            </div>}
             <input ref={search} className="mb-3 min-h-11 w-full shrink-0 rounded-lg border border-border bg-background px-3" aria-label={l('Find parent task', '搜索父任务')} placeholder={l('Find a task…', '搜索任务…')} value={query} onChange={event => setQuery(event.target.value)} disabled={busy} />
             {error && <p role="alert" className="mb-2 text-sm text-destructive">{error}</p>}
             <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">

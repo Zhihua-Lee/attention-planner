@@ -4,6 +4,7 @@ import type { StoreActionResult } from './store-types';
 import { getQuickAddProjectInitialProps } from './quick-add';
 import { isSelectableProjectForTaskAssignment } from './project-utils';
 import { DEFAULT_AREA_COLOR, DEFAULT_PROJECT_COLOR } from './color-constants';
+import { checklistForSave } from './task-checklist';
 
 /**
  * Capture assembly as one module: turning parsed quick-add input plus surface
@@ -315,6 +316,7 @@ export async function prepareCaptureTask(
     let props = options.transformProps
         ? options.transformProps({ ...assembly.props })
         : assembly.props;
+    if (props.checklist) props = { ...props, checklist: checklistForSave(props.checklist) };
 
     // A surface picker is more explicit than a parsed +Project token. Avoid
     // creating an orphan parsed project when enrichment supplied a project id.

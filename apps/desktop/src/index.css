@@ -16,13 +16,6 @@
   }
 }
 
-/* Hallmark · genre: modern-minimal desktop productivity · tone: calm, quiet, capable · anchor hue: accessible blue */
-/* Hallmark · macrostructure: GTD command rail + adaptive work canvas · fingerprint: task-first rail, focused list, optional detail panels */
-/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
-/* Hallmark · contrast: pass (40–41) · nav: N2 command rail · footer: none (desktop app) · slop: pass (42–45) */
-/* Hallmark · honest: pass (46) · chrome: pass (47) · tokens: pass (48) · responsive: pass (49) · icons: pass (30) */
-/* Hallmark · mobile: pass (34, 49, 50–57) */
-
 /*
  * Z-INDEX SCALE
  *   z-10    — inline overlays anchored to a relative parent (action buttons, floating labels)
@@ -38,23 +31,23 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 24% 97%;
+    --foreground: 222 28% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 28% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 28% 16%;
 
-    --primary: 217 91% 50%;
+    --primary: 221 76% 48%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
-    --muted-foreground: 240 5% 40%;
+    --muted-foreground: 220 10% 42%;
 
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
@@ -69,8 +62,8 @@
     --info: 217 91% 45%;
     --info-foreground: 0 0% 100%;
 
-    --border: 240 5.9% 85%;
-    --input: 240 5.9% 85%;
+    --border: 220 18% 88%;
+    --input: 220 15% 82%;
     --ring: 217 91% 50%;
 
     --status-inbox: 217 91% 45%;
@@ -96,18 +89,17 @@
     --badge-info-bg: 210 40% 96%;
     --badge-info-fg: 220 10% 30%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
     --mindwtr-text-scale: 1;
   }
 
   .dark {
     color-scheme: dark;
-    /* VS Code Dark Modern style - softer dark instead of near-black */
-    --background: 220 13% 13%;        /* #1e1e2e - main background */
-    --foreground: 220 13% 91%;        /* #e4e4e7 - text color */
+    --background: 222 20% 11%;
+    --foreground: 210 22% 93%;
 
-    --card: 220 13% 16%;              /* #252530 - card background */
-    --card-foreground: 220 13% 91%;
+    --card: 222 18% 15%;
+    --card-foreground: 210 22% 93%;
 
     --popover: 220 13% 14%;           /* #222230 - popover background */
     --popover-foreground: 220 13% 91%;
@@ -134,8 +126,8 @@
     --info: 210 90% 65%;
     --info-foreground: 220 50% 12%;
 
-    --border: 220 13% 30%;
-    --input: 220 13% 30%;
+    --border: 220 15% 25%;
+    --input: 220 13% 36%;
     --ring: 217 91% 60%;              /* matches primary */
 
     --status-inbox: 217 91% 65%;
@@ -359,9 +351,13 @@
   h3 {
     min-width: 0;
     overflow-wrap: anywhere;
+    letter-spacing: -0.018em;
+    line-height: 1.3;
   }
 
   html {
+    /* Local system fonts keep the PWA private, fast and fully offline. */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', system-ui, sans-serif;
     font-size: calc(16px * var(--mindwtr-text-scale));
     overflow-x: clip;
     /* Ensure consistent sizing on WebKitGTK */
@@ -416,6 +412,10 @@
 
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    line-height: 1.55;
     overflow-x: clip;
     overflow-y: hidden;
   }
@@ -491,6 +491,43 @@
 }
 
 @layer components {
+  /* Refine the existing surfaces; all themes still use the same semantic tokens. */
+  [data-planner-form] :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+    border-radius: 0.625rem;
+    border-color: hsl(var(--input));
+    background-color: hsl(var(--background) / 0.65);
+    line-height: 1.5;
+  }
+
+  [data-planner-form] :is(input, textarea, select):focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.7);
+    outline-offset: 2px;
+    border-color: hsl(var(--ring));
+  }
+
+  [data-planner-form] button {
+    border-radius: 0.625rem;
+  }
+
+  [data-planner-form] summary {
+    color: hsl(var(--foreground));
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  [data-sidebar-item] {
+    border-radius: 0.625rem;
+  }
+
+  [data-sidebar-item][aria-current='page'] {
+    background-color: hsl(var(--primary) / 0.1);
+  }
+
+  .task-tree-row[data-tree-depth]:not([data-tree-depth='0']) {
+    border-inline-start: 2px solid hsl(var(--border));
+    padding-inline-start: 0.5rem;
+  }
+
   button[role='switch'] {
     position: relative;
   }

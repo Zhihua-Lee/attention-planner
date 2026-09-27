@@ -1,4 +1,4 @@
-import type { Task } from '@mindwtr/core';
+import { checklistForSave, type Task } from '@mindwtr/core';
 
 export type PlainCaptureDraft = {
     title: string;
@@ -62,7 +62,7 @@ export function preparePlainCapture(draft: PlainCaptureDraft): PlainCaptureResul
         props: {
             status: schedule || draft.plannedDay ? 'next' : draft.destination,
             ...(draft.availableAt ? { availableAt:draft.availableAt } : {}),
-            ...(draft.checklist ? { checklist:draft.checklist.filter(s=>s.title.trim()) } : {}),
+            ...(draft.checklist ? { checklist: checklistForSave(draft.checklist) } : {}),
             // Whitespace can carry Markdown meaning; only discard an empty note.
             description: draft.description.trim() ? draft.description : undefined,
             ...(schedule ? { scheduledAt: schedule.toISOString() } : {}),
