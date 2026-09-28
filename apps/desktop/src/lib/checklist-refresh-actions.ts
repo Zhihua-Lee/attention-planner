@@ -1,4 +1,4 @@
-import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistEndImpact, checklistEndUpdates, checklistItemState, checklistRefreshData, checklistTargetPolicy,
+import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistEndImpact, checklistEndUpdates, checklistFreezeUpdates, checklistItemState, checklistRefreshData, checklistTargetPolicy,
     flushPendingSave, hasActiveChecklistRound, makeChecklistPolicy, taskPlanner, updateChecklistPolicy, useTaskStore,
     type Task, type ChecklistRefreshEnd, type ChecklistRefreshPolicy, type ChecklistRefreshTarget, type checklistEndPreview } from '@mindwtr/core';
 import { editTask, ensurePlannerBackup } from './lifecycle-actions';
@@ -47,9 +47,10 @@ export async function setChecklistCompletion(taskId: string, changes: Completion
 export async function setChecklistRoundCompletion(taskId: string, completed: boolean, zh: boolean) {
     const state = useTaskStore.getState(), task = state._allTasks.find(t => t.id === taskId), now = new Date();
     if (!task || !hasActiveChecklistRound(task, state._allTasks, now)) throw new Error(zh ? '清单刷新规则已改变。' : 'The checklist refresh rule changed.');
+    // A round covers only refreshing items; one-time steps keep their own permanent checkbox.
     const changes = (task.checklist ?? []).flatMap(item => {
         const period = checklistItemState(task, item, state._allTasks, now);
-        return period.recurring && !period.cycle ? [] : [{ itemId: item.id, completed, cycleId: period.cycle?.id }];
+        return period.recurring && period.cycle ? [{ itemId: item.id, completed, cycleId: period.cycle.id }] : [];
     });
     if (!changes.length) throw new Error(zh ? '首轮尚未开始。' : 'The first period has not started yet.');
     await setChecklistCompletion(taskId, changes, zh);
@@ -65,24 +66,10 @@ export async function saveChecklistPolicy(target: ChecklistRefreshTarget, expect
     const planner = { ...taskPlanner(task), checklistRefresh: updateChecklistPolicy(task, target.itemId, policy) };
     const nextTask = { ...task, planner }, nextTasks = state._allTasks.map(t => t.id === task.id ? nextTask : t);
     const updates: Array<{ id: string; updates: Partial<Task> }> = [{ id: task.id, updates: { planner } }];
-    // Disabling an inherited rule freezes its current checkboxes instead of falling back to an old raw boolean.
-    if (policy.mode === 'off') {
-        const affected = target.itemId === undefined ? [task, ...checklistDescendants(state._allTasks, task.id)] : [task];
-        for (const oldTask of affected) {
-            const next = oldTask.id === task.id ? nextTask : oldTask;
-            let changed = false;
-            const checklist = oldTask.checklist?.map(item => {
-                const before = checklistItemState(oldTask, item, state._allTasks, now), after = checklistItemState(next, item, nextTasks, now);
-                if (before.recurring && !after.recurring && item.isCompleted !== before.completed) {
-                    changed = true; return { ...item, isCompleted: before.completed };
-                }
-                return item;
-            });
-            if (changed) {
-                if (oldTask.id === task.id) updates[0].updates.checklist = checklist;
-                else updates.push({ id: oldTask.id, updates: { checklist } });
-            }
-        }
+    const affected = target.itemId === undefined ? [task, ...checklistDescendants(state._allTasks, task.id)] : [task];
+    for (const [id, checklist] of checklistFreezeUpdates(state._allTasks, nextTasks, affected.map(t => t.id), now)) {
+        if (id === task.id) updates[0].updates.checklist = checklist;
+        else updates.push({ id, updates: { checklist } });
     }
     const result = await state.batchUpdateTasks(updates);
     if (!result.success) throw new Error(result.error || 'Could not save refresh settings.');

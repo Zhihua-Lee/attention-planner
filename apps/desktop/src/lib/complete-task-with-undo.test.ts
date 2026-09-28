@@ -72,6 +72,16 @@ describe('completeTaskWithUndo', () => {
             expect(saved.status).toBe('next');
             expect(saved.planner?.checklistRefresh?.marks.prepare['v1/2026-09-29'].completed).toBe(true);
         });
+        it('leaves one-time steps untouched when completing a round', async () => {
+            const base = listTask('2026-12-10'), refresh = base.planner!.checklistRefresh!;
+            const mixed: Task = { ...base, checklist: [...base.checklist!, { id: 'buy', title: 'Buy textbook', isCompleted: false }],
+                planner: { ...base.planner!, checklistRefresh: { ...refresh, items: { buy: { ...refresh.defaults!, mode: 'off', schedule: undefined, end: { mode: 'inherit' } } } } } };
+            at('2026-09-29T12:00:00Z', mixed);
+            expect(await completeTaskWithUndo('list', t)).toBe(true);
+            const saved = useTaskStore.getState()._allTasks[0];
+            expect(saved.checklist?.find(item => item.id === 'buy')?.isCompleted).toBe(false);
+            expect(saved.planner?.checklistRefresh?.marks.prepare['v1/2026-09-29'].completed).toBe(true);
+        });
         it('completes the whole task after the end date', async () => {
             at('2026-12-20T12:00:00Z', listTask('2026-12-10'));
             expect(await completeTaskWithUndo('list', t)).toBe(true);

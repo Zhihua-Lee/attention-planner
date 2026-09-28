@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Task } from './types';
-import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistEndPreview, checklistEndUpdates, checklistHistory, checklistItemState,
+import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistFreezeUpdates, checklistRefreshScope, checklistEndPreview, checklistEndUpdates, checklistHistory, checklistItemState,
     checklistLocalDay, checklistRefreshData, hasActiveChecklistRound, hasRecurringChecklist, makeChecklistPolicy, mergeChecklistRefresh, projectChecklist,
     updateChecklistPolicy, validateChecklistRefresh, validateChecklistSchedule, type ChecklistRefreshPolicy, type ChecklistRefreshSchedule } from './checklist-refresh';
 
@@ -84,6 +84,27 @@ describe('checklist recurrence projection', () => {
         assert.equal(hasActiveChecklistRound(t, [t], new Date('2026-10-06T12:00:00Z')), false);
         assert.equal(hasRecurringChecklist(t, [t], new Date('2026-10-06T12:00:00Z')), true);
         assert.equal(hasActiveChecklistRound({ ...t, status: 'done', completedAt: now.toISOString() }, [t], now), false);
+    });
+    it('freezes current checkboxes whenever an item stops refreshing, not only for "off"', () => {
+        const t = configured(); t.checklist![1].isCompleted = true; // Stale raw flag from before refreshing was enabled.
+        const inherited = { ...t, planner: { ...t.planner!, checklistRefresh: { ...t.planner!.checklistRefresh!, defaults: policy({ mode: 'inherit', schedule: undefined }) } } };
+        const frozen = checklistFreezeUpdates([t], [inherited], [t.id], now).get(t.id)!;
+        assert.deepEqual(frozen.map(item => item.isCompleted), [false, false]);
+        assert.equal(checklistFreezeUpdates([t], [t], [t.id], now).size, 0);
+    });
+    it('scopes a task to itself and its live ancestors', () => {
+        const p = configured(), child = task('child', p.id), other = task('other');
+        assert.deepEqual(checklistRefreshScope([p, child, other], child.id).map(x => x.id), ['child', p.id]);
+        const a = task('a', 'b'), b = task('b', 'a');
+        assert.deepEqual(checklistRefreshScope([a, b], 'a').map(x => x.id), ['a', 'b']);
+    });
+    it('keeps synced data with an unknown timezone readable, but rejects it as new input', () => {
+        const odd = policy({ schedule: schedule({ timeZone: 'Mars/Olympus_Mons' }) });
+        validateChecklistRefresh({ version: 1, defaults: odd, items: {}, marks: {} });
+        const t = configured(odd);
+        assert.equal(view(t).recurring, true);
+        assert.throws(() => makeChecklistPolicy(undefined, { mode: 'custom', schedule: odd.schedule, end: { mode: 'never' }, paused: false }, now, 'a'), /Unknown time zone/);
+        assert.equal(makeChecklistPolicy(odd, { mode: 'custom', schedule: odd.schedule, end: { mode: 'date', date: '2026-12-01' }, paused: false }, now, 'a').end.date, '2026-12-01');
     });
     it('marks a round, not the permanent lifecycle of a live recurring checklist', () => {
         const t = complete(configured()); assert.equal(t.status, 'next'); assert.equal(hasRecurringChecklist(t, [t], now), true);
