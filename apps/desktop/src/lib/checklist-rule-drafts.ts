@@ -26,7 +26,8 @@ const validMode = (value: unknown) => ['inherit', 'custom', 'off'].includes(Stri
 const validEnd = (value: unknown) => record(value) && ['inherit', 'never', 'date'].includes(String(value.mode))
     && (value.date === undefined || typeof value.date === 'string');
 const validSchedule = (value: unknown) => record(value) && typeof value.id === 'string'
-    && ['daily', 'weekly', 'monthly', 'yearly'].includes(String(value.frequency)) && typeof value.interval === 'number'
+    && (value.anchor === undefined || value.anchor === 'completion')
+    && ['hourly', 'daily', 'weekly', 'monthly', 'yearly'].includes(String(value.frequency)) && typeof value.interval === 'number'
     && ['startDate', 'time', 'timeZone'].every(key => typeof value[key] === 'string')
     && ['weekdays', 'monthDays'].every(key => value[key] === undefined
         || Array.isArray(value[key]) && (value[key] as unknown[]).every(day => typeof day === 'number'));

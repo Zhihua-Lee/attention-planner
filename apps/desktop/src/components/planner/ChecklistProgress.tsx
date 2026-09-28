@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { checklistHistory, checklistItemState, flushPendingSave, useTaskStore, type Task } from '@mindwtr/core';
+import { checklistHistory, checklistItemState, checklistWallTime, flushPendingSave, useTaskStore, type Task } from '@mindwtr/core';
+import { checklistDelayLabel } from '../../lib/checklist-refresh-text';
 import { useLanguage } from '../../contexts/language-context';
 import { setChecklistCompletion } from '../../lib/checklist-refresh-actions';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
@@ -36,7 +37,9 @@ export function ChecklistProgress({ task, closed = false, allowPromote = false, 
                 </div>
                 {state.recurring && <p className="ml-7 text-xs leading-5 text-muted-foreground" data-checklist-cycle={state.cycle?.id ?? 'pending'}>
                     {state.cycle ? l(`Round ${state.cycle.day}`, `本轮 ${state.cycle.day}`) : l('First round not started', '首轮尚未开始')}
-                    {state.paused ? l(' · paused', ' · 已暂停') : state.ended ? l(' · ended', ' · 已结束刷新') : state.next ? l(` · Next ${state.next.day} ${state.schedule!.time}`, ` · 下次 ${state.next.day} ${state.schedule!.time}`) : ''}
+                    {state.paused ? l(' · paused', ' · 已暂停') : state.ended ? l(' · ended', ' · 已结束刷新')
+                        : state.next ? l(` · Next ${checklistWallTime(state.next.dueAt, state.schedule!.timeZone)}`, ` · 下次 ${checklistWallTime(state.next.dueAt, state.schedule!.timeZone)}`)
+                        : state.cycle && state.schedule!.anchor === 'completion' ? l(` · refreshes ${checklistDelayLabel(state.schedule!, zh)}`, ` · ${checklistDelayLabel(state.schedule!, zh)}刷新`) : ''}
                     {` · ${state.schedule!.timeZone}`}
                 </p>}
                 {!!history.length && <details className="ml-7 mt-1 text-xs"><summary className="min-h-11 cursor-pointer content-center text-muted-foreground">{l('Completion history', '完成历史')}</summary>

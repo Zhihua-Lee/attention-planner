@@ -243,3 +243,67 @@ describe('multi-device ledger and undo guards', () => {
         assert.equal(changed.pausedAt, old.pausedAt); assert.equal(changed.schedule?.id, old.schedule?.id);
     });
 });
+
+describe('refresh a set time after the list is completed', () => {
+    const after = (patch: Partial<ChecklistRefreshSchedule> = {}) => schedule({ anchor: 'completion', frequency: 'hourly', interval: 3, weekdays: undefined, ...patch });
+    const check = (t: Task, item: string, at: string, tasks?: Task[]) => {
+        const time = new Date(at), scope = tasks?.map(x => x.id === t.id ? t : x) ?? [t];
+        const changed = changeChecklistCompletion(t, scope, [{ itemId: item, completed: true, cycleId: view(t, time, scope, item).cycle?.id }], time, 'a');
+        return { ...t, checklist: changed.checklist, planner: { ...t.planner!, checklistRefresh: changed.refresh } };
+    };
+    it('starts the next round the set time after the last item is checked', () => {
+        let t = configured(policy({ schedule: after() })); // First round: 2026-09-28 06:00 Chicago.
+        assert.equal(view(t).cycle?.id, 'series-a/r1');
+        t = check(t, 'prepare', '2026-09-29T12:00:00Z');
+        assert.equal(view(t, new Date('2026-09-29T20:00:00Z')).next, undefined); // Grade is still open.
+        t = check(t, 'grade', '2026-09-29T13:00:00Z');
+        const waiting = view(t, new Date('2026-09-29T15:59:00Z'));
+        assert.equal(waiting.cycle?.id, 'series-a/r1'); assert.equal(waiting.completed, true);
+        assert.equal(waiting.next?.dueAt, '2026-09-29T16:00:00.000Z');
+        const fresh = view(t, new Date('2026-09-29T16:00:00Z'));
+        assert.equal(fresh.cycle?.id, 'series-a/r2'); assert.equal(fresh.completed, false);
+        assert.equal(view(t, new Date('2026-09-29T16:00:00Z'), [t], 'grade').completed, false);
+    });
+    it('waits for completion instead of piling up missed rounds', () => {
+        const t = configured(policy({ schedule: after() }));
+        assert.equal(view(t, new Date('2040-01-01T00:00:00Z')).cycle?.id, 'series-a/r1');
+        assert.equal(view(t, new Date('2026-09-28T10:00:00Z')).next?.id, 'series-a/r1');
+    });
+    it('counts days on the wall clock across a DST change', () => {
+        let t = configured(policy({ schedule: after({ frequency: 'daily', interval: 1, startDate: '2026-03-01' }) }));
+        t = check(check(t, 'prepare', '2026-03-07T16:15:00Z'), 'grade', '2026-03-07T16:15:00Z'); // 10:15 CST.
+        assert.equal(view(t, new Date('2026-03-08T12:00:00Z')).next?.dueAt, '2026-03-08T15:15:00.000Z'); // 10:15 CDT.
+    });
+    it('clamps a monthly delay to the end of a shorter month', () => {
+        let t = configured(policy({ schedule: after({ frequency: 'monthly', interval: 1, startDate: '2026-01-01' }) }));
+        t = check(check(t, 'prepare', '2026-01-31T18:00:00Z'), 'grade', '2026-01-31T18:00:00Z');
+        assert.equal(view(t, new Date('2026-02-01T00:00:00Z')).next?.day, '2026-02-28');
+    });
+    it('keeps the last round after the end date', () => {
+        let t = configured(policy({ schedule: after({ frequency: 'daily', interval: 1 }), end: { mode: 'date', date: '2026-09-29' } }));
+        t = check(check(t, 'prepare', '2026-09-29T12:00:00Z'), 'grade', '2026-09-29T12:00:00Z');
+        const later = view(t, new Date('2026-10-05T12:00:00Z'));
+        assert.equal(later.cycle?.id, 'series-a/r1'); assert.equal(later.next, undefined); assert.equal(later.ended, true);
+    });
+    it('rounds an item with its own delay independently of the list', () => {
+        let t = configured(policy({ schedule: after() }));
+        t.planner!.checklistRefresh!.items.grade = policy({ schedule: after({ id: 'own', interval: 1 }), end: { mode: 'inherit' } });
+        t = check(t, 'prepare', '2026-09-29T12:00:00Z');
+        assert.equal(view(t, new Date('2026-09-29T15:00:00Z')).cycle?.id, 'series-a/r2');
+        assert.equal(view(t, new Date('2026-09-29T15:00:00Z'), [t], 'grade').cycle?.id, 'own/r1');
+    });
+    it('shows reached rounds in history and freezes while paused', () => {
+        let t = configured(policy({ schedule: after() }));
+        t = check(check(t, 'prepare', '2026-09-29T12:00:00Z'), 'grade', '2026-09-29T12:00:00Z');
+        const history = checklistHistory(t, t.checklist![0], [t], new Date('2026-09-29T16:00:00Z'));
+        assert.deepEqual(history.map(x => [x.id, x.completed, x.current]), [['series-a/r2', false, true], ['series-a/r1', true, false]]);
+        t.planner!.checklistRefresh!.defaults!.pausedAt = '2026-09-29T13:00:00Z';
+        assert.equal(view(t, new Date('2026-09-29T20:00:00Z')).cycle?.id, 'series-a/r1');
+    });
+    it('validates after-completion schedules', () => {
+        validateChecklistSchedule(after({ frequency: 'weekly' }));
+        assert.throws(() => validateChecklistSchedule(schedule({ frequency: 'hourly' as never })));
+        assert.throws(() => validateChecklistSchedule(after({ weekdays: [2] })), /no weekdays/);
+        assert.throws(() => validateChecklistSchedule({ ...after(), anchor: 'sometimes' }));
+    });
+});
