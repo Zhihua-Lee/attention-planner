@@ -12,7 +12,7 @@ export function mcpPage(title: string, body: string, status = 200): Response {
     } });
 }
 const labels: Record<string, string> = { title: '标题', description: '正文', checklist: '勾选步骤', status: '状态',
-    completedAt: '完成时间', deletedAt: '移入回收站', parentTaskId: '父任务', projectId: '项目', areaId: '领域',
+    completedAt: '完成时间', deletedAt: '移入回收站', parentTaskId: '关联任务', projectId: '项目', areaId: '领域',
     availableAt: '可开始日期', dueDate: '截止日期', planner: '时间安排', recurrence: '重复规则' };
 function displayValue(value: unknown, field: string): string {
     if (value === null || value === undefined) return '（无）';

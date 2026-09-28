@@ -16,7 +16,7 @@ async function dragTo(page: Page, sourceId: string, targetId: string, position: 
     await page.mouse.move(from.x + 20, from.y + 20);
     await page.mouse.down();
     await page.mouse.move(to.x + to.width / 2, to.y + to.height * ({ before: 0.1, inside: 0.5, after: 0.9 }[position]), { steps: 15 });
-    await expect(page.getByText({ before: 'Insert before', inside: 'Nest as a subtask', after: 'Insert after' }[position], { exact: true })).toBeVisible();
+    await expect(page.getByText({ before: 'Insert before', inside: 'Link to this task', after: 'Insert after' }[position], { exact: true })).toBeVisible();
     await page.mouse.up();
     await expect(page.locator('[data-task-placement-saving]')).toHaveCount(0);
 }

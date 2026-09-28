@@ -88,26 +88,25 @@ describe('checklist content drafts and planner persistence', () => {
         const view = checklistItemState(t, t.checklist![0], [t], thu);
         assert.equal(view.cycle?.day, '2026-09-29'); assert.equal(view.completed, true); assert.equal(view.next, undefined); assert.equal(t.status, 'done');
     });
-    it('displays the actual parent rule when an own custom/off override is being replaced by inherit', () => {
-        const p = task(), child = { ...task(), id: 'child', parentTaskId: p.id };
-        child.planner!.checklistRefresh!.defaults!.mode = 'off';
-        assert.equal(resolveChecklistRefresh(child, undefined, [p, child]).schedule, undefined);
-        assert.equal(resolveChecklistRefresh(child, undefined, [p, child], true).schedule?.id, '1560-v1');
+    it('shows what an item would follow when its own override is replaced by inherit', () => {
+        const t = task();
+        t.planner!.checklistRefresh!.items.prepare = { ...policy, mode: 'off', schedule: undefined };
+        assert.equal(resolveChecklistRefresh(t, 'prepare').schedule, undefined);
+        assert.equal(resolveChecklistRefresh(t, 'prepare', undefined, true).schedule?.id, '1560-v1');
+        assert.equal(resolveChecklistRefresh(t, undefined, undefined, true).schedule, undefined);
     });
-    it('previews indirectly affected children but does not write their independent settings', () => {
-        const p = task(), child = { ...task(), id: 'child', parentTaskId: p.id };
-        child.planner!.checklistRefresh!.defaults = undefined;
-        const tasks = [p, child], preview = checklistEndPreview(tasks, [{ taskId: p.id }]);
+    it('does not write a linked task when its target list default changes', () => {
+        const p = task(), linked = { ...task(), id: 'linked', parentTaskId: p.id };
+        linked.planner!.checklistRefresh!.defaults = undefined;
+        const tasks = [p, linked], preview = checklistEndPreview(tasks, [{ taskId: p.id }]);
         const impact = checklistEndImpact(tasks, preview, { mode: 'date', date: '2026-12-10' });
-        assert.ok(impact.some(t => t.taskId === child.id && t.itemId === 'prepare' && t.after === '2026-12-10'));
-        const changes = checklistEndUpdates(tasks, preview, { mode: 'date', date: '2026-12-10' }, tue, 'a');
-        assert.equal(changes.has(child.id), false);
+        assert.equal(impact.some(t => t.taskId === linked.id), false);
+        assert.equal(checklistEndUpdates(tasks, preview, { mode: 'date', date: '2026-12-10' }, tue, 'a').has(linked.id), false);
     });
-    it('rejects empty bulk selections and a changed unselected inherited parent', () => {
+    it('rejects empty bulk selections and a changed list default behind a selected item', () => {
         assert.throws(() => checklistEndUpdates([task()], [], { mode: 'never' }, tue, 'a'), /Select at least/);
-        const p = task(), child = { ...task(), id: 'child', parentTaskId: p.id }; child.planner!.checklistRefresh!.defaults = undefined;
-        const preview = checklistEndPreview([p, child], [{ taskId: child.id }]);
-        const changedParent = structuredClone(p); changedParent.planner!.checklistRefresh!.defaults!.end = { mode: 'date', date: '2026-12-10' };
-        assert.throws(() => checklistEndUpdates([changedParent, child], preview, { mode: 'never' }, tue, 'a'), /changed after the preview/);
+        const p = task(), preview = checklistEndPreview([p], [{ taskId: p.id, itemId: 'prepare' }]);
+        const changed = structuredClone(p); changed.planner!.checklistRefresh!.defaults!.end = { mode: 'date', date: '2026-12-10' };
+        assert.throws(() => checklistEndUpdates([changed], preview, { mode: 'never' }, tue, 'a'), /changed after the preview/);
     });
 });

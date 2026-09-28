@@ -56,17 +56,16 @@ test('configures weekdays and independent list/item end dates in the existing de
     await expect(settings.getByLabel('End date mode', { exact: true })).toHaveValue('never');
 });
 
-test('bulk end sync previews inherited effects, cancels without changes and replaces selected ends only', async ({ page }) => {
+test('bulk end sync previews items following the default, cancels without changes and replaces selected ends only', async ({ page }) => {
     await page.clock.install({ time: new Date(tue) });
-    const child = task('1560 child', { parentTaskId: '1560', planner: { version: 1, blocks: [], days: [] } });
-    await openApp(page, [task(), child]); const detail = await openTask(page, '1560');
+    await openApp(page, [task()]); const detail = await openTask(page, '1560');
     const settings = detail.getByTestId('checklist-refresh-settings'); await settings.locator(':scope > summary').click();
     const bulk = settings.getByTestId('checklist-end-bulk'); await bulk.locator(':scope > summary').click();
     await bulk.getByLabel('Batch End date', { exact: true }).fill('2026-12-17');
     await bulk.getByRole('checkbox', { name: '1560 · list default', exact: true }).check();
     await bulk.getByRole('button', { name: 'Preview sync', exact: true }).click();
     const preview = bulk.getByRole('alertdialog', { name: 'Confirm end date sync' });
-    await expect(preview).toContainText('1560 child / Prepare class');
+    await expect(preview).toContainText('1560 / Prepare class');
     await preview.getByRole('button', { name: 'Cancel', exact: true }).click();
     expect((await readTasks(page))[0].planner.checklistRefresh.defaults.end.date).toBe('2026-12-10');
     await bulk.getByRole('button', { name: 'Preview sync', exact: true }).click();
@@ -74,8 +73,7 @@ test('bulk end sync previews inherited effects, cancels without changes and repl
     await expect(preview).toHaveCount(0);
     const rows = await readTasks(page), data = rows.find((t: { id: string }) => t.id === '1560').planner.checklistRefresh;
     expect(data.defaults.end.date).toBe('2026-12-17'); expect(data.defaults.schedule).toEqual(schedule);
-    expect(rows.find((t: { id: string }) => t.id === '1560 child').planner.checklistRefresh).toBeUndefined();
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(1);
 });
 
 test('a content draft crossing a refresh boundary does not check a new period', async ({ page }) => {

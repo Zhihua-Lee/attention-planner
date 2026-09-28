@@ -145,10 +145,10 @@ test('storage denial retains drafts across unmounts and warns before losing the 
     expect(await page.evaluate(() => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; })).toBe(false);
 });
 
-test('parent and child detail navigation preserves separate drafts and inherited saved values', async ({ page }) => {
+test('navigating to a linked task preserves separate drafts and saved values', async ({ page }) => {
     const { detail, settings } = await start(page, [task(), task('1560 child', { parentTaskId: '1560', planner: { version: 1, blocks: [], days: [] } })]);
     await settings.getByLabel('Refresh time', { exact: true }).fill('07:05');
-    await detail.getByRole('button', { name: '1560 child Open · view / arrange', exact: true }).click();
+    await detail.getByRole('button', { name: '1560 child', exact: true }).click();
     await expect(detail.getByRole('heading', { name: '1560 child', exact: true })).toBeVisible();
     await expandSettings(detail);
     await settings.getByLabel('Refresh rule', { exact: true }).selectOption('custom');
@@ -159,7 +159,7 @@ test('parent and child detail navigation preserves separate drafts and inherited
     await expandSettings(detail);
     await expect(settings.getByLabel('Refresh time', { exact: true })).toHaveValue('07:05');
     await settings.getByRole('button', { name: 'Discard rule draft', exact: true }).click();
-    await detail.getByRole('button', { name: '1560 child Open · view / arrange', exact: true }).click();
+    await detail.getByRole('button', { name: '1560 child', exact: true }).click();
     await expandSettings(detail);
     await expect(settings.getByLabel('Refresh time', { exact: true })).toHaveValue('08:05');
     expect((await readTasks(page)).find((item: { id: string }) => item.id === '1560 child').planner.checklistRefresh).toBeUndefined();

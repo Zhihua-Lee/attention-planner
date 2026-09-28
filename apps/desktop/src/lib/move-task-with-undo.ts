@@ -31,7 +31,7 @@ export async function placeTaskWithUndo(taskId: string, targetId: string | undef
                 const task = currentById.get(id);
                 if (!task || task.deletedAt || task.purgedAt || task.parentTaskId !== placedParents.get(id)
                     || Object.entries(updates).some(([key, value]) => task[key as keyof Task] !== value)) {
-                    throw new Error(zh ? '任务顺序或归属已再次改变，未覆盖较新的修改。' : 'Task order or placement changed again. The newer changes were kept.');
+                    throw new Error(zh ? '任务顺序或关联已再次改变，未覆盖较新的修改。' : 'Task order or link changed again. The newer changes were kept.');
                 }
             }
             const restored = await latest.batchUpdateTasks(previous);
@@ -43,7 +43,7 @@ export async function placeTaskWithUndo(taskId: string, targetId: string | undef
     const message = position !== 'inside'
         ? (zh ? '顺序已保存，时间与内容保留。' : 'Order saved. Dates and content kept.')
         : target
-            ? (zh ? `已移入「${target.title}」，时间与内容保留。` : `Moved into “${target.title}”. Dates and content kept.`)
-            : (zh ? '已移出为顶层任务。' : 'Moved out to the top level.');
+            ? (zh ? `已关联到「${target.title}」，时间与内容保留。` : `Linked to “${target.title}”. Dates and content kept.`)
+            : (zh ? '已取消关联。' : 'Link removed.');
     useUiStore.getState().showToast(message, 'success', 12000, { label: zh ? '撤销' : 'Undo', onClick: undo });
 }

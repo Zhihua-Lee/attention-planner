@@ -370,6 +370,7 @@ export function ChecklistField({
                                         </button>
                                         <input
                                             type="text"
+                                            data-checklist-input={item.id}
                                             value={item.title}
                                             ref={(node) => {
                                                 checklistInputRefs.current[index] = node;
