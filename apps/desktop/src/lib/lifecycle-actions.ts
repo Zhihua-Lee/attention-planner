@@ -3,8 +3,10 @@ import { isTauriRuntime } from './runtime';
 
 export const TASK_OPEN_EVENT = 'attention-planner:open-task';
 export const WORK_CHANGED_EVENT = 'attention-planner:current-work';
-export function openTaskDetails(taskId: string, blockId?: string) {
-    window.dispatchEvent(new CustomEvent(TASK_OPEN_EVENT, { detail: { taskId, blockId } }));
+/** `focus` opens the task already editing that field: 'title', 'description' or `step:<id>`. */
+export type TaskDetailFocus = 'title' | 'description' | `step:${string}`;
+export function openTaskDetails(taskId: string, blockId?: string, focus?: TaskDetailFocus) {
+    window.dispatchEvent(new CustomEvent(TASK_OPEN_EVENT, { detail: { taskId, blockId, focus } }));
 }
 export function plannerClock(): PlannerClock {
     return { now: new Date(), deviceId: useTaskStore.getState().settings.deviceId || 'local' };

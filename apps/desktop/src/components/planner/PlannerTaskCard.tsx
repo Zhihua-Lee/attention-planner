@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ArrowRight, Check, Inbox, Trash2 } from 'lucide-react';
-import { checklistItemState, checklistRefreshScope, flushPendingSave, shallow, useTaskStore, type Task } from '@mindwtr/core';
+import { checklistItemState, flushPendingSave, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -13,9 +13,9 @@ import { usePlannerEnvironment } from './usePlannerEnvironment';
 export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolean }) {
     const { language, t } = useLanguage(), zh = language.startsWith('zh');
     const l = (en: string, cn: string) => zh ? cn : en;
-    // Only this task and its ancestors affect its refresh rule, so unrelated edits do not re-render every card.
-    const scope = useTaskStore(state => checklistRefreshScope(state._allTasks, task.id), shallow), { now } = usePlannerEnvironment();
-    const states = task.checklist?.map(item => checklistItemState(task, item, scope, now)) ?? [];
+    // A refresh rule only depends on this task, so the card needs no other store data.
+    const { now } = usePlannerEnvironment();
+    const states = task.checklist?.map(item => checklistItemState(task, item, [task], now)) ?? [];
     const round = states.filter(state => state.recurring && state.cycle);
     const recurring = round.some(state => !state.ended);
     const checked = recurring ? round.every(state => state.completed) : task.status === 'done';

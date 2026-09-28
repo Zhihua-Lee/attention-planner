@@ -150,39 +150,22 @@ export function mergeChecklistRefresh(a?: ChecklistRefreshData, b?: ChecklistRef
     }
     return { version: 1, defaults: winner(a.defaults, b.defaults), items, marks };
 }
-export function checklistDescendants(tasks: readonly Task[], rootId: string): Task[] {
-    const children = new Map<string, Task[]>();
-    for (const task of tasks) if (task.parentTaskId && !task.deletedAt && !task.purgedAt) {
-        const siblings = children.get(task.parentTaskId) ?? []; siblings.push(task); children.set(task.parentTaskId, siblings);
-    }
-    const pending = [...(children.get(rootId) ?? [])], seen = new Set([rootId]), result: Task[] = [];
-    while (pending.length) {
-        const task = pending.shift()!;
-        if (seen.has(task.id)) continue;
-        seen.add(task.id); result.push(task); pending.push(...(children.get(task.id) ?? []));
-    }
-    return result;
-}
-const taskIndexes = new WeakMap<readonly Task[], Map<string, Task>>();
-export function resolveChecklistRefresh(task: Task, itemId: string | undefined, tasks: readonly Task[], ignoreOwn = false) {
-    let byId = taskIndexes.get(tasks);
-    if (!byId) {
-        byId = new Map(tasks.filter(t => !t.deletedAt && !t.purgedAt).map(t => [t.id, t]));
-        taskIndexes.set(tasks, byId);
-    }
-    const chain: Task[] = [], seen = new Set<string>();
-    let cursor: Task | undefined = task;
-    while (cursor && !seen.has(cursor.id)) { seen.add(cursor.id); chain.push(cursor); cursor = cursor.parentTaskId ? byId.get(cursor.parentTaskId) : undefined; }
+/**
+ * Rules never cross tasks: an item follows its own policy, else the list default. A task link
+ * (`parentTaskId`) is only a visual pointer. `_tasks` is kept so call sites need no other context.
+ * `ignoreOwn` resolves what the target would inherit without its own policy (the list default for an item).
+ */
+export function resolveChecklistRefresh(task: Task, itemId: string | undefined, _tasks?: readonly Task[], ignoreOwn = false) {
+    const data = checklistRefreshData(task);
+    const policies = itemId === undefined ? (ignoreOwn ? [] : [data.defaults]) : [data.defaults, ignoreOwn ? undefined : data.items[itemId]];
     let schedule: ChecklistRefreshSchedule | undefined, endDate: string | undefined, pausedAt: string | undefined;
-    const policies = chain.reverse().map(t => ignoreOwn && itemId === undefined && t.id === task.id ? undefined : checklistRefreshData(t).defaults);
-    if (itemId !== undefined && !ignoreOwn) policies.push(checklistRefreshData(task).items[itemId]);
     for (const policy of policies) {
         if (!policy) continue;
         if (policy.mode === 'off') schedule = undefined;
         if (policy.mode === 'custom') schedule = policy.schedule;
         if (policy.end.mode === 'date') endDate = policy.end.date;
         if (policy.end.mode === 'never') endDate = undefined;
-        // Pausing a parent freezes its subtree, including independent child schedules.
+        // Pausing the list freezes every item, including those with their own schedule.
         if (policy.pausedAt && (!pausedAt || policy.pausedAt < pausedAt)) pausedAt = policy.pausedAt;
     }
     return { schedule, endDate, pausedAt };
@@ -352,13 +335,6 @@ export function hasRecurringChecklist(task: Task, tasks: readonly Task[], now = 
 export function hasActiveChecklistRound(task: Task, tasks: readonly Task[], now = new Date()): boolean {
     return !!task.checklist?.some(item => { const state = checklistItemState(task, item, tasks, now); return state.recurring && !state.ended && !!state.cycle; });
 }
-/** The task and its live ancestors: everything a task's refresh rule can inherit from. */
-export function checklistRefreshScope(tasks: readonly Task[], taskId: string): Task[] {
-    const byId = new Map(tasks.filter(t => !t.deletedAt && !t.purgedAt).map(t => [t.id, t]));
-    const chain: Task[] = [];
-    for (let cursor = byId.get(taskId); cursor && !chain.includes(cursor); cursor = cursor.parentTaskId ? byId.get(cursor.parentTaskId) : undefined) chain.push(cursor);
-    return chain;
-}
 /** Items that stop refreshing keep their current-period checkbox instead of falling back to an old raw boolean. */
 export function checklistFreezeUpdates(before: readonly Task[], after: readonly Task[], taskIds: readonly string[], now: Date): Map<string, NonNullable<Task['checklist']>> {
     const afterById = new Map(after.map(t => [t.id, t])), result = new Map<string, NonNullable<Task['checklist']>>();
@@ -428,7 +404,7 @@ export function checklistEndPreview(tasks: readonly Task[], targets: ChecklistRe
     return targets.map(target => {
         const task = byId.get(target.taskId);
         if (!task || task.deletedAt || task.purgedAt || target.itemId !== undefined && !task.checklist?.some(item => item.id === target.itemId)) throw new Error('A selected destination is no longer available.');
-        return { ...target, fingerprint: stable({ parentTaskId: task.parentTaskId, policy: checklistTargetPolicy(task, target.itemId), effective: resolveChecklistRefresh(task, target.itemId, tasks) }),
+        return { ...target, fingerprint: stable({ policy: checklistTargetPolicy(task, target.itemId), effective: resolveChecklistRefresh(task, target.itemId, tasks) }),
             title: target.itemId === undefined ? task.title : `${task.title} / ${task.checklist!.find(item => item.id === target.itemId)!.title}`,
             end: checklistTargetPolicy(task, target.itemId)?.end ?? { mode: 'inherit' as const } };
     });
@@ -449,13 +425,13 @@ export function checklistEndUpdates(tasks: readonly Task[], preview: ReturnType<
     }
     return result;
 }
-/** Include indirect inheritors in the confirmation, without writing their own overrides. */
+/** Effective end changes, including items that follow a changed list default. */
 export function checklistEndImpact(tasks: readonly Task[], preview: ReturnType<typeof checklistEndPreview>, end: ChecklistRefreshEnd) {
     const changes = checklistEndUpdates(tasks, preview, end, new Date('2000-01-01T00:00:00Z'), 'preview');
     const after = tasks.map(task => changes.has(task.id) ? { ...task, planner: { version: 1 as const, blocks: [], days: [], ...task.planner, checklistRefresh: changes.get(task.id)! } } : task);
     const impact: Array<ChecklistRefreshTarget & { title: string; before?: string; after?: string }> = [];
     const afterById = new Map(after.map(task => [task.id, task]));
-    for (const task of tasks) {
+    for (const task of tasks.filter(t => changes.has(t.id))) {
         if (task.deletedAt || task.purgedAt) continue;
         for (const itemId of [undefined, ...(task.checklist ?? []).map(item => item.id)]) {
             const before = resolveChecklistRefresh(task, itemId, tasks).endDate;

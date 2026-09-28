@@ -69,7 +69,7 @@ export async function handleMcpHttp(request: Request, actor: McpActor, execute: 
     register('get_task', '读取任务正文', 'Read one task including body, checklist, hierarchy and planning. Does not include settings, attachments or Outlook exports.', taskGetSchema, ['tasks:read'], true);
     const envelope = z.object({ idempotencyKey: z.string().regex(/^[A-Za-z0-9_-]{16,100}$/), command: mcpCommandSchema }).strict();
     register('create_draft', '保存 Inbox 草稿', 'Create a new Inbox draft directly. Only command.type=create_draft is accepted. Reuse the SAME idempotencyKey on retry; this creates data.', envelope, ['tasks:create'], false);
-    register('propose_change', '请求修改确认', 'Prepare an exact change preview for editing content or independent children, deleting, completing/reopening, dates or work blocks. Never executes without the user approving the returned URL in their authenticated browser. Not a completed action.', envelope, ['tasks:propose'], false);
+    register('propose_change', '请求修改确认', 'Prepare an exact change preview for editing content or task links, deleting, completing/reopening, dates or work blocks. Never executes without the user approving the returned URL in their authenticated browser. Not a completed action.', envelope, ['tasks:propose'], false);
     register('get_operation', '查看草稿或确认结果', 'Read this client authorization’s operation status. Pending means no edit yet; uncertain must not be blindly retried.', operationGetSchema, [], true);
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     try {

@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
 import { changeWork, commitToDay, checklistContentDraftPatch, checklistDraftState, hasActiveChecklistRound, projectChecklist, createNextRecurringTask, createPlanningPolicy, estimateMinutes, isCommittedOn, localPlanDate, localPlanInput, planDatePart, planTimePart, planDateValue, plannerTimeZone, scheduleWork, skipRecurringWork, taskPlanner, useTaskStore, type ChecklistDraftState, type Task, type WorkBlock } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
-import { checkReservation, editTask, setCurrentWork, TASK_OPEN_EVENT } from '../../lib/lifecycle-actions';
+import { checkReservation, editTask, setCurrentWork, TASK_OPEN_EVENT, type TaskDetailFocus } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
 import { returnTaskToInbox } from '../../lib/return-task-to-inbox';
 import { useUiStore } from '../../store/ui-store';
@@ -12,7 +12,7 @@ import { RichMarkdown } from '../RichMarkdown';
 import { RepeatPicker } from './RepeatPicker';
 import { useDialogHistory } from './useDialogHistory';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
-import { TaskRelations } from './TaskRelations';
+import { TaskLinks } from './TaskLinks';
 import { ChecklistProgress } from './ChecklistProgress';
 import { ChecklistRefreshSettings } from './ChecklistRefreshSettings';
 import { useVisibleViewport } from '../../hooks/use-visible-viewport';
@@ -21,6 +21,7 @@ export function TaskDetailHost() {
   const [stack, setStack] = useState<Array<{
     taskId: string;
     blockId?: string;
+    focus?: TaskDetailFocus;
   }>>([]);
   const selection = stack[stack.length - 1];
   useEffect(() => {
@@ -43,11 +44,13 @@ export function TaskDetailHost() {
 function TaskDetail({
   taskId,
   blockId,
+  focus,
   onClose,
   onOpenTask
 }: {
   taskId: string;
   blockId?: string;
+  focus?: TaskDetailFocus;
   onClose: () => void;
   onOpenTask: (taskId: string) => void;
 }) {
@@ -108,9 +111,27 @@ function TaskDetail({
     dirty = editing && JSON.stringify(draft) !== JSON.stringify(base ? { ...base, checklist: base.checklist?.map(item => ({
       ...item, isCompleted: checklistSnapshot[item.id]?.completed ?? item.isCompleted
     })) } : base);
+  // Clicking a title, note or step edits in place: open the editor focused on what was clicked.
+  const [editFocus, setEditFocus] = useState<TaskDetailFocus>(focus ?? 'title');
+  const startEdit = (target: TaskDetailFocus = 'title') => {
+    setEditFocus(target);
+    if (editing || !task || task.deletedAt) return;
+    const original = structuredClone(task), clock = new Date(), currentTasks = useTaskStore.getState()._allTasks;
+    setBase(original);
+    setDraft({ ...original, checklist: projectChecklist(original, currentTasks, clock) });
+    setChecklistSnapshot(checklistDraftState(original, currentTasks, clock));
+  };
   useEffect(() => {
-    if (editing) titleInput.current?.focus();
-  }, [editing]);
+    if (focus) startEdit(focus);
+  }, []);
+  useEffect(() => {
+    if (!editing) return;
+    const form = document.getElementById(formId);
+    const field = editFocus === 'description' ? form?.querySelector<HTMLElement>('textarea')
+      : editFocus.startsWith('step:') ? form?.querySelector<HTMLElement>(`[data-checklist-input="${CSS.escape(editFocus.slice(5))}"]`)
+      : titleInput.current;
+    (field ?? titleInput.current)?.focus();
+  }, [editing, editFocus, formId]);
   const close = useDialogHistory(true, force => {
     if (lock.current || relationBusy) return false;
     if (dirty && !force) {
@@ -304,15 +325,10 @@ function TaskDetail({
 
                 </fieldset>
             </form> : <>
-                <h1 className="break-words text-2xl font-semibold">{task.title}</h1>
+                <h1 className="break-words text-2xl font-semibold"><button type="button" className="w-full cursor-text break-words rounded-lg text-left hover:bg-muted/60" title={l('Click to edit', '点击编辑')} onClick={() => startEdit('title')}>{task.title}</button></h1>
                 <div className="flex flex-wrap gap-2 text-xs">{task.availableAt && <span>{l('Available', '可执行起始')} {task.availableAt}</span>}{task.dueDate && <span className={Date.parse(task.dueDate.length === 10 ? `${task.dueDate}T23:59:59` : task.dueDate) < now.getTime() ? 'text-destructive' : ''}>{l('Due', '截止')} {task.dueDate}</span>}{task.timeEstimate && <span>{l('Total estimate', '总预计')} {estimateMinutes(task.timeEstimate)} min</span>}</div>
                 {reason && <p className="rounded-lg border border-border bg-muted p-3 text-sm">{blockReason}{!closed && l(' · Still visible for planning.', ' · 仍可查看和提前规划。')}</p>}
-                <div className="flex flex-wrap gap-2"><button ref={editButton} className={button} onClick={() => {
-                  const original = structuredClone(task), clock = new Date(), currentTasks = useTaskStore.getState()._allTasks;
-                  setBase(original);
-                  setDraft({ ...original, checklist: projectChecklist(original, currentTasks, clock) });
-                  setChecklistSnapshot(checklistDraftState(original, currentTasks, clock));
-                }}>{l('Edit content', '编辑内容')}</button>
+                <div className="flex flex-wrap gap-2"><button ref={editButton} className={button} onClick={() => startEdit('title')}>{l('Edit content', '编辑内容')}</button>
                 {task.status === 'inbox' && <button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, () => ({ status: 'next' })), l('Ready to plan. No date is required.', '已加入待办，不必现在指定日期。'))}>{l('Ready to plan', '加入待办')}</button>}
                 {!closed && task.status !== 'inbox' && <button className={button} disabled={busy} onClick={() => run(() => returnTaskToInbox(task.id, zh))}>{l('Move to Inbox', '移回收集箱')}</button>}
                 {!closed && <><button className={button} disabled={busy || !!reason} onClick={() => setCurrentWork(task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} disabled={busy} onClick={() => run(async () => {
@@ -323,9 +339,14 @@ function TaskDetail({
                   status: 'next'
                 })), l('Task reopened. Past reservations remain closed.', '任务已重新打开，历史时段不会自动重启。'))}>{l('Reopen task', '重新打开任务')}</button>}
                 </div>
-                {task.description && <RichMarkdown markdown={task.description} />}
-                {!!task.checklist?.length && <ChecklistProgress task={task} closed={busy || closed || relationBusy} allowPromote onBusyChange={setRelationBusy} />}
-                <TaskRelations task={task} onOpenTask={onOpenTask} onBusyChange={setRelationBusy} />
+                {task.description
+                  // Links, checkboxes and summaries inside the note keep working; any other click edits the note.
+                  ? <div className="cursor-text rounded-lg hover:bg-muted/40" title={l('Click to edit', '点击编辑')} data-description-view onClick={e => {
+                    if (!(e.target as HTMLElement).closest('a, button, input, summary, label')) startEdit('description');
+                  }}><RichMarkdown markdown={task.description} /></div>
+                  : !task.deletedAt && <button type="button" className="min-h-11 w-full rounded-lg px-2 text-left text-sm text-muted-foreground hover:bg-muted/60" onClick={() => startEdit('description')}>{l('Add a note…', '添加正文…')}</button>}
+                {!!task.checklist?.length && <ChecklistProgress task={task} closed={busy || closed || relationBusy} allowPromote onBusyChange={setRelationBusy} onEditStep={task.deletedAt ? undefined : id => startEdit(`step:${id}`)} />}
+                <TaskLinks task={task} onOpenTask={onOpenTask} onBusyChange={setRelationBusy} />
                 <ChecklistRefreshSettings task={task} disabled={busy || closed || relationBusy} onBusyChange={setRelationBusy} />
                 {!closed && <section className="space-y-3 border-t border-border pt-4"><h2 className="font-semibold">{l('Plan this task', '安排这件事')}</h2>
                     <div className="flex flex-wrap items-end gap-2"><label className="text-sm">{l('Choose a day', '哪天想做')}<input type="date" className={input} value={day} onChange={e => setDay(e.target.value)} /></label><button className={button} disabled={busy} onClick={() => run(() => editTask(task.id, (latest, clock) => ({

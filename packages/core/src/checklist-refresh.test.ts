@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Task } from './types';
-import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistFreezeUpdates, checklistRefreshScope, checklistEndPreview, checklistEndUpdates, checklistHistory, checklistItemState,
+import { changeChecklistCompletion, checklistDraftState, checklistEndImpact, checklistFreezeUpdates, checklistEndPreview, checklistEndUpdates, checklistHistory, checklistItemState,
     checklistLocalDay, checklistRefreshData, hasActiveChecklistRound, hasRecurringChecklist, makeChecklistPolicy, mergeChecklistRefresh, projectChecklist,
     updateChecklistPolicy, validateChecklistRefresh, validateChecklistSchedule, type ChecklistRefreshPolicy, type ChecklistRefreshSchedule } from './checklist-refresh';
 
@@ -51,9 +51,9 @@ describe('checklist recurrence projection', () => {
         assert.equal(state.cycle, undefined); assert.equal(state.next?.day, '2026-09-29');
         assert.throws(() => changeChecklistCompletion(t, [t], [{ itemId: 'prepare', completed: true }], new Date('2026-09-28T12:00:00Z'), 'a'), /period changed/);
     });
-    it('does not let an inherited end before the start invent a round', () => {
-        const p = configured(policy({ end: { mode: 'date', date: '2026-09-28' } })), child = task('child', p.id);
-        assert.equal(view(child, now, [p, child]).cycle, undefined);
+    it('does not let an end before the first period invent a round', () => {
+        const t = configured(policy({ end: { mode: 'date', date: '2026-09-28' } }));
+        assert.equal(view(t).cycle, undefined);
     });
     it('retains history for completed and missed rounds without creating backlog tasks', () => {
         const t = complete(configured());
@@ -91,12 +91,6 @@ describe('checklist recurrence projection', () => {
         const frozen = checklistFreezeUpdates([t], [inherited], [t.id], now).get(t.id)!;
         assert.deepEqual(frozen.map(item => item.isCompleted), [false, false]);
         assert.equal(checklistFreezeUpdates([t], [t], [t.id], now).size, 0);
-    });
-    it('scopes a task to itself and its live ancestors', () => {
-        const p = configured(), child = task('child', p.id), other = task('other');
-        assert.deepEqual(checklistRefreshScope([p, child, other], child.id).map(x => x.id), ['child', p.id]);
-        const a = task('a', 'b'), b = task('b', 'a');
-        assert.deepEqual(checklistRefreshScope([a, b], 'a').map(x => x.id), ['a', 'b']);
     });
     it('keeps synced data with an unknown timezone readable, but rejects it as new input', () => {
         const odd = policy({ schedule: schedule({ timeZone: 'Mars/Olympus_Mons' }) });
@@ -154,55 +148,59 @@ describe('calendar edges and fixed timezones', () => {
     });
 });
 
-describe('parent, child, item and bulk end policies', () => {
-    it('inherits cadence and end independently, allowing explicit child extensions', () => {
-        const parent = configured(policy({ end: { mode: 'date', date: '2026-10-01' } })), child = task('child', parent.id);
-        assert.equal(view(child, now, [parent, child]).endDate, '2026-10-01');
-        child.planner!.checklistRefresh = { version: 1, defaults: policy({ mode: 'inherit', schedule: undefined, end: { mode: 'date', date: '2026-12-01' } }), items: {}, marks: {} };
-        assert.equal(view(child, now, [parent, child]).endDate, '2026-12-01');
-        assert.equal(view(child, now, [parent, child]).schedule?.id, 'series-a');
-        child.planner!.checklistRefresh!.items.prepare = policy({ mode: 'inherit', schedule: undefined, end: { mode: 'never' } });
-        assert.equal(view(child, now, [parent, child]).endDate, undefined);
+describe('list default, items and bulk end policies', () => {
+    it('items follow the list default for cadence and end independently, and may extend the end', () => {
+        const t = configured(policy({ end: { mode: 'date', date: '2026-10-01' } }));
+        assert.equal(view(t).endDate, '2026-10-01');
+        t.planner!.checklistRefresh!.items.prepare = policy({ mode: 'inherit', schedule: undefined, end: { mode: 'date', date: '2026-12-01' } });
+        assert.equal(view(t).endDate, '2026-12-01');
+        assert.equal(view(t).schedule?.id, 'series-a');
+        t.planner!.checklistRefresh!.items.prepare = policy({ mode: 'inherit', schedule: undefined, end: { mode: 'never' } });
+        assert.equal(view(t).endDate, undefined);
     });
-    it('supports independent item weekdays while inheriting its end date', () => {
+    it('a task link never passes a refresh rule to the linked task', () => {
+        const target = configured(), linked = task('linked', target.id);
+        assert.equal(view(linked, now, [target, linked]).recurring, false);
+        assert.equal(hasRecurringChecklist(linked, [target, linked], now), false);
+    });
+    it('supports independent item weekdays while following the list end date', () => {
         const t = configured(policy({ end: { mode: 'date', date: '2026-12-01' } }));
         t.planner!.checklistRefresh!.items.prepare = policy({ end: { mode: 'inherit' }, schedule: schedule({ id: 'own', weekdays: [2] }) });
         assert.equal(view(t, new Date('2026-10-01T12:00:00Z')).cycle?.day, '2026-09-29');
         assert.equal(view(t).endDate, '2026-12-01');
     });
-    it('stops inheritance at missing/deleted parents and never revives deleted items', () => {
-        const p = configured(), child = task('child', p.id); p.deletedAt = now.toISOString();
-        assert.equal(view(child, now, [p, child]).recurring, false);
-        assert.throws(() => changeChecklistCompletion(child, [child], [{ itemId: 'gone', completed: true }], now, 'a'));
-        assert.throws(() => updateChecklistPolicy(child, 'gone', policy()));
-        assert.equal(projectChecklist({ ...child, checklist: [] }, [child], now)?.length, 0);
-    });
-    it('handles malformed parent cycles without recursive overflow', () => {
-        const a = task('a', 'b'), b = task('b', 'a');
-        assert.deepEqual(checklistDescendants([a, b], 'a').map(t => t.id), ['b']);
-        assert.equal(view(a, now, [a, b]).completed, false);
+    it('never revives deleted items', () => {
+        const t = task('plain');
+        assert.throws(() => changeChecklistCompletion(t, [t], [{ itemId: 'gone', completed: true }], now, 'a'));
+        assert.throws(() => updateChecklistPolicy(t, 'gone', policy()));
+        assert.equal(projectChecklist({ ...t, checklist: [] }, [t], now)?.length, 0);
     });
     it('bulk sync updates only selected ends, not cadence, pause, unrelated overrides or completion', () => {
-        const p = complete(configured()), child = task('child', p.id);
-        const preview = checklistEndPreview([p, child], [{ taskId: p.id, itemId: 'grade' }, { taskId: child.id }]);
-        const result = checklistEndUpdates([p, child], preview, { mode: 'date', date: '2026-12-10' }, now, 'b');
+        const p = complete(configured());
+        const preview = checklistEndPreview([p], [{ taskId: p.id, itemId: 'grade' }]);
+        const result = checklistEndUpdates([p], preview, { mode: 'date', date: '2026-12-10' }, now, 'b');
         assert.equal(result.get(p.id)!.defaults!.schedule!.id, 'series-a');
         assert.equal(result.get(p.id)!.items.grade.end.date, '2026-12-10');
+        assert.equal(result.get(p.id)!.items.grade.mode, 'inherit');
         assert.deepEqual(result.get(p.id)!.marks, checklistRefreshData(p).marks);
-        assert.equal(result.get(child.id)!.defaults!.mode, 'inherit');
         assert.equal(p.planner!.checklistRefresh!.items.grade, undefined);
     });
+    it('previews items that follow a changed list default', () => {
+        const p = configured(), preview = checklistEndPreview([p], [{ taskId: p.id }]);
+        const impact = checklistEndImpact([p], preview, { mode: 'date', date: '2026-12-10' });
+        assert.deepEqual(impact.map(x => [x.itemId ?? null, x.after]), [[null, '2026-12-10'], ['prepare', '2026-12-10'], ['grade', '2026-12-10']]);
+    });
     it('rejects stale previews atomically before writing any target', () => {
-        const p = configured(), child = task('child', p.id);
-        const preview = checklistEndPreview([p, child], [{ taskId: p.id }, { taskId: child.id }]);
-        child.parentTaskId = undefined;
-        assert.throws(() => checklistEndUpdates([p, child], preview, { mode: 'never' }, now, 'b'), /changed after the preview/);
+        const p = configured();
+        const preview = checklistEndPreview([p], [{ taskId: p.id }, { taskId: p.id, itemId: 'grade' }]);
+        p.planner!.checklistRefresh!.items.grade = policy({ mode: 'off', schedule: undefined });
+        assert.throws(() => checklistEndUpdates([p], preview, { mode: 'never' }, now, 'b'), /changed after the preview/);
     });
     it('treats clearing a date as explicit no-end, not accidental re-inheritance', () => {
-        const p = configured(policy({ end: { mode: 'date', date: '2026-12-01' } })), child = task('child', p.id);
-        const result = checklistEndUpdates([p, child], checklistEndPreview([p, child], [{ taskId: child.id }]), { mode: 'never' }, now, 'a');
-        child.planner!.checklistRefresh = result.get(child.id);
-        assert.equal(view(child, now, [p, child]).endDate, undefined);
+        const p = configured(policy({ end: { mode: 'date', date: '2026-12-01' } }));
+        const result = checklistEndUpdates([p], checklistEndPreview([p], [{ taskId: p.id, itemId: 'prepare' }]), { mode: 'never' }, now, 'a');
+        p.planner!.checklistRefresh = result.get(p.id);
+        assert.equal(view(p).endDate, undefined);
     });
 });
 

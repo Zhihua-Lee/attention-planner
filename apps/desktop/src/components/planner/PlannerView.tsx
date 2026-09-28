@@ -176,7 +176,7 @@ export function PlannerView({
             {selection?.kind === 'event' ? <><p className="text-xs text-muted-foreground">{l('Current meeting', '当前会议')}</p><h2 className="text-xl font-semibold">{selection.event.title}</h2><p>{new Date(selection.event.start).toLocaleTimeString()} – {new Date(selection.event.end).toLocaleTimeString()}</p></> : selection?.kind === 'task' ? <>
                 <p className="text-xs text-muted-foreground">{reasonLabels[selection.reason]}</p><button className="min-h-11 text-left text-xl font-semibold hover:text-primary" onClick={() => openTaskDetails(selection.task.id)}>{selection.task.title}</button>
                 {selection.task.description && <RichMarkdown markdown={selection.task.description} />}
-                {!!selection.task.checklist?.length && <ChecklistProgress task={selection.task} />}
+                {!!selection.task.checklist?.length && <ChecklistProgress task={selection.task} onEditStep={id => openTaskDetails(selection.task.id, undefined, `step:${id}`)} />}
                 <div className="flex flex-wrap gap-2"><button className={`${button} bg-primary text-primary-foreground`} onClick={() => setCurrentWork(selection.task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} onClick={() => openTaskDetails(selection.task.id)}>{l('Progress / details', '进度／详情')}</button><button className={button} onClick={() => run(async () => {
               if (await completeTaskWithUndo(selection.task.id, t)) setCurrentWork(null);
             })}>{hasActiveChecklistRound(selection.task, allTasks, now) ? l('Complete current round', '完成本轮清单') : l('Complete task', '完成任务')}</button><button className={button} onClick={() => run(() => editTask(selection.task.id, () => ({

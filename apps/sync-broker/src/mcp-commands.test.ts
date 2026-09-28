@@ -113,10 +113,10 @@ describe('MCP existing-task commands reuse core business rules', () => {
         expect(result.data.tasks[0]).toEqual(data.tasks[0]);
     });
 
-    it('soft-deletes only the selected parent and keeps independent children and attachments', async () => {
+    it('soft-deletes only the selected task and keeps linked tasks and attachments', async () => {
         const data = snapshot(task('parent'), task('child', { parentTaskId: 'parent' }));
         const prepared = await prepareMcpCommand(data, { type: 'delete_task', taskId: 'parent' }, options);
-        expect(prepared.warnings.join(' ')).toContain('独立子任务仍会保留');
+        expect(prepared.warnings.join(' ')).toContain('关联到它的任务仍会保留');
         const result = await applyMcpCommand(data, prepared);
         expect(result.data.tasks[0].deletedAt).toBe(now.toISOString());
         expect(result.data.tasks[0].purgedAt).toBeUndefined();

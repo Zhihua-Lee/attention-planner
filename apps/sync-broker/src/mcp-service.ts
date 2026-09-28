@@ -62,7 +62,7 @@ async function effectHash(tasks: Task[], ids: string[]): Promise<string> {
 function taskSummary(task: Task) {
     return { id: task.id, title: task.title, status: task.status, parentTaskId: task.parentTaskId,
         projectId: task.projectId, areaId: task.areaId, updatedAt: task.updatedAt,
-        availableAt: getTaskAvailableAt(task), dueDate: task.dueDate, childHint: 'Use list_tasks with parentTaskId to read independent children.' };
+        availableAt: getTaskAvailableAt(task), dueDate: task.dueDate, childHint: 'Use list_tasks with parentTaskId to read tasks linked to this one.' };
 }
 function taskDetails(task: Task) {
     // Do not expose settings, attachments, calendar exports, credentials or arbitrary unknown fields.

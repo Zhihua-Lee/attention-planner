@@ -116,8 +116,8 @@ function commandWarnings(data: AppData, command: McpCommand): string[] {
         '尚未检查 Outlook 等外部日历；目前只检查已同步到 Drive 的任务时间块是否重叠。请自行确认该时段没有会议或课程，再批准安排。');
     if (command.type === 'complete_task' && task.recurrence) warnings.push(
         '完成周期任务可能按现有规则生成下一次任务，具体日期已列在下方。远程服务使用 UTC，请核对带时间的周期任务，尤其是夏令时切换前后的日期和时刻。');
-    if (command.type === 'complete_task') warnings.push('完成任务会取消它剩余的时间块，但不会连带完成独立子任务。');
-    if (command.type === 'delete_task') warnings.push('仅把这个任务放入回收站。独立子任务仍会保留并显示；不会永久删除文件。');
+    if (command.type === 'complete_task') warnings.push('完成任务会取消它剩余的时间块，但不会影响关联到它的任务。');
+    if (command.type === 'delete_task') warnings.push('仅把这个任务放入回收站。关联到它的任务仍会保留并显示；不会永久删除文件。');
     if (command.type === 'reopen_task') warnings.push('重新打开为 Ready。已取消的时间块不会自动恢复；已经生成的下一次周期任务也不会被删除。');
     if (command.type === 'set_dates' && task.relativeStartOffset) warnings.push(
         command.availableAt !== undefined
@@ -129,7 +129,7 @@ function commandWarnings(data: AppData, command: McpCommand): string[] {
 function summary(command: McpCommand, task?: Task): string {
     const name = task?.title ?? ('title' in command ? command.title : '') ?? '';
     const action: Record<McpCommand['type'], string> = {
-        create_draft: '新建收集箱草稿', update_content: '修改任务内容', move_task: '移动独立任务的父子关系',
+        create_draft: '新建收集箱草稿', update_content: '修改任务内容', move_task: '修改任务关联',
         delete_task: '放入回收站', complete_task: '完成任务', reopen_task: '重新打开为 Ready',
         set_dates: '修改任务日期', schedule_work: '安排任务时间块', cancel_work: '取消任务时间块',
     };

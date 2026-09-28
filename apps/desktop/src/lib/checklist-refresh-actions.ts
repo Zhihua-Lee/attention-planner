@@ -1,4 +1,4 @@
-import { changeChecklistCompletion, checklistDescendants, checklistDraftState, checklistEndImpact, checklistEndUpdates, checklistFreezeUpdates, checklistItemState, checklistRefreshData, checklistTargetPolicy,
+import { changeChecklistCompletion, checklistDraftState, checklistEndImpact, checklistEndUpdates, checklistFreezeUpdates, checklistItemState, checklistRefreshData, checklistTargetPolicy,
     flushPendingSave, hasActiveChecklistRound, makeChecklistPolicy, taskPlanner, updateChecklistPolicy, useTaskStore,
     type Task, type ChecklistRefreshEnd, type ChecklistRefreshPolicy, type ChecklistRefreshTarget, type checklistEndPreview } from '@mindwtr/core';
 import { editTask, ensurePlannerBackup } from './lifecycle-actions';
@@ -66,8 +66,7 @@ export async function saveChecklistPolicy(target: ChecklistRefreshTarget, expect
     const planner = { ...taskPlanner(task), checklistRefresh: updateChecklistPolicy(task, target.itemId, policy) };
     const nextTask = { ...task, planner }, nextTasks = state._allTasks.map(t => t.id === task.id ? nextTask : t);
     const updates: Array<{ id: string; updates: Partial<Task> }> = [{ id: task.id, updates: { planner } }];
-    const affected = target.itemId === undefined ? [task, ...checklistDescendants(state._allTasks, task.id)] : [task];
-    for (const [id, checklist] of checklistFreezeUpdates(state._allTasks, nextTasks, affected.map(t => t.id), now)) {
+    for (const [id, checklist] of checklistFreezeUpdates(state._allTasks, nextTasks, [task.id], now)) {
         if (id === task.id) updates[0].updates.checklist = checklist;
         else updates.push({ id, updates: { checklist } });
     }

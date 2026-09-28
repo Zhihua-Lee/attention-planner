@@ -17,8 +17,8 @@ export function TaskHierarchyDrag({ children }: { children: ReactNode }) {
     const [saving, setSaving] = useState(false);
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 6 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }));
     return <DndContext accessibility={{ screenReaderInstructions: { draggable: zh
-        ? '拖到卡片上沿或下沿调整顺序，拖到中间成为子任务。按回车或空格打开移动菜单，也可上移或下移。'
-        : 'Drag to the top or bottom edge to reorder, or the middle to nest. Press Enter or Space for the move menu, including Move up and Move down.' } }}
+        ? '拖到卡片上沿或下沿调整顺序，拖到中间关联到该任务。按回车或空格打开移动菜单，也可上移或下移。'
+        : 'Drag to the top or bottom edge to reorder, or the middle to link to that task. Press Enter or Space for the move menu, including Move up and Move down.' } }}
         sensors={sensors} collisionDetection={pointerWithin}
         onDragStart={({ active }) => setDragged(active.data.current?.task ?? null)}
         onDragCancel={() => setDragged(null)} onDragEnd={({ active, over }) => {
@@ -35,7 +35,7 @@ export function TaskHierarchyDrag({ children }: { children: ReactNode }) {
         }}>
         <PlacementBusy.Provider value={saving}><div className="min-w-0" aria-busy={saving} data-task-placement-saving={saving || undefined}>{children}</div></PlacementBusy.Provider>
         <DragOverlay dropAnimation={null}>{dragged ? <div className="max-w-xs rounded-xl border border-primary/30 bg-card p-4 text-sm font-medium text-foreground shadow-xl">
-            {dragged.title}<p className="mt-1 text-xs font-normal text-muted-foreground">{zh ? '边缘换序 · 中间成为子任务' : 'Edges to reorder · middle to nest'}</p>
+            {dragged.title}<p className="mt-1 text-xs font-normal text-muted-foreground">{zh ? '边缘换序 · 中间关联' : 'Edges to reorder · middle to link'}</p>
         </div> : null}</DragOverlay>
     </DndContext>;
 }
@@ -68,7 +68,7 @@ function TaskDropZone({ task, listId, position }: { task: Task; listId: string; 
         || !!taskParentError(tasks, source.task.id, parentId);
     const drop = useDroppable({ id: `${listId}:${task.id}:${position}`, data: { task, listId, position }, disabled });
     const area = position === 'before' ? 'inset-x-0 top-0 h-1/4' : position === 'after' ? 'inset-x-0 bottom-0 h-1/4' : 'inset-x-0 top-1/4 bottom-1/4';
-    const label = position === 'inside' ? (zh ? '放入，成为子任务' : 'Nest as a subtask')
+    const label = position === 'inside' ? (zh ? '关联到此任务' : 'Link to this task')
         : position === 'before' ? (zh ? '插入到前面' : 'Insert before') : (zh ? '插入到后面' : 'Insert after');
     return <>
         <div ref={drop.setNodeRef} data-task-drop={position} data-drop-task={task.id} className={`pointer-events-none absolute ${area}`} aria-hidden="true" />
@@ -87,12 +87,13 @@ function TaskTreeCard({ task, depth, listId, children, previousTaskId, nextTaskI
     const placementBusy = useContext(PlacementBusy);
     const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({ id: `${listId}:${task.id}`, data: { task, listId }, disabled: placementBusy });
     const parent = useMemo(() => tasks.find(candidate => candidate.id === task.parentTaskId), [tasks, task.parentTaskId]);
-    return <div ref={setNodeRef} data-tree-task={task.id} data-tree-depth={depth} className={`task-tree-row relative min-w-0 rounded-xl ${isDragging ? 'opacity-40' : ''}`} style={{ marginInlineStart: Math.min(depth, 3) * 16 }}>
-        {parent && <button className="mb-1 min-h-11 max-w-full break-words px-2 text-left text-xs text-muted-foreground hover:text-primary" onClick={() => openTaskDetails(parent.id)}>{zh ? '属于' : 'In'}：{parent.title}</button>}
+    return <div ref={setNodeRef} data-tree-task={task.id} data-tree-depth={depth} className={`task-tree-row relative min-w-0 rounded-xl ${depth ? 'ms-4 border-s-2 border-primary/25 ps-2' : ''} ${isDragging ? 'opacity-40' : ''}`}>
+        {/* Directly under its target the connector says it all; otherwise name the target. */}
+        {parent && depth !== 1 && <button className="mb-1 min-h-11 max-w-full break-words px-2 text-left text-xs text-muted-foreground hover:text-primary" onClick={() => openTaskDetails(parent.id)}>{zh ? '关联' : 'Linked to'}：{parent.title}</button>}
         <div className="relative">
             {children}
             <button ref={setActivatorNodeRef} {...attributes} {...listeners} disabled={placementBusy} aria-label={`${zh ? '拖动或移动任务' : 'Drag or move task'}: ${task.title}`}
-                title={zh ? '边缘换序，中间成为子任务；点击打开移动菜单' : 'Edges to reorder, middle to nest; click for the move menu'}
+                title={zh ? '边缘换序，中间关联；点击打开移动菜单' : 'Edges to reorder, middle to link; click for the move menu'}
                 className="task-drag-handle absolute right-2 top-2 flex min-h-11 min-w-11 touch-none cursor-grab items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                 onClick={() => setMoving(true)}><GripVertical className="h-4 w-4" /></button>
             {(['before', 'inside', 'after'] as const).map(position => <TaskDropZone key={position} task={task} listId={listId} position={position} />)}
