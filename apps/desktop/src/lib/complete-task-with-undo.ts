@@ -1,10 +1,12 @@
-import { flushPendingSave, hasActiveChecklistRound, restoreCompletedWork, translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
+import { flushPendingSave, getSystemDefaultLanguage, hasActiveChecklistRound, loadStoredLanguageSync, restoreCompletedWork, translateWithFallback, undoTaskCompletion, useTaskStore } from '@mindwtr/core';
 import { useUiStore } from '../store/ui-store';
 import { registerUndoableAction } from './undo-registry';
 import { reportError } from './report-error';
 import { setChecklistRoundCompletion } from './checklist-refresh-actions';
 
 type TranslateFn = (key: string) => string;
+// Same resolution as LanguageProvider: settings.language may be 'system'.
+const uiLanguage = () => { try { return loadStoredLanguageSync(localStorage, getSystemDefaultLanguage()); } catch { return getSystemDefaultLanguage(); } };
 
 export function formatTaskMarkedDoneMessage(t: TranslateFn, title: string): string {
     return translateWithFallback(t, 'task.markedDone', '{title} marked Done').replace('{title}', title);
@@ -19,7 +21,7 @@ export async function completeTaskWithUndo(taskId: string, t: TranslateFn): Prom
     try {
         // Only a live round is completed in place; an ended or not-yet-started list completes the task.
         if (hasActiveChecklistRound(task, state._allTasks, new Date())) {
-            await setChecklistRoundCompletion(taskId, true, (state.settings.language ?? 'en').startsWith('zh'));
+            await setChecklistRoundCompletion(taskId, true, uiLanguage().startsWith('zh'));
             return true;
         }
         const result = await state.updateTask(taskId, { status: 'done', ...(!task.planner ? { isFocusedToday: false } : {}) });

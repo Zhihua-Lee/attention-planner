@@ -30,6 +30,12 @@ describe('private checklist rule drafts', () => {
         createChecklistRuleDraftStore(() => disk).save(list, draft());
         expect(createChecklistRuleDraftStore(() => disk).load(list)).toEqual({ draft: draft() });
     });
+    it('round-trips an after-completion draft', () => {
+        const disk = storage(), { weekdays: _weekdays, ...rest } = schedule;
+        const value: ChecklistRuleDraft = { ...draft(), schedule: { ...rest, anchor: 'completion', frequency: 'hourly', interval: 3 } };
+        createChecklistRuleDraftStore(() => disk).save(list, value);
+        expect(createChecklistRuleDraftStore(() => disk).load(list)).toEqual({ draft: value });
+    });
     it('keeps the original base revision rather than silently rebasing restored edits', () => {
         const disk = storage(), original = draft();
         createChecklistRuleDraftStore(() => disk).save(list, original);

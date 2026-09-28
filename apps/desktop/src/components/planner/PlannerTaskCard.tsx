@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ArrowRight, Check, Inbox, Trash2 } from 'lucide-react';
-import { flushPendingSave, hasActiveChecklistRound, projectChecklist, useTaskStore, type Task } from '@mindwtr/core';
+import { checklistItemState, checklistRefreshScope, flushPendingSave, shallow, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -13,10 +13,12 @@ import { usePlannerEnvironment } from './usePlannerEnvironment';
 export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolean }) {
     const { language, t } = useLanguage(), zh = language.startsWith('zh');
     const l = (en: string, cn: string) => zh ? cn : en;
-    const tasks = useTaskStore(state => state._allTasks), { now } = usePlannerEnvironment();
-    const checklist = projectChecklist(task, tasks, now);
-    const recurring = hasActiveChecklistRound(task, tasks, now);
-    const checked = recurring ? !!checklist?.length && checklist.every(item => item.isCompleted) : task.status === 'done';
+    // Only this task and its ancestors affect its refresh rule, so unrelated edits do not re-render every card.
+    const scope = useTaskStore(state => checklistRefreshScope(state._allTasks, task.id), shallow), { now } = usePlannerEnvironment();
+    const states = task.checklist?.map(item => checklistItemState(task, item, scope, now)) ?? [];
+    const round = states.filter(state => state.recurring && state.cycle);
+    const recurring = round.some(state => !state.ended);
+    const checked = recurring ? round.every(state => state.completed) : task.status === 'done';
     const lock = useRef(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -61,7 +63,7 @@ export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolea
         <div className="ml-12 flex flex-wrap gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
             {task.availableAt && <span>{l('Available', '可做起始')} {task.availableAt}</span>}
             {task.dueDate && <span>{l('Due', '截止')} {task.dueDate}</span>}
-            {!!checklist?.length && <span>{recurring ? l('This round', '本轮') : l('Steps', '步骤')} {checklist.filter(step => step.isCompleted).length}/{checklist.length}</span>}
+            {!!states.length && <span>{recurring ? l('This round', '本轮') : l('Steps', '步骤')} {states.filter(state => state.completed).length}/{states.length}</span>}
             {blocked && task.status !== 'inbox' && <span>{l('Not executable yet; plan kept', '目前不可执行，计划保留')}</span>}
         </div>
         <div className="ml-12 mt-1 flex items-center justify-between gap-1">

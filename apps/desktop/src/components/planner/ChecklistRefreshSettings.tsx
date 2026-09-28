@@ -5,6 +5,7 @@ import { buildRRuleString, checklistDescendants, checklistEndImpact, checklistEn
 import { useLanguage } from '../../contexts/language-context';
 import { saveChecklistPolicy, syncChecklistEnd } from '../../lib/checklist-refresh-actions';
 import { checklistRuleDraftDirty, checklistRuleDrafts, type ChecklistRuleDraft } from '../../lib/checklist-rule-drafts';
+import { checklistDelayLabel } from '../../lib/checklist-refresh-text';
 import { RepeatPicker } from './RepeatPicker';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 
@@ -81,7 +82,29 @@ function PolicyEditor({ task, itemId, disabled, onBusyChange, onDirtyChange, onS
                 </select>
             </div>
             {mode === 'custom' && <>
-                <RepeatPicker calendarOnly value={{ rule: schedule.frequency, strategy: 'strict', rrule: buildRRuleString(schedule.frequency,
+                <label className="block text-sm">{l('Refresh by', '刷新方式')}<select className={input} value={schedule.anchor ?? 'calendar'} onChange={event => {
+                    // Both kinds keep start/time/zone; only the cadence fields are swapped.
+                    const { anchor: _anchor, weekdays: _weekdays, monthDays: _monthDays, ...rest } = draftRef.current.schedule;
+                    change({ schedule: event.target.value === 'completion'
+                        ? { ...rest, anchor: 'completion', frequency: 'daily', interval: 1 }
+                        : { ...rest, frequency: 'weekly', interval: 1, weekdays: [2, 4] } });
+                }}>
+                    <option value="calendar">{l('Calendar (fixed days)', '按日历（固定日期）')}</option>
+                    <option value="completion">{l('A set time after the list is completed', '完成后相隔一段时间')}</option>
+                </select></label>
+                {schedule.anchor === 'completion' ? <>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                        <label className="text-sm">{l('Refresh after', '完成后相隔')}<input required type="number" min={1} max={999} step={1} className={input} value={schedule.interval}
+                            onChange={event => changeSchedule({ interval: event.target.valueAsNumber })} /></label>
+                        <label className="text-sm">{l('Unit', '单位')}<select className={input} value={schedule.frequency} onChange={event => changeSchedule({ frequency: event.target.value as ChecklistRefreshSchedule['frequency'] })}>
+                            <option value="hourly">{l('hours', '小时')}</option>
+                            <option value="daily">{l('days', '天')}</option>
+                            <option value="weekly">{l('weeks', '周')}</option>
+                            <option value="monthly">{l('months', '个月')}</option>
+                        </select></label>
+                    </div>
+                    <p className="text-xs leading-5 text-muted-foreground">{l('A new round starts this long after every item following this rule is checked. It never piles up missed rounds; until the list is completed, the current round stays.', '当所有使用此规则的条目都勾完后，再过这段时间开始新一轮；不会堆积漏做的轮次，未完成前一直保持本轮。')}</p>
+                </> : <RepeatPicker calendarOnly value={{ rule: schedule.frequency as Exclude<ChecklistRefreshSchedule['frequency'], 'hourly'>, strategy: 'strict', rrule: buildRRuleString(schedule.frequency as Exclude<ChecklistRefreshSchedule['frequency'], 'hourly'>,
                     schedule.weekdays?.map(day => weekdays[day - 1]), schedule.interval, { byMonthDay: schedule.monthDays }) }} onChange={value => {
                     if (!value) { change({ mode: 'off' }); return; }
                     const rule = typeof value === 'string' ? { rule: value } : value;
@@ -89,10 +112,10 @@ function PolicyEditor({ task, itemId, disabled, onBusyChange, onDirtyChange, onS
                     changeSchedule({ frequency: rule.rule, interval: parsed?.interval ?? 1,
                         weekdays: rule.rule === 'weekly' ? (parsed?.byDay ?? rule.byDay ?? []).map(day => weekdays.indexOf(day) + 1) : undefined,
                         monthDays: parsed?.byMonthDay ?? rule.byMonthDay });
-                }} />
+                }} />}
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="text-sm">{l('Start date', '开始日期')}<input required type="date" className={input} value={schedule.startDate} onChange={event => changeSchedule({ startDate: event.target.value })} /></label>
-                    <label className="text-sm">{l('Refresh time', '刷新时刻')}<input required type="time" className={input} value={schedule.time} onChange={event => changeSchedule({ time: event.target.value })} /></label>
+                    <label className="text-sm">{schedule.anchor === 'completion' ? l('First round starts on', '首轮开始日期') : l('Start date', '开始日期')}<input required type="date" className={input} value={schedule.startDate} onChange={event => changeSchedule({ startDate: event.target.value })} /></label>
+                    <label className="text-sm">{schedule.anchor === 'completion' ? l('First round starts at', '首轮开始时刻') : l('Refresh time', '刷新时刻')}<input required type="time" className={input} value={schedule.time} onChange={event => changeSchedule({ time: event.target.value })} /></label>
                 </div>
                 <label className="block text-sm">{l('Timezone', '时区')}<input required className={input} value={schedule.timeZone} placeholder="America/Chicago" onChange={event => changeSchedule({ timeZone: event.target.value })} /></label>
             </>}
@@ -101,7 +124,8 @@ function PolicyEditor({ task, itemId, disabled, onBusyChange, onDirtyChange, onS
             <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={paused} onChange={event => change({ paused: event.target.checked })} />{l('Pause refreshing', '暂停刷新')}</label>
             {inherited.pausedAt && !base?.pausedAt && <p className="text-xs text-muted-foreground">{l('A parent is paused. Resume it to allow this subtree to advance.', '父清单已暂停，需要先恢复父清单，本分支才会进入新一轮。')}</p>}
             {mode === 'inherit' && <p className="text-xs text-muted-foreground">{inherited.schedule
-                ? l(`Inherited: ${inherited.schedule.time} · ${inherited.schedule.timeZone}`, `当前继承：${inherited.schedule.time} · ${inherited.schedule.timeZone}`)
+                ? l(`Inherited: ${inherited.schedule.anchor === 'completion' ? checklistDelayLabel(inherited.schedule, zh) : inherited.schedule.time} · ${inherited.schedule.timeZone}`,
+                    `当前继承：${inherited.schedule.anchor === 'completion' ? checklistDelayLabel(inherited.schedule, zh) : inherited.schedule.time} · ${inherited.schedule.timeZone}`)
                 : l('No parent rule: this item currently does not refresh.', '没有可继承的规则，目前不刷新。')}</p>}
             {dirty && <p className="text-xs leading-5 text-muted-foreground">{l('This target has an unapplied draft. Switching targets or closing details keeps it; Save applies it and Discard reloads the latest saved settings.', '当前对象有未应用的草稿。切换对象或关闭详情会保留；保存后才生效，放弃草稿会读取最新已保存设置。')}</p>}
             {backupError && <p role="alert" className="text-sm text-destructive">{backupError === 'invalid'

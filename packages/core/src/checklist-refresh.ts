@@ -3,7 +3,13 @@ import type { Task, ChecklistItem } from './types';
 /** Stored inside the already-synced planner JSON; never a separate task or timer job. */
 export type ChecklistRefreshSchedule = {
     id: string;
-    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    /**
+     * Absent: fixed calendar periods. 'completion': a new round starts `interval` × `frequency`
+     * after every item sharing this schedule completed the previous round; the first round starts at startDate/time.
+     */
+    anchor?: 'completion';
+    /** 'hourly' is only valid for completion-anchored schedules. */
+    frequency: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
     interval: number;
     weekdays?: number[]; // ISO weekdays: Monday=1, Sunday=7.
     monthDays?: number[]; // 1..31 or -1 (last day).
@@ -53,11 +59,17 @@ export const validChecklistDay = (date: unknown): date is string => typeof date 
 const stampValid = (v: Record<string, unknown>) => Number.isSafeInteger(v.revision) && Number(v.revision) >= 0
     && typeof v.updatedAt === 'string' && Number.isFinite(Date.parse(v.updatedAt)) && typeof v.deviceId === 'string';
 const formatters = new Map<string, Intl.DateTimeFormat>();
+const makeFormatter = (zone: string) => new Intl.DateTimeFormat('en-CA', { timeZone: zone, calendar: 'gregory', numberingSystem: 'latn',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+/** Whether this runtime's ICU knows the zone. A synced zone may be unknown to an older device. */
+export function supportedChecklistTimeZone(zone: string) {
+    try { makeFormatter(zone); return true; } catch { return false; }
+}
 function formatter(zone: string) {
     let fmt = formatters.get(zone);
     if (!fmt) {
-        fmt = new Intl.DateTimeFormat('en-CA', { timeZone: zone, calendar: 'gregory', numberingSystem: 'latn',
-            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+        // Unknown synced zones fall back to UTC for display instead of making the whole planner unreadable.
+        try { fmt = makeFormatter(zone); } catch { fmt = makeFormatter('UTC'); }
         if (formatters.size > 128) formatters.clear();
         formatters.set(zone, fmt);
     }
@@ -68,14 +80,18 @@ function wallParts(at: number, zone: string) {
     return { day: `${p.year}-${p.month}-${p.day}`, minutes: Number(p.hour) * 60 + Number(p.minute) };
 }
 export function checklistLocalDay(now: Date, zone: string) { return wallParts(now.getTime(), zone).day; }
-export function validateChecklistSchedule(value: unknown): asserts value is ChecklistRefreshSchedule {
+/** `stored` accepts a zone this runtime does not know, so synced data stays readable; new input must be a known zone. */
+export function validateChecklistSchedule(value: unknown, stored = false): asserts value is ChecklistRefreshSchedule {
+    const completion = record(value) && value.anchor === 'completion';
     if (!record(value) || typeof value.id !== 'string' || !value.id || !safeKey(value.id)
-        || !['daily', 'weekly', 'monthly', 'yearly'].includes(String(value.frequency))
+        || (value.anchor !== undefined && !completion)
+        || !(completion ? ['hourly', 'daily', 'weekly', 'monthly', 'yearly'] : ['daily', 'weekly', 'monthly', 'yearly']).includes(String(value.frequency))
         || !Number.isInteger(value.interval) || Number(value.interval) < 1 || Number(value.interval) > 999
         || !validChecklistDay(value.startDate) || typeof value.time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time)
-        || typeof value.timeZone !== 'string') throw new Error('Invalid checklist refresh schedule.');
-    formatter(value.timeZone);
-    if (value.frequency === 'weekly' && (!Array.isArray(value.weekdays) || !value.weekdays.length)) throw new Error('Choose at least one weekday.');
+        || typeof value.timeZone !== 'string' || !value.timeZone || value.timeZone.length > 64) throw new Error('Invalid checklist refresh schedule.');
+    if (!stored && !supportedChecklistTimeZone(value.timeZone)) throw new Error(`Unknown time zone: ${value.timeZone}`);
+    if (completion && (value.weekdays !== undefined || value.monthDays !== undefined)) throw new Error('An after-completion refresh has no weekdays or month days.');
+    if (!completion && value.frequency === 'weekly' && (!Array.isArray(value.weekdays) || !value.weekdays.length)) throw new Error('Choose at least one weekday.');
     if (value.weekdays !== undefined && (!Array.isArray(value.weekdays)
         || value.weekdays.some(d => !Number.isInteger(d) || d < 1 || d > 7))) throw new Error('Invalid weekdays.');
     if (value.monthDays !== undefined && (!Array.isArray(value.monthDays) || !value.monthDays.length
@@ -91,7 +107,7 @@ export function validateChecklistRefresh(value: unknown): asserts value is Check
     for (const policy of [value.defaults, ...Object.values(value.items)].filter(v => v !== undefined)) {
         if (!record(policy) || !stampValid(policy) || !['inherit', 'off', 'custom'].includes(String(policy.mode))) throw new Error('Invalid checklist refresh policy.');
         validateChecklistEnd(policy.end);
-        if (policy.mode === 'custom') validateChecklistSchedule(policy.schedule);
+        if (policy.mode === 'custom') validateChecklistSchedule(policy.schedule, true);
         if (policy.pausedAt !== undefined && (typeof policy.pausedAt !== 'string' || !Number.isFinite(Date.parse(policy.pausedAt)))) throw new Error('Invalid pause date.');
     }
     for (const [itemId, marks] of Object.entries(value.marks)) {
@@ -265,17 +281,66 @@ function findCycle(schedule: ChecklistRefreshSchedule, now: Date, direction: -1 
     }
     return undefined;
 }
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** Adds an after-completion delay. Days and longer use the zone's wall clock, so a DST change does not shift the time. */
+function afterCompletion(schedule: ChecklistRefreshSchedule, at: number): number | undefined {
+    if (schedule.frequency === 'hourly') return at + schedule.interval * 60 * MINUTE;
+    const wall = wallParts(at, schedule.timeZone), [y, m, d] = wall.day.split('-').map(Number);
+    let date: number;
+    if (schedule.frequency === 'daily' || schedule.frequency === 'weekly') {
+        date = Date.UTC(y, m - 1, d + schedule.interval * (schedule.frequency === 'weekly' ? 7 : 1));
+    } else {
+        // Jan 31 + 1 month is Feb 28/29, not Mar 3.
+        const months = m - 1 + schedule.interval * (schedule.frequency === 'yearly' ? 12 : 1);
+        date = Date.UTC(y, months, Math.min(d, new Date(Date.UTC(y, months + 1, 0)).getUTCDate()));
+    }
+    if (!Number.isFinite(date) || new Date(date).getUTCFullYear() > 9999) return undefined;
+    return boundary(iso(date), `${pad2(Math.floor(wall.minutes / 60))}:${pad2(wall.minutes % 60)}`, schedule.timeZone);
+}
+const completionCycle = (schedule: ChecklistRefreshSchedule, round: number, at: number): ChecklistCycle =>
+    ({ id: `${schedule.id}/r${round}`, day: checklistLocalDay(new Date(at), schedule.timeZone), dueAt: new Date(at).toISOString() });
+/**
+ * Rounds numbered from the first start. A round is complete once every item sharing the schedule is checked for it;
+ * the next starts after the delay, counted from the last of those checks. Rounds only advance through recorded
+ * completions, so an offline absence never creates missed rounds and the walk is bounded by the stored history.
+ */
+function completionRounds(schedule: ChecklistRefreshSchedule, marks: ChecklistRefreshData['marks'], group: readonly string[], clock: Date, endDate?: string) {
+    const within = (at: number) => !endDate || checklistLocalDay(new Date(at), schedule.timeZone) <= endDate;
+    const first = boundary(schedule.startDate, schedule.time, schedule.timeZone);
+    if (first === undefined || !within(first)) return {};
+    if (first > clock.getTime()) return { next: completionCycle(schedule, 1, first) };
+    let dueAt = first;
+    for (let round = 1; round < 100_000; round++) {
+        const cycle = completionCycle(schedule, round, dueAt), done = group.map(itemId => marks[itemId]?.[cycle.id]);
+        if (!group.length || done.some(mark => !mark?.completed)) return { cycle };
+        const nextAt = afterCompletion(schedule, Math.max(...done.map(mark => Date.parse(mark!.updatedAt))));
+        if (nextAt === undefined || !within(nextAt)) return { cycle };
+        if (nextAt > clock.getTime()) return { cycle, next: completionCycle(schedule, round + 1, nextAt) };
+        dueAt = nextAt;
+    }
+    return {};
+}
+/** Wall-clock day and time of an instant in the schedule's zone, e.g. "2026-09-29 06:00". */
+export function checklistWallTime(at: string, zone: string) {
+    const wall = wallParts(Date.parse(at), zone);
+    return `${wall.day} ${pad2(Math.floor(wall.minutes / 60))}:${pad2(wall.minutes % 60)}`;
+}
 export function checklistItemState(task: Task, item: ChecklistItem, tasks: readonly Task[], now = new Date()): ChecklistItemState {
     if (task.deletedAt || task.purgedAt) return { recurring: false, completed: item.isCompleted, paused: false, ended: true };
     const { schedule, endDate, pausedAt } = resolveChecklistRefresh(task, item.id, tasks);
     if (!schedule) return { recurring: false, completed: item.isCompleted, paused: false, ended: false };
     const closedAt = ['done', 'archived', 'reference'].includes(task.status) ? task.completedAt || task.updatedAt : undefined;
     const clock = new Date(Math.min(now.getTime(), pausedAt ? Date.parse(pausedAt) : Infinity, closedAt ? Date.parse(closedAt) : Infinity));
-    const cycle = findCycle(schedule, clock, -1, endDate);
+    const data = checklistRefreshData(task);
+    // Items following the same schedule version form one round, so "the list is complete" means all of them.
+    const rounds = schedule.anchor === 'completion' ? completionRounds(schedule, data.marks, (task.checklist ?? [])
+        .filter(other => other.id === item.id || resolveChecklistRefresh(task, other.id, tasks).schedule?.id === schedule.id)
+        .map(other => other.id), clock, endDate) : undefined;
+    const cycle = rounds ? rounds.cycle : findCycle(schedule, clock, -1, endDate);
     const ended = !!closedAt || !!endDate && checklistLocalDay(now, schedule.timeZone) > endDate;
-    const mark = cycle ? checklistRefreshData(task).marks[item.id]?.[cycle.id] : undefined;
+    const mark = cycle ? data.marks[item.id]?.[cycle.id] : undefined;
     return { recurring: true, completed: mark?.completed ?? false, cycle,
-        next: pausedAt || ended ? undefined : findCycle(schedule, now, 1, endDate), paused: !!pausedAt, ended, schedule, endDate };
+        next: pausedAt || ended ? undefined : rounds ? rounds.next : findCycle(schedule, now, 1, endDate), paused: !!pausedAt, ended, schedule, endDate };
 }
 export function projectChecklist(task: Task, tasks: readonly Task[], now = new Date()): ChecklistItem[] | undefined {
     return task.checklist?.map(item => ({ ...item, isCompleted: checklistItemState(task, item, tasks, now).completed }));
@@ -286,6 +351,31 @@ export function hasRecurringChecklist(task: Task, tasks: readonly Task[], now = 
 /** A started, not-yet-ended round exists. Otherwise completing the task means completing the whole task. */
 export function hasActiveChecklistRound(task: Task, tasks: readonly Task[], now = new Date()): boolean {
     return !!task.checklist?.some(item => { const state = checklistItemState(task, item, tasks, now); return state.recurring && !state.ended && !!state.cycle; });
+}
+/** The task and its live ancestors: everything a task's refresh rule can inherit from. */
+export function checklistRefreshScope(tasks: readonly Task[], taskId: string): Task[] {
+    const byId = new Map(tasks.filter(t => !t.deletedAt && !t.purgedAt).map(t => [t.id, t]));
+    const chain: Task[] = [];
+    for (let cursor = byId.get(taskId); cursor && !chain.includes(cursor); cursor = cursor.parentTaskId ? byId.get(cursor.parentTaskId) : undefined) chain.push(cursor);
+    return chain;
+}
+/** Items that stop refreshing keep their current-period checkbox instead of falling back to an old raw boolean. */
+export function checklistFreezeUpdates(before: readonly Task[], after: readonly Task[], taskIds: readonly string[], now: Date): Map<string, NonNullable<Task['checklist']>> {
+    const afterById = new Map(after.map(t => [t.id, t])), result = new Map<string, NonNullable<Task['checklist']>>();
+    for (const old of before.filter(t => taskIds.includes(t.id))) {
+        const next = afterById.get(old.id) ?? old;
+        let changed = false;
+        const checklist = (next.checklist ?? []).map(item => {
+            const was = old.checklist?.find(o => o.id === item.id);
+            if (!was) return item;
+            const prior = checklistItemState(old, was, before, now), later = checklistItemState(next, item, after, now);
+            if (!prior.recurring || later.recurring || item.isCompleted === prior.completed) return item;
+            changed = true;
+            return { ...item, isCompleted: prior.completed };
+        });
+        if (changed) result.set(old.id, checklist);
+    }
+    return result;
 }
 export function checklistDraftState(task: Task, tasks: readonly Task[], now = new Date()): ChecklistDraftState {
     return Object.fromEntries((task.checklist ?? []).map(item => {
@@ -318,6 +408,8 @@ export function makeChecklistPolicy(previous: ChecklistRefreshPolicy | undefined
         end: values.end, pausedAt: values.paused ? previous?.pausedAt ?? now.toISOString() : undefined,
         revision: (previous?.revision ?? 0) + 1, updatedAt: now.toISOString(), deviceId };
     validateChecklistRefresh({ version: 1, defaults: result, items: {}, marks: {} });
+    // A newly entered schedule must use a zone this device understands; an untouched synced one is kept as is.
+    if (result.schedule && stable(result.schedule) !== stable(previous?.schedule)) validateChecklistSchedule(result.schedule);
     if (result.mode === 'custom' && result.end.mode === 'date' && result.end.date! < result.schedule!.startDate) throw new Error('End date must not be earlier than the start date.');
     return result;
 }
@@ -379,7 +471,9 @@ export function checklistHistory(task: Task, item: ChecklistItem, tasks: readonl
     for (const [id, mark] of Object.entries(checklistRefreshData(task).marks[item.id] ?? {})) {
         history.set(id, { id, day: mark.day, dueAt: mark.dueAt, completed: mark.completed, current: id === state.cycle?.id });
     }
-    if (state.schedule && state.cycle) {
+    // After-completion rounds only exist once reached, so their history is the recorded marks plus the current round.
+    if (state.cycle && state.schedule?.anchor === 'completion' && !history.has(state.cycle.id)) history.set(state.cycle.id, { ...state.cycle, completed: false, current: true });
+    if (state.schedule && state.cycle && state.schedule.anchor !== 'completion') {
         let cycle: ChecklistCycle | undefined = state.cycle;
         for (let count = 0; cycle && count < limit; count++) {
             if (!history.has(cycle.id)) history.set(cycle.id, { ...cycle, completed: false, current: cycle.id === state.cycle?.id });

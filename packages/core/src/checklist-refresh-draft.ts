@@ -33,7 +33,10 @@ export function checklistContentDraftPatch(base: Partial<Task>, draft: Partial<T
     if (changes.length) {
         const changed = changeChecklistCompletion(task, tasks, changes, now, deviceId);
         patch.planner = { ...taskPlanner(latest), checklistRefresh: changed.refresh };
-        if (Object.prototype.hasOwnProperty.call(patch, 'checklist')) patch.checklist = changed.checklist;
+        // Period completion lives in the ledger; the raw flag of a refreshing item keeps its stored (or default) value.
+        const recurring = new Set(changes.filter(change => change.cycleId).map(change => change.itemId));
+        if (Object.prototype.hasOwnProperty.call(patch, 'checklist')) patch.checklist = changed.checklist.map(item => recurring.has(item.id)
+            ? { ...item, isCompleted: latest.checklist?.find(old => old.id === item.id)?.isCompleted ?? false } : item);
     }
     return patch;
 }

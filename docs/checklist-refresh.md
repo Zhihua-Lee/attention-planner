@@ -20,6 +20,18 @@ Content editing captures the displayed period along with its draft. Unchanged ol
 
 The existing planner clock refreshes while the app is open and on focus/visibility resume. No background process or push notification is required; reopening after offline time computes the current period directly. Refresh and reminders are not the same operation. Fixed IANA timezones are independent of the device timezone; a repeated DST time opens one period, and a nonexistent local time uses the first existing minute after the gap. Nonexistent monthly dates are skipped.
 
+## Refresh a set time after completion / 完成后相隔一段时间刷新
+
+Under **Set independently / 单独设置**, choose **Refresh by / 刷新方式 → A set time after the list is completed / 完成后相隔一段时间**, then set an amount in hours, days, weeks or months. The first round starts at the chosen start date and time. A round counts as complete once every item that follows this rule is checked. The next round starts that long after the last of those checks. Until then, the completed round stays visible, labelled with its next refresh time.
+
+- **No missed rounds.** A list left unfinished keeps its current round indefinitely; it never piles up missed rounds.
+- **Daylight saving.** Days and longer are counted on the rule timezone's wall clock, so 10:15 plus one day stays 10:15 across a DST change. A month is clamped to the end of a shorter month: Jan 31 plus one month is Feb 28/29. Hours are exact elapsed time.
+- **Items.** An item with its own after-completion rule forms its own round and does not wait for the rest of the list.
+- **Round IDs.** Rounds are numbered (`<schedule>/r1`, `r2`, …) rather than dated, so an undo followed by a re-check never orphans marks.
+- **Pause, end date, history.** Pause and end date behave as in calendar mode. History shows the rounds actually reached.
+
+Older clients that do not know `anchor: "completion"` or `frequency: "hourly"` reject that planner record, so update every client before using this mode.
+
 ## Storage and compatibility
 
 Versioned data lives at `Task.planner.checklistRefresh`, in the already-synced planner JSON. This avoids new SQLite columns and does not add fields that older checklist row codecs would strip. Planner validation and merging explicitly preserve the data. Policies merge independently per list/item; completion records merge per item and occurrence. Display shows the latest eight periods, including derived missed rounds of the current schedule. Stored completion marks from prior schedule versions are retained without truncation; old-rule missed rounds are not exhaustively materialized.

@@ -65,6 +65,7 @@ describe('checklist content drafts and planner persistence', () => {
         const base = task(), draft = draftOf(base); draft.checklist!.push({ id: 'new', title: 'Grade', isCompleted: true });
         const patch = checklistContentDraftPatch(base, draft, base, [base], checklistDraftState(base, [base], tue), tue, 'a');
         assert.equal(patch.planner!.checklistRefresh!.marks.new['1560-v1/2026-09-29'].completed, true);
+        assert.equal(patch.checklist!.find(item => item.id === 'new')!.isCompleted, false);
     });
     it('round-trips refresh metadata through planner JSON validation', () => {
         const t = mark(task()); assert.deepEqual(readTaskPlanner(JSON.parse(JSON.stringify(t.planner))), t.planner);
