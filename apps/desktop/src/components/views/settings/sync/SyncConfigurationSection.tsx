@@ -780,7 +780,7 @@ export function SyncConfigurationSection({
 
             <div className="bg-card border border-border rounded-lg p-6 space-y-4">
                 <a
-                    href="https://docs.mindwtr.app/data-sync/"
+                    href="https://github.com/Zhihua-Lee/attention-planner/blob/main/docs/attention-planner-user-guide-zh.md"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"

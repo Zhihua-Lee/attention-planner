@@ -4,6 +4,8 @@ import { ExternalLink, MessageSquare, RefreshCw } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { SettingsFeedbackModal, type FeedbackSubmitInput } from './SettingsFeedbackModal';
 
+const USER_GUIDE_URL = 'https://github.com/Zhihua-Lee/attention-planner/blob/main/docs/attention-planner-user-guide-zh.md';
+
 type Labels = {
     version: string;
     installChannel: string;
@@ -59,6 +61,8 @@ export type SettingsAboutPageProps = {
     appVersion: string;
     installChannel?: string | null;
     onOpenLink: (url: string) => void;
+    /** Native builds check GitHub releases; the web app updates itself on reload. */
+    canCheckUpdates?: boolean;
     onCheckUpdates: () => void;
     isCheckingUpdate: boolean;
     updateActionLabel?: string;
@@ -71,6 +75,7 @@ export type SettingsAboutPageProps = {
 export function SettingsAboutPage({
     t,
     appVersion,
+    canCheckUpdates = false,
     installChannel,
     onOpenLink,
     onCheckUpdates,
@@ -101,7 +106,7 @@ export function SettingsAboutPage({
                     </>
                 )}
                 <div className="border-t border-border/50"></div>
-                <div className="flex justify-between items-center">
+                {canCheckUpdates ? <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">{actionLabel}</span>
                     <button
                         onClick={onCheckUpdates}
@@ -116,7 +121,10 @@ export function SettingsAboutPage({
                         <RefreshCw className={cn("w-4 h-4", isCheckingUpdate && "animate-spin")} />
                         {isCheckingUpdate ? t.checking : actionLabel}
                     </button>
-                </div>
+                </div> : <div className="flex justify-between items-center gap-4">
+                    <span className="text-muted-foreground">{t.checkForUpdates}</span>
+                    <span className="text-right text-sm text-muted-foreground">网页版会自动更新，刷新页面即可使用最新版本</span>
+                </div>}
                 {updateError && (
                     <div className="text-destructive text-sm">{t.checkFailed}</div>
                 )}
@@ -138,10 +146,10 @@ export function SettingsAboutPage({
                 <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">{t.documentation}</span>
                     <button
-                        onClick={() => onOpenLink('https://docs.mindwtr.app')}
+                        onClick={() => onOpenLink(USER_GUIDE_URL)}
                         className="text-primary hover:underline flex items-center gap-1"
                     >
-                        docs.mindwtr.app
+                        使用手册
                         <ExternalLink className="w-3 h-3" />
                     </button>
                 </div>
@@ -169,12 +177,12 @@ export function SettingsAboutPage({
                 </div>
                 <div className="border-t border-border/50"></div>
                 <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">{t.sponsorProject}</span>
+                    <span className="text-muted-foreground">基于</span>
                     <button
-                        onClick={() => onOpenLink('https://mindwtr.app/donate?src=app_about')}
+                        onClick={() => onOpenLink('https://github.com/dongdongbh/Mindwtr')}
                         className="text-info hover:underline cursor-pointer flex items-center gap-1"
                     >
-                        mindwtr.app/donate
+                        Mindwtr（上游项目）
                         <ExternalLink className="w-3 h-3" />
                     </button>
                 </div>

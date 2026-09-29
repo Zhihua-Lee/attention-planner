@@ -41,11 +41,11 @@ describe("update-service channel selection", () => {
         });
       }
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.9.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.9.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.9.0",
           body: "latest notes",
           assets: [],
         });
@@ -71,11 +71,11 @@ describe("update-service channel selection", () => {
         return jsonResponse({}, 500);
       }
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.2.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.2.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.2.0",
           body: "latest notes",
           assets: [],
         });
@@ -100,11 +100,11 @@ describe("update-service channel selection", () => {
         return jsonResponse({ version: "1.1.0" });
       }
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.9.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.9.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.9.0",
           body: "latest notes",
           assets: [],
         });
@@ -134,11 +134,11 @@ describe("update-service channel selection", () => {
         return jsonResponse({ results: [{ Version: "1.2.0-2" }] });
       }
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.9.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.9.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.9.0",
           body: "latest notes",
           assets: [],
         });
@@ -170,11 +170,11 @@ describe("update-service channel selection", () => {
         return jsonResponse({ results: [{ Version: "1.3.0-1" }] });
       }
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.9.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.9.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.9.0",
           body: "latest notes",
           assets: [],
         });
@@ -204,11 +204,11 @@ describe("update-service channel selection", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.9.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.9.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.9.0",
           body: "latest notes",
           assets: [],
         });
@@ -236,11 +236,11 @@ describe("update-service channel selection", () => {
         );
       }
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.9.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.9.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.9.0",
           body: "latest notes",
           assets: [],
         });
@@ -276,11 +276,11 @@ describe("update-service channel selection", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v1.2.0",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v1.2.0",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v1.2.0",
           body: "latest notes",
           assets: [
             {
@@ -314,11 +314,11 @@ describe("update-service channel selection", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (
-        url.includes("api.github.com/repos/dongdongbh/Mindwtr/releases/latest")
+        url.includes("api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest")
       ) {
         return jsonResponse({
           tag_name: "v9.9.9",
-          html_url: "https://github.com/dongdongbh/Mindwtr/releases/tag/v9.9.9",
+          html_url: "https://github.com/Zhihua-Lee/attention-planner/releases/tag/v9.9.9",
           body: "github notes",
           assets: [],
         });

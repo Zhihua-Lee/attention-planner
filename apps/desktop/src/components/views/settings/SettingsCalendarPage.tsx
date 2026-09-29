@@ -9,7 +9,7 @@ import { ExternalLink } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { Switch } from '../../ui/Switch';
 
-const CALENDAR_INTEGRATION_GUIDE_URL = 'https://docs.mindwtr.app/use/calendar-integration';
+const CALENDAR_INTEGRATION_GUIDE_URL = 'https://github.com/Zhihua-Lee/attention-planner/blob/main/docs/outlook-google-drive-export.md';
 
 type Labels = {
     calendar: string;

@@ -6,9 +6,9 @@ import { reportError } from "./report-error";
 import { isFlatpakRuntime, isTauriRuntime } from "./runtime";
 
 const GITHUB_RELEASES_API =
-  "https://api.github.com/repos/dongdongbh/Mindwtr/releases/latest";
+  "https://api.github.com/repos/Zhihua-Lee/attention-planner/releases/latest";
 const GITHUB_RELEASES_URL =
-  "https://github.com/dongdongbh/Mindwtr/releases/latest";
+  "https://github.com/Zhihua-Lee/attention-planner/releases/latest";
 const MS_STORE_PRODUCT_ID = "9N0V5B0B6FRX";
 const MS_STORE_URL = `ms-windows-store://pdp/?ProductId=${MS_STORE_PRODUCT_ID}`;
 const MS_STORE_UPDATES_URL = "ms-windows-store://downloadsandupdates";

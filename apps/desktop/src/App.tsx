@@ -214,7 +214,7 @@ const getDesktopReviewTarget = (installSource: InstallSource | null): { label: s
     }
     return {
         label: 'Open GitHub',
-        url: 'https://github.com/dongdongbh/Mindwtr',
+        url: 'https://github.com/Zhihua-Lee/attention-planner',
     };
 };
 
@@ -223,7 +223,7 @@ const buildPromptTestReviewAnnouncement = (installSource: InstallSource | null):
     if (!target) return null;
     return {
         id: 'prompt-test-review',
-        title: 'Enjoying Mindwtr?',
+        title: 'Enjoying Attention Planner?',
         body: 'A quick rating helps others discover it. It only takes a moment.',
         action: {
             type: 'url',

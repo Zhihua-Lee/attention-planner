@@ -159,7 +159,7 @@ describe('SyncConfigurationSection', () => {
         expect(queryByText('Sync description')).not.toBeInTheDocument();
         expect(getByRole('link', { name: /Data and Sync guide/ })).toHaveAttribute(
             'href',
-            'https://docs.mindwtr.app/data-sync/'
+            'https://github.com/Zhihua-Lee/attention-planner/blob/main/docs/attention-planner-user-guide-zh.md'
         );
     });
 

@@ -456,6 +456,8 @@ export function useSettingsAboutPage({
     return {
         aboutPageProps: {
             appVersion,
+            // The web app updates itself on reload; only native builds check GitHub releases.
+            canCheckUpdates: isTauri,
             installChannel: installChannelDisplay,
             isCheckingUpdate,
             onCheckUpdates: handleCheckUpdates,
