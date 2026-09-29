@@ -14,6 +14,7 @@ import { useUiStore } from '../../store/ui-store';
 import { ModalPortal } from '../ModalPortal';
 import { useVisibleViewport } from '../../hooks/use-visible-viewport';
 import { isInputComposition } from '../../lib/input-method';
+import { useSaveListener } from '../../lib/save-shortcut';
 
 export type PlainCaptureSheetProps = {
     isOpen: boolean;
@@ -156,6 +157,8 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
             setSaving(false);
         }
     };
+    // Ctrl/Cmd+S saves this capture like Ctrl+Enter; the sheet reports its own result.
+    useSaveListener(reason => { if (reason !== 'shortcut') return; void save(); return { announced: true }; }, isOpen);
     const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.defaultPrevented || isInputComposition(event.nativeEvent)) return;
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }

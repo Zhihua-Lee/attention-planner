@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { inbox, openApp, openTask, readTasks } from './planner-helpers';
+import { inbox, openApp, openTask, readTasks, showAllProperties } from './planner-helpers';
 const task = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: id, status: 'inbox', tags: [], contexts: [], createdAt: '2026-01-01T09:00:00Z', updatedAt: '2026-01-01T09:00:00Z', ...extra });
 async function linkOf(page: Page, id: string) { return (await readTasks(page)).find((item: { id: string }) => item.id === id)?.parentTaskId ?? null; }
 
@@ -44,6 +44,7 @@ test.describe('phone links', () => {
         await openApp(page, [task('Target'), task('Linked')]);
         let detail = await openTask(page, 'Linked');
         await expect(detail.getByRole('button', { name: 'Add subtask', exact: true })).toHaveCount(0);
+        await showAllProperties(detail);
         await detail.getByRole('button', { name: 'Link to a task…', exact: true }).tap();
         const picker = page.getByRole('dialog', { name: 'Move task', exact: true });
         await picker.getByRole('button', { name: 'Target', exact: true }).tap();
@@ -79,20 +80,40 @@ test.describe('phone links', () => {
     });
 });
 
-test('clicking a title, note or step text edits it in place; only the checkbox completes a step', async ({ page }) => {
+test('title, note and steps are edited where they are shown; only the checkbox completes a step', async ({ page }) => {
     await openApp(page, [task('Notes', { description: 'Read the brief', checklist: [{ id: 'draft', title: 'Write draft', isCompleted: false }] })]);
     const detail = await openTask(page, 'Notes');
-    await detail.getByRole('button', { name: 'Write draft', exact: true }).click();
-    await expect(detail.locator('[data-checklist-input="draft"]')).toBeFocused();
+    const step = detail.locator('[data-checklist-input="draft"]');
+    await step.click();
+    await expect(step).toBeFocused();
     expect((await readTasks(page))[0].checklist[0].isCompleted).toBe(false);
-    await detail.locator('[data-checklist-input="draft"]').fill('Write first draft');
-    await detail.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await step.fill('Write first draft'); await step.blur();
     await expect.poll(async () => (await readTasks(page))[0].checklist[0].title).toBe('Write first draft');
     await detail.getByRole('checkbox', { name: 'Write first draft', exact: true }).check();
     await expect.poll(async () => (await readTasks(page))[0].checklist[0].isCompleted).toBe(true);
-    await detail.getByRole('heading', { name: 'Notes', exact: true }).click();
-    await expect(detail.getByLabel('Task name', { exact: true })).toBeFocused();
-    await detail.getByRole('button', { name: 'Discard edits', exact: true }).click();
+    await detail.getByRole('textbox', { name: 'Task name', exact: true }).click();
+    await expect(detail.getByRole('textbox', { name: 'Task name', exact: true })).toBeFocused();
     await detail.locator('[data-description-view]').getByText('Read the brief').click();
-    await expect(detail.locator('form textarea')).toBeFocused();
+    await expect(detail.getByRole('textbox', { name: 'Note', exact: true })).toBeFocused();
+    await expect(detail.getByRole('button', { name: 'Edit content', exact: true })).toHaveCount(0);
+});
+
+test('Undo on the task page reverts the latest saved changes one by one', async ({ page }) => {
+    await openApp(page, [task('Plan week', { checklist: [{ id: 'a', title: 'Book room', isCompleted: false }] })]);
+    const detail = await openTask(page, 'Plan week');
+    const undo = detail.getByRole('button', { name: 'Undo', exact: true });
+    await expect(undo).toBeDisabled();
+    const name = detail.getByRole('textbox', { name: 'Task name', exact: true });
+    await name.fill('Plan the week'); await name.blur();
+    await expect.poll(async () => (await readTasks(page))[0].title).toBe('Plan the week');
+    await detail.getByRole('checkbox', { name: 'Book room', exact: true }).check();
+    await expect.poll(async () => (await readTasks(page))[0].checklist[0].isCompleted).toBe(true);
+    // Ctrl/Cmd+Z outside a text field undoes the latest change: the checkbox first.
+    await detail.getByRole('button', { name: 'Undo', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => (await readTasks(page))[0].checklist[0].isCompleted).toBe(false);
+    await undo.click();
+    await expect.poll(async () => (await readTasks(page))[0].title).toBe('Plan week');
+    await expect(name).toHaveValue('Plan week');
+    await expect(undo).toBeDisabled();
 });

@@ -8,6 +8,8 @@ import { useLanguage } from '../contexts/language-context';
 import { PlannerEnvironment } from './planner/usePlannerEnvironment';
 import { TaskDetailHost } from './planner/TaskDetailHost';
 import { useUiStore } from '../store/ui-store';
+import { useTaskStore } from '@mindwtr/core';
+import { useSaveShortcut } from '../lib/save-shortcut';
 
 interface LayoutProps {
     children: ReactNode;
@@ -19,6 +21,20 @@ interface LayoutProps {
 // Keep the established sync, sidebar, drag/drop and desktop shell intact while
 // making the two daily operations visible from every workspace. This toolbar
 // uses the same navigation callback (and edit guards) as the existing sidebar.
+function SaveShortcut() {
+    const { language } = useLanguage(), zh = language.startsWith('zh');
+    const emacs = useTaskStore(state => state.settings.keybindingStyle === 'emacs');
+    useSaveShortcut(({ ok, announced }) => {
+        if (announced) return;
+        useUiStore.getState().showToast(ok ? (zh ? '已保存' : 'Saved') : (zh ? '有修改未能保存，请查看提示' : 'Some changes could not be saved'), ok ? 'success' : 'error', 2500);
+    }, event => {
+        // Emacs-style C-s stays search outside text fields and dialogs; Cmd+S and fields still save.
+        const target = event.target as HTMLElement | null;
+        return emacs && event.ctrlKey && !event.metaKey && !target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]');
+    });
+    return null;
+}
+
 export function Layout(props: LayoutProps) {
     const { t } = useLanguage();
     const isFocusMode = useUiStore(state => state.isFocusMode);
@@ -37,6 +53,7 @@ export function Layout(props: LayoutProps) {
             </div>}
             {props.children}
         </LegacyLayout>
+        <SaveShortcut />
         <PwaCaptureHost />
         <TaskDetailHost />
     </TaskDetailLauncher.Provider></PlannerEnvironment>;

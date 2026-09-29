@@ -76,14 +76,14 @@ test('bulk end sync previews items following the default, cancels without change
     expect(rows).toHaveLength(1);
 });
 
-test('a content draft crossing a refresh boundary does not check a new period', async ({ page }) => {
+test('an edit in progress across a refresh boundary does not check a new period', async ({ page }) => {
     await page.clock.install({ time: new Date(tue) }); await openApp(page, [task()]); const detail = await openTask(page, '1560');
     await detail.getByRole('checkbox', { name: 'Prepare class', exact: true }).check();
-    await detail.getByRole('button', { name: 'Edit content', exact: true }).click();
-    await detail.getByLabel('Task name', { exact: true }).fill('1560 updated');
+    const name = detail.getByRole('textbox', { name: 'Task name', exact: true });
+    await name.fill('1560 updated');
     await page.clock.setSystemTime(new Date(thu));
-    await detail.getByRole('button', { name: 'Save changes', exact: true }).click();
-    await expect(detail.getByRole('heading', { name: '1560 updated', exact: true })).toBeVisible();
+    await name.press('Control+s');
+    await expect.poll(async () => (await readTasks(page))[0].title).toBe('1560 updated');
     await detail.getByRole('button', { name: 'Back', exact: true }).click(); await page.reload(); await inbox(page); await openTask(page, '1560 updated');
     await expect(detail.getByRole('checkbox', { name: 'Prepare class', exact: true })).not.toBeChecked();
     const row = (await readTasks(page))[0]; expect(row.planner.checklistRefresh.marks.prepare['1560-v1/2026-10-01']).toBeUndefined();

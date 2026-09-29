@@ -54,14 +54,12 @@ for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 });
         await openApp(page, [task('Checklist task', { checklist: [{ id: 'step', title: 'Milk', isCompleted: true }] })]);
         const detail = await openTask(page, 'Checklist task');
-        await detail.getByRole('button', { name: 'Edit content', exact: true }).click();
-        const summary = detail.locator('summary').filter({ hasText: 'Checklist' });
-        if (await summary.count() && !(await detail.getByPlaceholder('Item name', { exact: true }).isVisible())) await summary.click();
-        const input = detail.getByPlaceholder('Item name', { exact: true });
+        const input = detail.getByRole('textbox', { name: 'Step', exact: true });
         await input.fill('   ');
-        await expect(input).toBeVisible(); // Blank editing rows must remain usable until Save.
-        await detail.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await expect(detail.getByRole('heading', { name: 'Checklist task', exact: true })).toBeVisible();
+        await expect(input).toBeVisible(); // A step emptied while typing stays editable; it is not written.
+        expect((await readTasks(page))[0].checklist).toHaveLength(1);
+        await input.blur();
+        await expect(detail.getByRole('textbox', { name: 'Task name', exact: true })).toHaveValue('Checklist task');
         await expect.poll(async () => (await readTasks(page))[0].checklist ?? null).toBeNull();
         expect((await readTasks(page))[0].deletedAt).toBeUndefined();
         await detail.getByRole('button', { name: 'Back', exact: true }).click();

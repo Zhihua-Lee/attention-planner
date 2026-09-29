@@ -67,7 +67,7 @@ for (const width of [1280, 390]) {
     });
 }
 
-for (const leave of ['Close', 'Escape', 'browser Back', 'Edit content'] as const) {
+for (const leave of ['Close', 'Escape', 'browser Back', 'an in-place title edit'] as const) {
     test(`retains a rule draft after leaving through ${leave}`, async ({ page }) => {
         const { detail, settings } = await start(page);
         await settings.getByLabel('Refresh time', { exact: true }).fill('07:25');
@@ -75,10 +75,10 @@ for (const leave of ['Close', 'Escape', 'browser Back', 'Edit content'] as const
         else if (leave === 'Escape') await page.keyboard.press('Escape');
         else if (leave === 'browser Back') await page.goBack();
         else {
-            await detail.getByRole('button', { name: 'Edit content', exact: true }).click();
-            await detail.getByRole('button', { name: 'Discard edits', exact: true }).click();
+            await detail.getByRole('textbox', { name: 'Task name', exact: true }).fill('1560 renamed');
+            await detail.getByRole('textbox', { name: 'Task name', exact: true }).blur();
         }
-        if (leave !== 'Edit content') { await expect(detail).toHaveCount(0); await openTask(page, '1560'); }
+        if (leave !== 'an in-place title edit') { await expect(detail).toHaveCount(0); await openTask(page, '1560'); }
         await expandSettings(detail);
         await expect(settings.getByLabel('Refresh time', { exact: true })).toHaveValue('07:25');
         expect((await readTasks(page))[0].planner.checklistRefresh.defaults.schedule.time).toBe('06:00');

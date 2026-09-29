@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { DATA_KEY, inbox, openApp, openTask, readTasks } from './planner-helpers';
+import { DATA_KEY, inbox, openApp, openTask, readTasks, showAllProperties } from './planner-helpers';
 
 for (const width of [1280, 390]) {
     test(`task cards support round trips, completion and deletion recovery at ${width}px`, async ({ page }, info) => {
@@ -27,20 +27,22 @@ for (const width of [1280, 390]) {
         await card.getByRole('button', { name: 'Delete task', exact: true }).click(); await expect(card).toHaveCount(0);
         await page.getByRole('status').filter({ hasText: 'Moved to Trash' }).getByRole('button', { name: 'Undo', exact: true }).click(); await expect(card).toBeVisible();
         const detail = await openTask(page, title);
-        await detail.getByRole('button', { name: 'Edit content', exact: true }).click();
-        await expect(detail.getByPlaceholder('Item name', { exact: true })).toBeVisible();
-        await detail.locator('summary').filter({ hasText: 'Checklist' }).click();
-        await detail.getByRole('textbox', { name: 'Content', exact: true }).fill('Edited body');
-        await expect(detail.getByPlaceholder('Item name', { exact: true })).not.toBeVisible();
-        await detail.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await detail.getByRole('button', { name: 'Add to this day', exact: true }).click();
+        await expect(detail.getByRole('textbox', { name: 'Step', exact: true })).toHaveValue('Read notes');
+        await detail.locator('[data-description-view]').click();
+        const note = detail.getByRole('textbox', { name: 'Note', exact: true });
+        await note.fill('Edited body'); await note.blur();
+        await expect.poll(async () => (await readTasks(page))[0].description).toBe('Edited body');
+        await showAllProperties(detail);
+        await detail.getByRole('button', { name: '+ Today', exact: true }).click();
+        await expect(detail.locator('[data-property="days"]')).toContainText('Today');
         await detail.getByRole('button', { name: 'Reserve a work block', exact: true }).click();
         await detail.getByLabel('Start time', { exact: true }).fill('2026-09-27T10:00');
-        await detail.getByRole('button', { name: 'Save reservation', exact: true }).click();
+        await detail.getByRole('button', { name: /^(Activate and reserve|Save reservation)$/ }).click();
         await expect(detail.getByLabel('Start time', { exact: true })).toHaveCount(0);
         const planned = (await readTasks(page))[0].planner;
         expect(planned.blocks).toHaveLength(1);
-        await detail.getByRole('button', { name: 'Move to Inbox', exact: true }).click();
+        await detail.getByRole('combobox', { name: 'Status', exact: true }).selectOption('inbox');
+        await expect.poll(async () => (await readTasks(page))[0].status).toBe('inbox');
         const returned = (await readTasks(page))[0].planner;
         expect(returned.days).toEqual(planned.days);
         expect(returned.blocks).toEqual(planned.blocks);

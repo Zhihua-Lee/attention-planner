@@ -29,6 +29,7 @@ import {
     type Task,
 } from '@mindwtr/core';
 import { cn } from '../../../lib/utils';
+import { AutosizeTextarea } from '../../ui/AutosizeTextarea';
 import {
     captureScrollSnapshot,
     focusElementWithoutScroll,
@@ -161,7 +162,7 @@ export function ChecklistField({
     const [checklistDraft, setChecklistDraft] = useState<Task['checklist']>(checklist || []);
     const checklistDraftRef = useRef<Task['checklist']>(checklist || []);
     const checklistDirtyRef = useRef(false);
-    const checklistInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+    const checklistInputRefs = useRef<Array<HTMLTextAreaElement | null>>([]);
     const checklistSelectionRefs = useRef<Array<MarkdownSelection>>([]);
     const lastChecklistPairSelectionRefs = useRef<Array<{ value: string; selection: MarkdownSelection } | null>>([]);
 
@@ -234,12 +235,12 @@ export function ChecklistField({
         });
     }, []);
 
-    const getInputSelection = useCallback((input: HTMLInputElement): MarkdownSelection => ({
+    const getInputSelection = useCallback((input: HTMLInputElement | HTMLTextAreaElement): MarkdownSelection => ({
         start: input.selectionStart ?? input.value.length,
         end: input.selectionEnd ?? input.value.length,
     }), []);
 
-    const restoreInputSelection = useCallback((input: HTMLInputElement, selection: MarkdownSelection) => {
+    const restoreInputSelection = useCallback((input: HTMLInputElement | HTMLTextAreaElement, selection: MarkdownSelection) => {
         const applySelection = () => {
             input.setSelectionRange(selection.start, selection.end);
         };
@@ -260,7 +261,7 @@ export function ChecklistField({
     const applyChecklistMarkdownResult = useCallback((
         index: number,
         result: MarkdownToolbarResult,
-        source: HTMLInputElement,
+        source: HTMLInputElement | HTMLTextAreaElement,
         rememberPairRange = false,
     ) => {
         updateChecklistItemTitle(index, result.value);
@@ -271,7 +272,7 @@ export function ChecklistField({
         restoreInputSelection(source, result.selection);
     }, [restoreInputSelection, updateChecklistItemTitle]);
 
-    const handleChecklistPaste = useCallback((index: number, event: React.ClipboardEvent<HTMLInputElement>) => {
+    const handleChecklistPaste = useCallback((index: number, event: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const text = event.clipboardData?.getData('text/plain') ?? '';
         const normalized = text.replace(/\r\n?/g, '\n');
         if (!normalized.includes('\n')) return;
@@ -368,8 +369,8 @@ export function ChecklistField({
                                                 {item.isCompleted && <Check className="w-3 h-3" />}
                                             </span>
                                         </button>
-                                        <input
-                                            type="text"
+                                        <AutosizeTextarea
+                                            rows={1} minHeight={24} maxHeight={240}
                                             data-checklist-input={item.id}
                                             value={item.title}
                                             ref={(node) => {
@@ -443,7 +444,8 @@ export function ChecklistField({
                                                     return;
                                                 }
                                                 lastChecklistPairSelectionRefs.current[index] = null;
-                                                if (event.key === 'Enter') {
+                                                // Shift+Enter keeps a line break inside the step; Enter starts the next step.
+                                                if (event.key === 'Enter' && !event.shiftKey) {
                                                     event.preventDefault();
                                                     event.stopPropagation();
                                                     const newItem = {
@@ -485,7 +487,7 @@ export function ChecklistField({
                                                 }
                                             }}
                                             className={cn(
-                                                'min-w-0 flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-primary/50 px-1',
+                                                'min-w-0 flex-1 resize-none whitespace-pre-wrap bg-transparent text-sm leading-6 focus:outline-none border-b border-transparent focus:border-primary/50 px-1',
                                                 item.isCompleted && 'text-muted-foreground line-through'
                                             )}
                                             placeholder={t('taskEdit.itemNamePlaceholder')}

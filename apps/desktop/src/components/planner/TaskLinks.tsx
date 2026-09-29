@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { placeTaskWithUndo } from '../../lib/move-task-with-undo';
@@ -6,7 +7,7 @@ import { TaskMovePicker } from './TaskMovePicker';
 
 /**
  * A task link is only a pointer to another task (any project or area). It groups the two
- * visually in flat lists and nothing else: no creation inside, no shared dates, completion or planning.
+ * visually in flat lists and nothing else: no shared dates, completion or planning.
  */
 export function TaskLinks({ task, onOpenTask, onBusyChange }: { task: Task; onOpenTask: (id: string) => void; onBusyChange: (busy: boolean) => void }) {
     const tasks = useTaskStore(state => state.tasks);
@@ -21,25 +22,22 @@ export function TaskLinks({ task, onOpenTask, onBusyChange }: { task: Task; onOp
         catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
         finally { setBusy(false); onBusyChange(false); }
     };
-    const button = 'min-h-11 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-40';
-    return <section aria-label={l('Linked tasks', '关联任务')} className="space-y-2 rounded-lg border border-border p-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-semibold">{l('Linked to', '关联到')}</span>
-            {task.parentTaskId
-                ? target ? <button className="min-h-11 min-w-0 break-words text-left underline" onClick={() => onOpenTask(target.id)}>{target.title}</button>
-                    : <span className="text-muted-foreground">{l('Unavailable', '已不可用')}</span>
-                : <span className="text-muted-foreground">{l('None', '无')}</span>}
-            <span className="ml-auto flex gap-2">
-                <button className={button} disabled={busy || !!task.deletedAt} onClick={() => setPicking(true)}>{task.parentTaskId ? l('Change…', '更改…') : l('Link to a task…', '关联到任务…')}</button>
-                {task.parentTaskId && <button className={button} disabled={busy} onClick={() => void unlink()}>{l('Remove link', '取消关联')}</button>}
-            </span>
+    const small = 'min-h-9 rounded-md px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40';
+    return <div aria-label={l('Linked tasks', '关联任务')} role="group" className="w-full space-y-1">
+        <div className="flex flex-wrap items-center gap-1">
+            {task.parentTaskId && (target
+                ? <span className="inline-flex min-h-9 items-center rounded-md bg-muted text-sm">
+                    <button className="min-h-9 min-w-0 break-words rounded-l-md px-2 text-left hover:underline" onClick={() => onOpenTask(target.id)}>{target.title}</button>
+                    <button className="flex min-h-9 items-center rounded-r-md px-1.5 hover:bg-background" aria-label={l('Remove link', '取消关联')} disabled={busy} onClick={() => void unlink()}><X className="h-3.5 w-3.5" /></button>
+                </span>
+                : <span className="text-sm text-muted-foreground">{l('Unavailable', '已不可用')}</span>)}
+            <button className={small} disabled={busy || !!task.deletedAt} onClick={() => setPicking(true)}>{task.parentTaskId ? l('Change…', '更改…') : l('Link to a task…', '关联到任务…')}</button>
         </div>
-        {!!linkedHere.length && <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">{l('Linked here', '关联到这里的任务')}</p>
-            <ul className="flex flex-wrap gap-2">{linkedHere.map(other => <li key={other.id}><button className={`${button} break-words text-left ${other.status === 'done' ? 'text-muted-foreground line-through' : ''}`} onClick={() => onOpenTask(other.id)}>{other.title}</button></li>)}</ul>
+        {!!linkedHere.length && <div className="flex flex-wrap items-center gap-1">
+            <span className="text-xs text-muted-foreground">{l('Linked here', '关联到这里的任务')}</span>
+            {linkedHere.map(other => <button key={other.id} className={`min-h-9 rounded-md bg-muted/60 px-2 text-sm hover:bg-muted ${other.status === 'done' ? 'text-muted-foreground line-through' : ''}`} onClick={() => onOpenTask(other.id)}>{other.title}</button>)}
         </div>}
-        <p className="text-xs text-muted-foreground">{l('A link only places the tasks together in lists. Content, dates, completion and planning stay independent.', '关联只让两个任务在列表里排在一起；正文、时间、完成和推荐各自独立。')}</p>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {picking && <TaskMovePicker taskId={task.id} onClose={() => setPicking(false)} />}
-    </section>;
+    </div>;
 }
