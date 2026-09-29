@@ -1,7 +1,7 @@
 # Code of Conduct
 
 ## Our Pledge
-We are committed to providing a welcoming and inclusive environment for everyone contributing to Mindwtr, regardless of experience level, background, or identity.
+We are committed to providing a welcoming and inclusive environment for everyone contributing to Attention Planner, regardless of experience level, background, or identity.
 
 ## Our Standards
 Expected behavior:
@@ -19,7 +19,7 @@ Unacceptable behavior:
 
 ## Enforcement
 Instances of unacceptable behavior may be reported by:
-- Contacting the project maintainer directly (GitHub: @dongdongbh)
+- Contacting the project maintainer directly (GitHub: @Zhihua-Lee)
 - Opening an issue if the report is not sensitive
 
 Project maintainers have the right to remove, edit, or reject comments, commits, code, issues, and other contributions that violate this Code of Conduct.

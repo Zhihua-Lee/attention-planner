@@ -1,6 +1,6 @@
-# Mindwtr
+# Attention Planner
 
-A local-first GTD task manager (desktop, mobile, self-hosted cloud sync) built around tasks organized into projects, sections, and areas.
+A local-first planning PWA (NOW, Inbox, Plan) forked from Mindwtr. Tasks live in projects, sections and areas, and sync through the user's Google Drive. This file defines the domain language used in code and reviews; product concepts such as dates, plans, checklist rounds and task links are defined in [docs/product-model.md](./docs/product-model.md).
 
 ## Language
 

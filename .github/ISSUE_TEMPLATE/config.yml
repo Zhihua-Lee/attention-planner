@@ -1,11 +1,5 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
-  - name: Ask a question
-    url: https://github.com/dongdongbh/Mindwtr/discussions/new?category=q-a
-    about: Please ask and answer questions in Discussions.
-  - name: Submit an idea
-    url: https://github.com/dongdongbh/Mindwtr/discussions/new?category=ideas
-    about: Share early ideas and discuss before opening a formal feature request.
-  - name: Report a security vulnerability
-    url: https://github.com/dongdongbh/Mindwtr/security/policy
-    about: Please follow the security policy for responsible disclosure.
+  - name: Report a security vulnerability / 报告安全问题
+    url: https://github.com/Zhihua-Lee/attention-planner/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.
