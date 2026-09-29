@@ -217,7 +217,7 @@ describe('ChecklistField', () => {
     });
 
     it('focuses inserted checklist items without scrolling the editor container', async () => {
-        const focusSpy = vi.spyOn(HTMLInputElement.prototype, 'focus').mockImplementation(() => {});
+        const focusSpy = vi.spyOn(HTMLTextAreaElement.prototype, 'focus').mockImplementation(() => {});
         try {
             const { getByRole } = render(<ChecklistHarness />);
 

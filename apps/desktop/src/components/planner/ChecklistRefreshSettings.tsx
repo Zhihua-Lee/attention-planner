@@ -6,6 +6,7 @@ import { useLanguage } from '../../contexts/language-context';
 import { saveChecklistPolicy, syncChecklistEnd } from '../../lib/checklist-refresh-actions';
 import { checklistRuleDraftDirty, checklistRuleDrafts, type ChecklistRuleDraft } from '../../lib/checklist-rule-drafts';
 import { checklistDelayLabel } from '../../lib/checklist-refresh-text';
+import { useSaveListener } from '../../lib/save-shortcut';
 import { RepeatPicker } from './RepeatPicker';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 
@@ -71,7 +72,10 @@ function PolicyEditor({ task, itemId, disabled, onBusyChange, onDirtyChange, onS
         } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
         finally { lock.current = false; setBusy(false); onBusyChange?.(false); }
     };
-    return <form onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-3">
+    // Ctrl/Cmd+S applies the rule only while editing it; leaving the page keeps an unsaved rule as a draft.
+    const form = useRef<HTMLFormElement>(null);
+    useSaveListener(reason => { if (reason !== 'shortcut' || !dirty || !form.current?.contains(document.activeElement)) return; void save(); return { announced: true }; });
+    return <form ref={form} onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-3">
         <fieldset disabled={disabled || busy} className="min-w-0 space-y-3">
             <div>
                 <label htmlFor={ruleId} className="block text-sm">{l('Refresh rule', '刷新规则')}</label>
@@ -201,8 +205,8 @@ export function ChecklistRefreshSettings({ task, disabled = false, onBusyChange 
     };
     const listTargets = [{ taskId: task.id }, ...(task.checklist ?? []).map(item => ({ taskId: task.id, itemId: item.id }))];
     const pendingDrafts = policyDirty || checklistRuleDrafts.hasDrafts(listTargets);
-    return <details className="space-y-3 rounded-xl border border-border p-3" data-testid="checklist-refresh-settings" data-planner-form>
-        <summary className="min-h-11 cursor-pointer font-medium">{l('Checklist refresh', '清单定时刷新')}</summary>
+    return <details className="group space-y-3 rounded-lg open:border open:border-border open:p-3" data-testid="checklist-refresh-settings" data-planner-form>
+        <summary className="inline-flex min-h-9 cursor-pointer list-none items-center rounded-md px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground group-open:font-medium group-open:text-foreground">{l('Checklist refresh', '清单定时刷新')}</summary>
         <p className="text-xs leading-5 text-muted-foreground">{l('Keep the list and item identities. Each scheduled round has its own completion record; missed rounds do not create extra tasks. Changing the cadence starts a new schedule version; changing only the end date keeps existing completion records.', '保留清单和条目，每轮单独记录完成情况；漏做不会堆积成新任务。改变频率或刷新时刻会开启新规则版本，仅修改结束日期不会清除已有的完成记录。')}</p>
         <div>
             <label htmlFor={configureId} className="block text-sm">{l('Configure', '设置对象')}</label>

@@ -1,15 +1,17 @@
 import { expect, test } from '@playwright/test';
-import { createTask, openApp, openTask } from './planner-helpers';
-test('discarded content does not return after reload with details open', async ({ page }) => {
+import { createTask, openApp, openTask, readTasks } from './planner-helpers';
+test('an in-place edit is saved on leaving the field and survives reload with details open', async ({ page }) => {
     await openApp(page);
     await createTask(page, 'Keep original title');
     const detail = await openTask(page, 'Keep original title');
-    await detail.getByRole('button', { name: 'Edit content', exact: true }).click();
-    await detail.getByLabel('Task name', { exact: true }).fill('Discard this title');
-    await detail.getByRole('button', { name: 'Discard edits', exact: true }).click();
-    await expect(detail.getByRole('heading', { name: 'Keep original title' })).toBeVisible();
+    const name = detail.getByRole('textbox', { name: 'Task name', exact: true });
+    await name.fill('Renamed in place');
+    await name.press('Escape');
+    await expect(name).not.toBeFocused();
+    await expect(detail).toBeVisible();
+    await expect.poll(async () => (await readTasks(page))[0].title).toBe('Renamed in place');
     await page.reload();
-    await expect(page.getByTestId('task-details').getByRole('heading', { name: 'Keep original title' })).toBeVisible();
+    await expect(page.getByTestId('task-details').getByRole('textbox', { name: 'Task name', exact: true })).toHaveValue('Renamed in place');
     await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toHaveCount(0);
 });
 
