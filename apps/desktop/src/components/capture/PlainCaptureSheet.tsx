@@ -2,7 +2,9 @@ import { checkReservation, ensurePlannerBackup, plannerClock } from '../../lib/l
 import { useDialogHistory } from '../planner/useDialogHistory';
 import { CaptureContentFields } from '../Task/CaptureContentFields';
 import { usePlannerEnvironment } from '../planner/usePlannerEnvironment';
-import { RepeatPicker } from '../planner/RepeatPicker';
+import { RepeatMenu } from '../planner/RepeatMenu';
+import { recurrenceFromRule, ruleFromRecurrence, type TaskRepeat } from '../../lib/repeat-rules';
+import { newTaskRefresh } from '../../lib/checklist-refresh-actions';
 import type { CaptureRequest } from './PwaCaptureHost';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { CalendarDays, ChevronDown, Repeat2, X } from 'lucide-react';
@@ -14,6 +16,7 @@ import { useUiStore } from '../../store/ui-store';
 import { ModalPortal } from '../ModalPortal';
 import { useVisibleViewport } from '../../hooks/use-visible-viewport';
 import { isInputComposition } from '../../lib/input-method';
+import { InfoTip } from '../ui/InfoTip';
 import { useSaveListener } from '../../lib/save-shortcut';
 
 export type PlainCaptureSheetProps = {
@@ -58,7 +61,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
             ...((props?.status === 'next' || props?.status === 'inbox') && !props.scheduledAt && !props.startTime?.includes('T') ? {destination:props.status} : {}),
             ...(props?.description !== undefined ? {description:props.description} : {}),
             ...(props?.checklist ? {checklist:props.checklist} : {}),
-            ...(props?.recurrence ? {recurrence:props.recurrence} : {}),
+            ...(props?.recurrence ? {recurrence:props.recurrence,taskRepeat:undefined} : {}),
             ...(props?.availableAt ? {availableAt:props.availableAt.slice(0,10)} : {}),
             ...(props?.dueDate ? {dueDate:props.dueDate.slice(0,10)} : {}),
             ...(props?.isFocusedToday ? {plannedDay:localPlanDate(new Date())} : {}),
@@ -82,6 +85,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
     const showToast = useUiStore((state) => state.showToast);
     const hasDraft = JSON.stringify(draft) !== JSON.stringify(emptyPlainCapture());
     const effectiveDestination = draft.scheduledAt ? 'next' : draft.destination;
+    const repeatValue:TaskRepeat=draft.taskRepeat??(draft.recurrence?{kind:'copy',rule:ruleFromRecurrence(draft.recurrence,{id:'new-capture',title:draft.title,status:'inbox',tags:[],contexts:[],createdAt:'',updatedAt:'',dueDate:draft.dueDate||undefined})}:{kind:'none'});
     const set = <K extends keyof PlainCaptureDraft>(key: K, value: PlainCaptureDraft[K]) => {
         // Once created, this sheet only retries persistence. Edit the task after
         // that succeeds; never accept changes which the retry would not save.
@@ -127,7 +131,8 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
             if (pendingId.current && !existing) {
                 throw new Error(text('The pending task is no longer available. Your draft is kept; clear it explicitly before creating a replacement.', '待保存任务已不可用。草稿仍然保留；如需重新创建，请先明确清除草稿。'));
             }
-            let props:Partial<Task>={...prepared.props,planner:{version:1,blocks:[],days:[]},scheduledAt:undefined};
+            const checklistRefresh=draft.taskRepeat&&newTaskRefresh(draft.taskRepeat,clock.now,clock.deviceId);
+            let props:Partial<Task>={...prepared.props,planner:{version:1,blocks:[],days:[],...(checklistRefresh?{checklistRefresh}:{})},scheduledAt:undefined};
             let temporary={id:'new-capture',createdAt:clock.now.toISOString(),updatedAt:clock.now.toISOString(),title:prepared.title,status:prepared.props.status??'inbox',tags:[],contexts:[],...props} as Task;
             if(prepared.props.scheduledAt&&!existing){checkReservation(pendingId.current??'new-capture',blockId.current,prepared.props.scheduledAt,draft.durationMinutes??30,events,loaded&&!calendarError);props={...props,...scheduleWork(temporary,{id:blockId.current,startAt:prepared.props.scheduledAt,durationMinutes:draft.durationMinutes??30,timeZone:plannerTimeZone()},clock)};temporary={...temporary,...props};}
             if(draft.plannedDay)props={...props,...commitToDay(temporary,draft.plannedDay,true,clock)};
@@ -196,7 +201,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                     <div className="min-h-0 overflow-y-auto overscroll-contain">
                     <fieldset disabled={saving||!!pendingId.current} className="min-w-0 px-4 py-4 space-y-4">
                         <div>
-                            <label htmlFor={`${id}-title`} className="text-sm font-medium">{text('What do you need to do?', '要做什么？')}</label>
+                            <label htmlFor={`${id}-title`} className="text-sm font-medium">{text('What do you need to do?', '要做什么？')}</label> <InfoTip label={text('About capture', '关于记录')}>{text('A name is enough. Dates and organization are optional; no special syntax is needed.', '只写一句话就能保存。时间和归属都可稍后补，不需要特殊语法。')}</InfoTip>
                             <textarea ref={titleRef} id={`${id}-title`} value={draft.title} onChange={event => set('title', event.target.value)} rows={2}
                                 placeholder={text('For example: do the laundry', '例如：洗衣服')} className={`${inputClass} resize-y text-base`}
                                 onKeyDown={event => {
@@ -204,7 +209,6 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                                         event.preventDefault(); void save();
                                     }
                                 }} />
-                            <p className="mt-1 text-xs text-muted-foreground">{text('A name is enough. Dates and organization are optional; no special syntax is needed.', '只写一句话就能保存。时间和归属都可稍后补，不需要特殊语法。')}</p>
                         </div>
                         <div className="flex flex-wrap gap-2" role="group" aria-label={text('Save destination', '保存去向')}>
                             {(['inbox', 'next'] as const).map(destination => <button key={destination} type="button" aria-pressed={effectiveDestination === destination}
@@ -212,16 +216,15 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                                 className={`min-h-11 rounded-md border px-3 text-sm disabled:opacity-50 ${effectiveDestination === destination ? 'border-primary bg-primary/10' : 'border-border'}`}>
                                 {destination === 'inbox' ? text('Just capture', '先记下来') : text('Ready to plan', '已想清楚，加入待办')}
                             </button>)}
-                            {draft.scheduledAt && <p className="basis-full text-xs text-muted-foreground">{text('A reserved time is Ready automatically. Clear the time to save it to the Inbox.', '预留了时段会自动加入待办；清除时间即可存入收件箱。')}</p>}
+                            {draft.scheduledAt && <span className="self-center"><InfoTip label={text('About destination', '关于去向')}>{text('A reserved time is Ready automatically. Clear the time to save it to the Inbox.', '预留了时段会自动加入待办；清除时间即可存入收件箱。')}</InfoTip></span>}
                         </div>
                         <details open={Boolean(draft.scheduledAt||draft.plannedDay)} className="rounded-lg border border-border p-3">
                             <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarDays className="h-4 w-4" />{text('When?', '时间安排（可选）')}<ChevronDown className="ml-auto h-4 w-4" /></summary>
                             <div className="mt-3 space-y-3">
                                 <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded border border-border px-3 text-sm" onClick={()=>set('plannedDay',localPlanDate(new Date()))}>{text('Choose today (no time reserved)','今天想做（不预留时段）')}</button><input aria-label={text('Choose a day','哪天想做')} type="date" value={draft.plannedDay??''} onChange={e=>set('plannedDay',e.target.value)} className={inputClass}/></div>
-                                <label className="block text-sm">{text('Reserve a time', '准备什么时候做')}
+                                <label className="block text-sm">{text('Reserve a time', '准备什么时候做')} <InfoTip label={text('About reserving', '关于预留时段')}>{text('A reserved time appears on the calendar and makes the task Ready; it is not a deadline. Choosing only a day keeps it where you chose.', '预留时段会出现在日历并加入待办，不是截止时间；只选“哪天想做”不会改变保存去向。')}</InfoTip>
                                     <input type="datetime-local" value={draft.scheduledAt} onChange={event => set('scheduledAt', event.target.value)} className={inputClass} />
                                 </label>
-                                <p className="text-xs text-muted-foreground">{text('A reserved time appears on the calendar and makes the task Ready; it is not a deadline. Choosing only a day keeps it where you chose.', '预留时段会出现在日历并加入待办，不是截止时间；只选“哪天想做”不会改变保存去向。')}</p>
                                 {draft.scheduledAt&&<label className="block text-sm">{text('Minutes for this block','本次安排几分钟')}<input type="number" min={1} max={1440} value={draft.durationMinutes??30} onChange={e=>set('durationMinutes',e.target.valueAsNumber)} className={inputClass}/></label>}
                                 <label className="block text-sm">{text('Available from (optional)','最早可执行日期（可选）')}<input type="date" value={draft.availableAt??''} onChange={e=>set('availableAt',e.target.value)} className={inputClass}/></label>                                <label className="block text-sm">{text('Must finish by', '最晚哪天必须完成')}
                                     <input type="date" value={draft.dueDate} onChange={event => set('dueDate', event.target.value)} className={inputClass} />
@@ -231,7 +234,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                         </details>
                         <details className="rounded-lg border border-border p-3">
                             <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><Repeat2 className="h-4 w-4" />{text('Repeat?', '重复（可选）')}<ChevronDown className="ml-auto h-4 w-4" /></summary>
-                            <RepeatPicker value={draft.recurrence} onChange={value=>{set('recurrence',value);set('repeat','');}}/>
+                            <RepeatMenu scope="task" value={repeatValue} onChange={value=>{const next=value as TaskRepeat;setDraft(d=>({...d,taskRepeat:next,repeat:'',recurrence:next.kind==='copy'?recurrenceFromRule(next.rule,d.recurrence):undefined}));}}/>
                         </details>
                         <details open={contentExpanded ?? Boolean(draft.description || draft.checklist?.length || initialRequest?.expandContent)} className="rounded-lg border border-border p-3">
                             <summary onClick={event => { event.preventDefault(); setContentExpanded(!(contentExpanded ?? Boolean(draft.description || draft.checklist?.length || initialRequest?.expandContent))); }} className="min-h-11 cursor-pointer content-center text-sm font-medium">{text('Content and steps', '正文、步骤与归属（可选）')}</summary>

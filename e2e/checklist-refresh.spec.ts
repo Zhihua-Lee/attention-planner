@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { inbox, openApp, openTask, readTasks } from './planner-helpers';
+import { capture, inbox, openApp, openTask, readTasks, showAllProperties } from './planner-helpers';
 
 const tue = '2026-09-29T12:00:00Z', thu = '2026-10-01T12:00:00Z';
 const schedule = { id: '1560-v1', frequency: 'weekly', interval: 1, weekdays: [2, 4], startDate: '2026-09-28', time: '06:00', timeZone: 'America/Chicago' };
@@ -21,59 +21,59 @@ for (const width of [1280, 390]) {
         await detail.getByRole('button', { name: 'Back', exact: true }).click();
         await expect(page.locator('[data-task-id="1560"]').getByRole('checkbox', { name: 'Reopen current round', exact: true })).toBeChecked();
         await page.clock.setSystemTime(new Date(thu)); await page.reload(); await openTask(page, '1560');
-        await expect(detail.getByRole('checkbox', { name: 'Prepare class', exact: true })).not.toBeChecked();
-        const item = detail.locator('[data-checklist-item="prepare"]');
-        await expect(item.locator('[data-checklist-cycle]')).toHaveAttribute('data-checklist-cycle', '1560-v1/2026-10-01');
-        await item.getByText('Completion history', { exact: true }).click();
-        await expect(item).toContainText('2026-09-29 · Completed');
+        await expect(detail.locator('[data-property="repeat"] [data-task-round]')).toHaveAttribute('data-task-round', '1560-v1/2026-10-01');
+        await detail.locator('[data-task-round-history] > summary').click();
+        await expect(detail.locator('[data-task-round-history]')).toContainText('2026-09-29 · Completed');
         expect((await readTasks(page))[0].status).toBe('inbox'); expect(await readTasks(page)).toHaveLength(1);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     });
 }
 
-test('configures weekdays and independent list/item end dates in the existing detail surface', async ({ page }) => {
+test('the repeat menu sets a reopen rule for the task and its own rule for one step', async ({ page }) => {
     await page.clock.install({ time: new Date(tue) });
     await openApp(page, [task('1560', { planner: { version: 1, blocks: [], days: [] } })]); const detail = await openTask(page, '1560');
-    const settings = detail.getByTestId('checklist-refresh-settings'); await settings.locator(':scope > summary').click();
-    await settings.getByLabel('Refresh rule', { exact: true }).selectOption('custom');
-    await settings.getByLabel('Start date', { exact: true }).fill('2026-09-28');
-    await settings.getByLabel('Refresh time', { exact: true }).fill('06:00');
-    await settings.getByLabel('Timezone', { exact: true }).fill('America/Chicago');
-    await expect(settings.getByRole('button', { name: 'Tu', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(settings.getByRole('button', { name: 'Th', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await settings.getByLabel('End date mode', { exact: true }).selectOption('date');
-    await settings.getByLabel('End date', { exact: true }).fill('2026-12-10');
-    await settings.getByRole('button', { name: 'Save refresh settings', exact: true }).click();
-    await expect(settings.getByRole('status')).toHaveText('Refresh settings saved.');
-    await settings.getByLabel('Configure', { exact: true }).selectOption('prepare');
-    await settings.getByLabel('End date mode', { exact: true }).selectOption('never');
-    await settings.getByRole('button', { name: 'Save refresh settings', exact: true }).click();
-    await expect.poll(async () => (await readTasks(page))[0].planner.checklistRefresh.items.prepare.end.mode).toBe('never');
-    const data = (await readTasks(page))[0].planner.checklistRefresh;
-    expect(data.defaults.end.date).toBe('2026-12-10'); expect(data.items.prepare.mode).toBe('inherit');
+    await showAllProperties(detail);
+    const row = detail.locator('[data-property="repeat"]');
+    await row.getByRole('button', { name: 'None', exact: true }).click();
+    const menu = detail.locator('[data-repeat-menu="task"]');
+    await menu.getByRole('radio', { name: 'Reopen', exact: true }).click();
+    await expect.poll(async () => (await readTasks(page))[0].planner.checklistRefresh?.defaults?.schedule?.frequency).toBe('daily');
+    expect((await readTasks(page))[0].planner.checklistRefresh.defaults.schedule.time).toBe('00:00');
+    await menu.getByRole('button', { name: 'Weekdays', exact: true }).click();
+    await expect.poll(async () => (await readTasks(page))[0].planner.checklistRefresh.defaults.schedule.weekdays).toEqual([1, 2, 3, 4, 5]);
+    const version = (await readTasks(page))[0].planner.checklistRefresh.defaults.schedule.id;
+    await menu.getByRole('button', { name: 'Custom', exact: true }).click();
+    await menu.getByLabel('Ends', { exact: true }).fill('2026-12-10');
+    await expect.poll(async () => (await readTasks(page))[0].planner.checklistRefresh.defaults.end.date).toBe('2026-12-10');
+    expect((await readTasks(page))[0].planner.checklistRefresh.defaults.schedule.id).toBe(version); // An end date keeps the rounds.
+    await detail.getByRole('button', { name: 'Repeat: Prepare class', exact: true }).click();
+    const step = detail.locator('[data-repeat-menu="step"]');
+    await step.getByRole('radio', { name: 'Own rule', exact: true }).click();
+    await step.getByRole('button', { name: 'Daily', exact: true }).click();
+    await expect.poll(async () => (await readTasks(page))[0].planner.checklistRefresh.items.prepare?.schedule?.frequency).toBe('daily');
     await detail.getByRole('button', { name: 'Back', exact: true }).click(); await page.reload(); await openTask(page, '1560');
-    await settings.locator(':scope > summary').click(); await settings.getByLabel('Configure', { exact: true }).selectOption('prepare');
-    await expect(settings.getByLabel('End date mode', { exact: true })).toHaveValue('never');
+    await expect(detail.locator('[data-step-repeat="prepare"]')).toHaveText(/Daily/);
+    await expect(row).toContainText('Weekdays');
+    await row.getByRole('button', { name: /Weekdays/ }).click();
+    await menu.getByRole('radio', { name: 'New copy', exact: true }).click();
+    await expect.poll(async () => (await readTasks(page))[0].recurrence?.rule).toBe('weekly');
+    expect((await readTasks(page))[0].planner.checklistRefresh.defaults.mode).toBe('off');
 });
 
-test('bulk end sync previews items following the default, cancels without changes and replaces selected ends only', async ({ page }) => {
-    await page.clock.install({ time: new Date(tue) });
-    await openApp(page, [task()]); const detail = await openTask(page, '1560');
-    const settings = detail.getByTestId('checklist-refresh-settings'); await settings.locator(':scope > summary').click();
-    const bulk = settings.getByTestId('checklist-end-bulk'); await bulk.locator(':scope > summary').click();
-    await bulk.getByLabel('Batch End date', { exact: true }).fill('2026-12-17');
-    await bulk.getByRole('checkbox', { name: '1560 · list default', exact: true }).check();
-    await bulk.getByRole('button', { name: 'Preview sync', exact: true }).click();
-    const preview = bulk.getByRole('alertdialog', { name: 'Confirm end date sync' });
-    await expect(preview).toContainText('1560 / Prepare class');
-    await preview.getByRole('button', { name: 'Cancel', exact: true }).click();
-    expect((await readTasks(page))[0].planner.checklistRefresh.defaults.end.date).toBe('2026-12-10');
-    await bulk.getByRole('button', { name: 'Preview sync', exact: true }).click();
-    await preview.getByRole('button', { name: 'Confirm sync', exact: true }).click();
-    await expect(preview).toHaveCount(0);
-    const rows = await readTasks(page), data = rows.find((t: { id: string }) => t.id === '1560').planner.checklistRefresh;
-    expect(data.defaults.end.date).toBe('2026-12-17'); expect(data.defaults.schedule).toEqual(schedule);
-    expect(rows).toHaveLength(1);
+test('capture saves either repeat mode', async ({ page }) => {
+    await page.clock.install({ time: new Date(tue) }); await openApp(page);
+    for (const [title, mode] of [['Reopens', 'Reopen'], ['Copies', 'New copy']] as const) {
+        const sheet = await capture(page, title);
+        await sheet.locator('summary', { hasText: 'Repeat?' }).click();
+        await sheet.getByRole('radio', { name: mode, exact: true }).click();
+        await sheet.getByRole('button', { name: 'Weekdays', exact: true }).click();
+        await sheet.getByRole('button', { name: 'Add to Inbox', exact: true }).click(); await expect(sheet).toHaveCount(0);
+    }
+    const rows = await readTasks(page), find = (title: string) => rows.find((row: { title: string }) => row.title === title);
+    expect(find('Reopens').planner.checklistRefresh.defaults.schedule).toMatchObject({ frequency: 'weekly', weekdays: [1, 2, 3, 4, 5] });
+    expect(find('Reopens').recurrence).toBeUndefined();
+    expect(find('Copies').recurrence.byDay).toEqual(['MO', 'TU', 'WE', 'TH', 'FR']);
+    expect(find('Copies').planner.checklistRefresh).toBeUndefined();
 });
 
 test('an edit in progress across a refresh boundary does not check a new period', async ({ page }) => {

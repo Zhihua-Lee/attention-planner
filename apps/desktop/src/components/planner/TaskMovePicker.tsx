@@ -5,6 +5,7 @@ import { useVisibleViewport } from '../../hooks/use-visible-viewport';
 import { isInputComposition } from '../../lib/input-method';
 import { placeTaskWithUndo } from '../../lib/move-task-with-undo';
 import { ModalPortal } from '../ModalPortal';
+import { InfoTip } from '../ui/InfoTip';
 import { useDialogHistory } from './useDialogHistory';
 
 export function TaskMovePicker({ taskId, onClose, previousTaskId, nextTaskId }: {
@@ -46,8 +47,7 @@ export function TaskMovePicker({ taskId, onClose, previousTaskId, nextTaskId }: 
                 if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
             }
         }}>
-            <header className="mb-3 flex shrink-0 items-center justify-between gap-2"><h2 className="min-w-0 break-words font-semibold">{l('Move or link', '移动或关联')}：{task?.title}</h2><button className={button} disabled={busy} onClick={() => close()}>{l('Cancel', '取消')}</button></header>
-            <p className="mb-3 text-xs text-muted-foreground">{l('Change the order, or link this task to another one so they sit together in lists. Content, dates and completion stay independent.', '调整顺序，或关联到另一个任务，让两者在列表中排在一起；正文、时间和完成状态各自独立。')}</p>
+            <header className="mb-3 flex shrink-0 items-center justify-between gap-2"><h2 className="min-w-0 break-words font-semibold">{l('Move or link', '移动或关联')}：{task?.title} <InfoTip label={l('About links', '关于关联')}>{l('Change the order, or link this task to another one so they sit together in lists. Content, dates and completion stay independent.', '调整顺序，或关联到另一个任务，让两者在列表中排在一起；正文、时间和完成状态各自独立。')}</InfoTip></h2><button className={button} disabled={busy} onClick={() => close()}>{l('Cancel', '取消')}</button></header>
             {(previousTaskId || nextTaskId) && <div role="group" aria-label={l('Task order', '任务顺序')} className="mb-4 flex gap-2">
                 <button className={`${button} flex-1`} disabled={busy || !previousTaskId} onClick={() => move(previousTaskId, 'before')}>{l('Move up', '上移')}</button>
                 <button className={`${button} flex-1`} disabled={busy || !nextTaskId} onClick={() => move(nextTaskId, 'after')}>{l('Move down', '下移')}</button>

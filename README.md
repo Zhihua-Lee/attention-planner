@@ -23,7 +23,7 @@ It runs as an installable PWA at **[todo.onthat.top](https://todo.onthat.top)**,
   - If another device changed the same text meanwhile, you choose which version to keep.
 - **Checklists:**
   - Multi-line steps: Enter starts the next step, Shift+Enter adds a line break.
-  - A step can refresh on a calendar schedule (for example every Tuesday and Thursday at 06:00), or a set time after the whole list is completed.
+- **Repeat, two ways:** a task either **reopens in place** (the same task and checklist start a new round) or makes a **new copy** each time. Rules run on the calendar (for example every Tuesday and Thursday at 06:00) or a set time after completion; a step can follow the task, use its own rule, or not repeat.
   - Each round keeps its own completion record; end dates are inclusive, and missed rounds never pile up.
 - **Task links:** a task can point at any other task, in any project or area, and flat lists show the two together. There are no nested subtasks; steps are checklists.
 - **Calendars:** Outlook is read-only, either through Microsoft Graph or through a Power Automate export to a private Google Drive file. The export suits school tenants that block app consent.
@@ -94,7 +94,7 @@ Both options are read-only; tasks are never written to Outlook.
 | [User guide (中文)](./docs/attention-planner-user-guide-zh.md) | Everyday use, installation, sync, reminders, shortcuts |
 | [Product model](./docs/product-model.md) | The concepts the code is built on: statuses, dates, plans, links |
 | [Design principles](./DESIGN.md) | UI direction and trade-offs |
-| [Checklist refresh](./docs/checklist-refresh.md) | Calendar and after-completion rounds, end dates, sync |
+| [Repeat](./docs/checklist-refresh.md) | Reopen in place or new copy, calendar and after-completion rules, end dates, sync |
 | [Remote MCP](./docs/attention-planner-mcp.md) | Enabling AI access, permissions, approval flow |
 | [Deployment notes](./docs/attention-planner-alpha.md) | Hosting, security headers, build and deploy |
 | [Privacy](./docs/PRIVACY.md) · [Security](./SECURITY.md) · [Changelog](./CHANGELOG.md) | |

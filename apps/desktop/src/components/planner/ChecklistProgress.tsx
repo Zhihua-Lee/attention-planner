@@ -2,11 +2,13 @@ import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowUpRight, GripVertical, Plus, Trash2 } from 'lucide-react';
-import { checklistHistory, checklistItemState, checklistWallTime, flushPendingSave, generateUUID, useTaskStore, type ChecklistItem, type Task } from '@mindwtr/core';
+import { ArrowUpRight, GripVertical, Plus, Repeat2, Trash2 } from 'lucide-react';
+import { checklistHistory, checklistItemState, checklistTargetPolicy, checklistWallTime, flushPendingSave, generateUUID, useTaskStore, type ChecklistItem, type Task } from '@mindwtr/core';
 import { checklistDelayLabel } from '../../lib/checklist-refresh-text';
 import { useLanguage } from '../../contexts/language-context';
-import { setChecklistCompletion } from '../../lib/checklist-refresh-actions';
+import { setChecklistCompletion, setStepRepeat, type RepeatSession } from '../../lib/checklist-refresh-actions';
+import { deviceTimeZone, ruleLabel, stepRepeat, type StepRepeat } from '../../lib/repeat-rules';
+import { RepeatMenu } from './RepeatMenu';
 import { insertChecklistItem, moveChecklistItem, removeChecklistItem, renameChecklistItem } from '../../lib/task-field-edits';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 import { InlineText, SaveTrackerContext, type InlineTextHandle } from './InlineText';
@@ -18,9 +20,9 @@ type Row = { item: ChecklistItem; draft: boolean };
  * step text is edited in place (Enter: next step, Shift+Enter: line break, Backspace on empty: delete);
  * otherwise clicking the text calls `onEditStep` (e.g. NOW opens the task on that step).
  */
-export function ChecklistProgress({ task, closed = false, allowPromote = false, onBusyChange, onEditStep, editable = false, focusStepId, header }: {
+export function ChecklistProgress({ task, closed = false, allowPromote = false, onBusyChange, onEditStep, editable = false, focusStepId }: {
     task: Task; closed?: boolean; allowPromote?: boolean; onBusyChange?: (busy: boolean) => void; onEditStep?: (stepId: string) => void;
-    editable?: boolean; focusStepId?: string; header?: ReactNode;
+    editable?: boolean; focusStepId?: string;
 }) {
     const tasks = [task], { now } = usePlannerEnvironment();
     const { language } = useLanguage(), zh = language.startsWith('zh'), l = (en: string, cn: string) => zh ? cn : en;
@@ -30,6 +32,12 @@ export function ChecklistProgress({ task, closed = false, allowPromote = false, 
     const handles = useRef(new Map<string, InlineTextHandle>());
     const pendingFocus = useRef<{ id: string; at: 'start' | 'end' } | null>(focusStepId ? { id: focusStepId, at: 'end' } : null);
     const stored = task.checklist ?? [];
+    // One step's repeat menu at a time; its session keeps a schedule version stable while editing.
+    const [repeatFor, setRepeatFor] = useState<string | null>(null), [session, setSession] = useState<RepeatSession>({ id: '' });
+    const toggleRepeat = (id: string) => {
+        if (repeatFor === id) { setRepeatFor(null); return; }
+        setSession({ id: generateUUID(), initial: checklistTargetPolicy(task, id)?.schedule }); setRepeatFor(id);
+    };
     useEffect(() => { setDrafts(current => current.filter(draft => !stored.some(item => item.id === draft.id))); }, [task.checklist]);
     const rows: Row[] = [];
     for (const draft of drafts.filter(d => d.afterId === null)) rows.push({ item: { id: draft.id, title: '', isCompleted: false }, draft: true });
@@ -112,19 +120,27 @@ export function ChecklistProgress({ task, closed = false, allowPromote = false, 
                 checked={completed} disabled={row.draft || busy || closed || !!state?.recurring && !state.cycle}
                 onChange={event => void run(() => setChecklistCompletion(task.id, [{ itemId: step.id, completed: event.target.checked, cycleId: state?.cycle?.id }], zh))} />
         </label>;
-        const meta = state && <>
+        const own = editable && !row.draft ? stepRepeat(task, step.id) : undefined;
+        // On the task page a step that follows the task shows no round line: the task's Repeat row has it.
+        const meta = state && (!editable || own?.kind === 'own') && <>
             {state.recurring && <p className="ml-11 text-xs leading-5 text-muted-foreground" data-checklist-cycle={state.cycle?.id ?? 'pending'}>
                 {state.cycle ? l(`Round ${state.cycle.day}`, `本轮 ${state.cycle.day}`) : l('First round not started', '首轮尚未开始')}
-                {state.paused ? l(' · paused', ' · 已暂停') : state.ended ? l(' · ended', ' · 已结束刷新')
+                {state.paused ? l(' · paused', ' · 已暂停') : state.ended ? l(' · ended', ' · 已结束')
                     : state.next ? l(` · Next ${checklistWallTime(state.next.dueAt, state.schedule!.timeZone)}`, ` · 下次 ${checklistWallTime(state.next.dueAt, state.schedule!.timeZone)}`)
                     : state.cycle && state.schedule!.anchor === 'completion' ? l(` · refreshes ${checklistDelayLabel(state.schedule!, zh)}`, ` · ${checklistDelayLabel(state.schedule!, zh)}刷新`) : ''}
-                {` · ${state.schedule!.timeZone}`}
+                {state.schedule!.timeZone !== deviceTimeZone() && ` · ${state.schedule!.timeZone}`}
             </p>}
             {!!history.length && <details className="ml-11 text-xs"><summary className="min-h-9 cursor-pointer content-center text-muted-foreground">{l('Completion history', '完成历史')}</summary>
                 <div className="space-y-1 pb-2">{history.map(round => <p key={round.id}>{round.day} · {round.completed ? l('Completed', '已完成') : round.current ? l('Current · pending', '本轮待办') : l('Not completed', '未完成')}</p>)}</div>
             </details>}
         </>;
+        const repeatChip = own && own.kind !== 'follow' && <button type="button" className="ml-11 inline-flex min-h-9 items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            data-step-repeat={step.id} onClick={() => toggleRepeat(step.id)}><Repeat2 className="h-3.5 w-3.5" />{own.kind === 'own' ? ruleLabel(own.rule, zh, true) : l('No repeat', '不重复')}</button>;
+        const repeatMenu = editable && repeatFor === step.id && own && <div className="ml-11 mt-1"><RepeatMenu scope="step" value={own} disabled={busy}
+            onChange={next => void run(() => setStepRepeat(task.id, step.id, next as StepRepeat, session))} /></div>;
         const tools = !row.draft && <>
+            {editable && <button type="button" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground" disabled={busy}
+                title={l('Repeat', '重复')} aria-label={`${l('Repeat', '重复')}: ${step.title}`} aria-expanded={repeatFor === step.id} onClick={() => toggleRepeat(step.id)}><Repeat2 className="h-4 w-4" /></button>}
             {allowPromote && !completed && !closed && <button type="button" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-primary" disabled={busy}
                 title={l('Make task', '独立成任务')} aria-label={`${l('Move step to Inbox', '提升为独立任务')}: ${step.title}`} onClick={() => void run(async () => {
                     const result = await useTaskStore.getState().promoteChecklistItem(task.id, step.id);
@@ -136,7 +152,7 @@ export function ChecklistProgress({ task, closed = false, allowPromote = false, 
         </>;
         return editable
             ? <SortableStep key={step.id} id={step.id} disabled={row.draft || busy} label={l('Drag to reorder', '拖动排序')}>{handle => <>
-                <div className="flex items-start">{checkbox}{text}<span className="flex opacity-100 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">{tools}{!row.draft && handle}</span></div>{meta}
+                <div className="flex items-start">{checkbox}{text}<span className="flex opacity-100 sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">{tools}{!row.draft && handle}</span></div>{repeatChip}{meta}{repeatMenu}
             </>}</SortableStep>
             : <div key={step.id} className="rounded-lg border border-border p-3" data-checklist-item={step.id}>
                 <div className="flex items-start gap-2"><div className="flex min-h-11 min-w-0 flex-1 items-start gap-1">{checkbox}{text}</div>{tools}</div>{meta}
@@ -144,7 +160,7 @@ export function ChecklistProgress({ task, closed = false, allowPromote = false, 
     });
     const count = stored.length ? `${stored.filter(item => checklistItemState(task, item, tasks, now).completed).length}/${stored.length}` : '';
     return <section aria-label={l('Steps', '步骤')} className="space-y-1" data-testid="checklist-progress">
-        {editable && <div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-semibold">{l('Checklist', '清单')}</h2>{count && <span className="text-xs tabular-nums text-muted-foreground">{count}</span>}<div className="ml-auto has-[details[open]]:ml-0 has-[details[open]]:basis-full">{header}</div></div>}
+        {editable && <div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-semibold">{l('Checklist', '清单')}</h2>{count && <span className="text-xs tabular-nums text-muted-foreground">{count}</span>}</div>}
         {editable
             ? <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dragEnd}>
                 <SortableContext items={stored.map(item => item.id)} strategy={verticalListSortingStrategy}><div className="space-y-0.5">{body}</div></SortableContext>

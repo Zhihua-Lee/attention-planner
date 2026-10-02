@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { InfoTip } from '../ui/InfoTip';
 import { flushPendingSave, useTaskStore, validPlanningWindows, type PlanningWindow, type AttentionFrame } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 export function PlanningPreferences() {
@@ -16,8 +17,8 @@ export function PlanningPreferences() {
   const button = 'min-h-11 rounded border border-border px-3 text-sm hover:bg-muted';
   const input = 'min-h-11 rounded border border-border bg-background px-2 text-sm';
   const days = (selected: number[], onChange: (n: number[]) => void) => <div className="flex flex-wrap gap-1">{[0, 1, 2, 3, 4, 5, 6].map(d => <button type="button" key={d} className={`${button} ${selected.includes(d) ? 'bg-primary/15 border-primary' : ''}`} aria-pressed={selected.includes(d)} onClick={() => onChange(selected.includes(d) ? selected.filter(x => x !== d) : [...selected, d])}>{(zh ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'])[d]}</button>)}</div>;
-  return <details className="rounded-lg border border-border bg-card p-3"><summary className="min-h-11 cursor-pointer content-center text-sm font-medium">{l('Rescheduling hours and attention preferences', '自动顺延时段与注意力偏好')}</summary>
-        <div className="space-y-4 pt-3"><p className="text-sm text-muted-foreground">{l('Nothing is automatically placed until you save allowed hours. Meetings and existing reservations are protected. Closed PWA apps catch up when reopened.', '保存允许时段后才会自动安排；会议和已有预留不会被挤走。PWA关闭期间不运行，重新打开后补算。')}</p>
+  return <details className="rounded-lg border border-border bg-card p-3"><summary className="min-h-11 cursor-pointer content-center text-sm font-medium">{l('Rescheduling hours and attention preferences', '自动顺延时段与注意力偏好')} <InfoTip label={l('About rescheduling', '关于自动顺延')}>{l('Nothing is automatically placed until you save allowed hours. Meetings and existing reservations are protected. Closed PWA apps catch up when reopened.', '保存允许时段后才会自动安排；会议和已有预留不会被挤走。PWA关闭期间不运行，重新打开后补算。')}</InfoTip></summary>
+        <div className="space-y-4 pt-3">
         {windows.map((w, i) => <fieldset key={i} className="space-y-2 rounded border border-border p-3"><legend className="text-xs">{l('Allowed hours', '允许安排的时段')} {i + 1}</legend>{days(w.days, v => setWindows(ws => ws.map((x, j) => j === i ? {
           ...x,
           days: v

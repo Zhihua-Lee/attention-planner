@@ -13,7 +13,6 @@ import { RichMarkdown } from '../RichMarkdown';
 import { useDialogHistory } from './useDialogHistory';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 import { ChecklistProgress } from './ChecklistProgress';
-import { ChecklistRefreshSettings } from './ChecklistRefreshSettings';
 import { InlineText, SaveTrackerContext, type InlineTextHandle, type SaveTracker } from './InlineText';
 import { TaskProperties } from './TaskProperties';
 import { useVisibleViewport } from '../../hooks/use-visible-viewport';
@@ -172,14 +171,13 @@ function TaskDetail({ taskId, blockId, focus, onClose, onOpenTask }: {
               <button className={button} disabled={busy} onClick={() => run(async () => {
                 if (!(await completeTaskWithUndo(task.id, t))) throw new Error(l('Completion failed.', '完成操作未保存。'));
                 setCurrentWork(null);
-              }, undefined, false)}>{recurringChecklist ? l('Complete current round', '完成本轮清单') : task.recurrence ? l('Complete this occurrence', '完成本次') : l('Complete task', '完成任务')}</button>
+              }, undefined, false)}>{recurringChecklist ? l('Complete current round', '完成本轮') : task.recurrence ? l('Complete this occurrence', '完成本次') : l('Complete task', '完成任务')}</button>
             </div>}
           </div>
           <TaskProperties task={task} reason={reason} closed={closed} blockId={blockId} run={run} busy={busy} onOpenTask={onOpenTask} onBusyChange={setRelationBusy} />
           <NoteBlock taskId={task.id} value={task.description ?? ''} disabled={!!task.deletedAt} startEditing={focus === 'description'} />
           <ChecklistProgress task={task} editable closed={busy || closed || relationBusy} allowPromote onBusyChange={setRelationBusy}
-            focusStepId={focus?.startsWith('step:') ? focus.slice(5) : undefined}
-            header={<ChecklistRefreshSettings task={task} disabled={busy || closed || relationBusy} onBusyChange={setRelationBusy} />} />
+            focusStepId={focus?.startsWith('step:') ? focus.slice(5) : undefined} />
           {error && <p role="alert" className="rounded-lg border border-destructive p-3 text-sm text-destructive">{error}</p>}
         </div>}
       </div>

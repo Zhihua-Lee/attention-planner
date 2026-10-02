@@ -1,28 +1,40 @@
-# Checklist refresh / 清单定时刷新
+# Repeat / 重复
 
-Open a task's existing details, then **Checklist refresh / 清单定时刷新**. Choose the list default or one checklist item. Rules never cross tasks: a task link (`parentTaskId`) is only a visual pointer and passes nothing on. No new list entity, alternate UI, or task-copying job is introduced.
+A task's **Repeat / 重复** property has one menu with three modes:
 
-For a 1560 teaching checklist, choose an independent weekly rule, Tuesday and Thursday, an explicit start date, 06:00, and `America/Chicago`. Time is illustrative and editable. Each item can follow the list, use its own daily/weekly/monthly/yearly calendar rule, or not refresh. The existing recurrence picker is reused in fixed-calendar mode. Whole-task recurrence remains a separate feature.
+- **None / 不重复.**
+- **Reopen / 原地重开.** The same task and checklist start a new round; each round keeps its own checkmarks and history. Stored as `Task.planner.checklistRefresh` (below).
+- **New copy / 新建一份.** Completing the task creates the next one. Stored as the existing `Task.recurrence`.
 
-## End dates and the list default
+Both modes share one rule editor: presets (Daily, Weekdays, Weekly on today's weekday, Monthly on today's date, 1 day after done) or **Custom / 自定义** with timing (calendar or after done), interval and unit, weekdays or month dates, start, end and time zone. New rules default to daily at 00:00 from today in the device zone. Hourly intervals exist only for "Reopen" after done. Explanations live in (i) tips, not in the labels. The capture sheet offers the same menu.
 
-The label is **End date / 结束日期**, not a semester-specific field. Cadence and end date follow independently from the list default to each item. An item can follow the default, set its own inclusive local end date, or explicitly choose no end date. An item's explicit end can extend past the list's date; the list date is a default, not a hard cap. Changing only the end date does not create a new schedule version or erase completion records. Moving an end date into the past shows the last eligible round; extending it may expose a later calendar round, without rewriting older marks.
+Each checklist step has a ↻ button: **Follow task / 跟随任务** (default), **Own rule / 单独**, or **None / 不重复**. A step with its own rule shows a chip and its own round line. Rules never cross tasks: a task link (`parentTaskId`) is only a visual pointer and passes nothing on.
 
-**Batch sync end dates / 批量同步结束日期** selects the list default and/or items of the current checklist. Preview shows both explicit replacements and indirect effects on items that follow the default. No write occurs before confirmation. Only selected stored end policies are replaced; their cadence, pause state and history are retained. Independent overrides on unselected items remain intact; unselected items that follow the default follow the updated default. Changed destinations, policies or affected scope invalidate the preview and require review again.
+Switching away from "Reopen" freezes the current round's checkmarks as ordinary checklist values. While the menu stays open, cadence edits share one schedule version, and returning to the cadence it opened with keeps the current round's marks.
+
+For a 1560 teaching checklist: Reopen, Custom, weekly on Tuesday and Thursday, start date, 06:00, `America/Chicago`, ends 2026-12-10.
+
+## End dates
+
+The end date is inclusive in the rule's time zone. A step following the task follows its end date; a step with its own rule has its own end. Changing only the end date does not create a new schedule version or erase completion records. Moving an end date into the past shows the last eligible round; extending it may expose a later round, without rewriting older marks. The former bulk end-date sync dialog was removed.
+
+## The task's own round
+
+A task that reopens in place has its own round, marked with **Complete current round / 完成本轮** (also on cards and in NOW). It is complete when every step on the same cycle is checked; a task without steps keeps its own mark under the reserved item ID `@task`. The repeat row shows "this round · next" and, after the first round, a completion history.
 
 ## Periods, completion and safety
 
 The current checkbox is keyed by item ID, schedule version and scheduled local date. A Tuesday completion cannot complete Thursday. Checked and unchecked changes are revisioned per period for merging and guarded undo. The PWA task card, NOW checklist and task detail share these semantics. Completing a repeating list's current round does not mark its task permanently done, spawn a task, or rewrite its work blocks. Completed rounds are excluded from NOW suggestions until a new period is due.
 
-Changing cadence, start date, refresh time or timezone starts a new schedule version. Changing end or pause does not. Pausing a list freezes all of its items until resumed; resuming catches up to the current calendar period rather than creating missed tasks. The end date includes the entire local day in the rule's timezone. Afterwards the final period stays visible. To permanently complete a repeating list, first choose **Do not refresh**; this freezes current checkboxes as ordinary checklist values. Explicit deletion/archiving from another surface is respected and never automatically reversed.
+Changing cadence, start date, refresh time or timezone starts a new schedule version. Changing end or pause does not. Pausing a list freezes all of its items until resumed; resuming catches up to the current calendar period rather than creating missed tasks. The end date includes the entire local day in the rule's timezone. Afterwards the final period stays visible. To permanently complete a repeating list, first set Repeat to **None**; this freezes current checkboxes as ordinary checklist values. Explicit deletion/archiving from another surface is respected and never automatically reversed.
 
 Content editing captures the displayed period along with its draft. Unchanged old checkboxes are ignored on text-only saves across a refresh boundary. Explicit checkbox edits cannot be silently applied to a different period or overwrite a conflicting newer same-period mark. Empty saved rows still disappear; retained history never recreates deleted rows or tasks.
 
 The existing planner clock refreshes while the app is open and on focus/visibility resume. No background process or push notification is required; reopening after offline time computes the current period directly. Refresh and reminders are not the same operation. Fixed IANA timezones are independent of the device timezone; a repeated DST time opens one period, and a nonexistent local time uses the first existing minute after the gap. Nonexistent monthly dates are skipped.
 
-## Refresh a set time after completion / 完成后相隔一段时间刷新
+## After done / 完成后
 
-Under **Set independently / 单独设置**, choose **Refresh by / 刷新方式 → A set time after the list is completed / 完成后相隔一段时间**, then set an amount in hours, days, weeks or months. The first round starts at the chosen start date and time. A round counts as complete once every item that follows this rule is checked. The next round starts that long after the last of those checks. Until then, the completed round stays visible, labelled with its next refresh time.
+In **Custom**, set **Timing / 计时** to **After done / 完成后**, then an amount in hours, days, weeks or months. The first round starts at the chosen start date and time. A round counts as complete once every item that follows this rule is checked. The next round starts that long after the last of those checks. Until then, the completed round stays visible, labelled with its next refresh time.
 
 - **No missed rounds.** A list left unfinished keeps its current round indefinitely; it never piles up missed rounds.
 - **Daylight saving.** Days and longer are counted on the rule timezone's wall clock, so 10:15 plus one day stays 10:15 across a DST change. A month is clamped to the end of a shorter month: Jan 31 plus one month is Feb 28/29. Hours are exact elapsed time.
@@ -40,4 +52,4 @@ Use updated clients when editing/syncing this feature. Legacy clients that rewri
 
 ## Verification
 
-The pure recurrence and draft/planner integration tests cover weekday refresh, inclusive independent ends, selected batch writes and effects on items following the default, stale previews, offline catch-up, pause, timezones/DST, long intervals, ledger merging, editor conflicts and deletion. Browser regressions cover desktop/mobile, settings persistence, current-round completion, reload, end-date preview/cancel/confirm, and a content draft crossing a boundary. Run the committed tests with the repository's normal Vitest and Playwright setup. Cloud fallback execution uses Node's test runner for the dependency-free test bodies; it is not a substitute for a complete React build or browser run.
+The pure recurrence and draft/planner integration tests cover weekday rounds, inclusive independent ends, the task's own round, offline catch-up, pause, timezones/DST, long intervals, ledger merging, editor conflicts and deletion. Browser regressions cover desktop/mobile, the repeat menu for tasks, steps and capture, current-round completion, reload, and a content draft crossing a boundary. Run the committed tests with the repository's normal Vitest and Playwright setup. Cloud fallback execution uses Node's test runner for the dependency-free test bodies; it is not a substitute for a complete React build or browser run.

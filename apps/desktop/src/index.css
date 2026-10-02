@@ -14,6 +14,17 @@
     min-height: 44px;
     min-width: 44px;
   }
+  /* The (i) stays icon-sized inline; an invisible ring keeps a 44px touch target. */
+  [data-planner-form] button[data-info-tip] {
+    position: relative;
+    min-height: 0;
+    min-width: 0;
+  }
+  [data-planner-form] button[data-info-tip]::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+  }
   /* In-place text keeps its own line height; a larger title keeps its size. */
   [data-planner-form] textarea[data-inline-edit] {
     min-height: 0;

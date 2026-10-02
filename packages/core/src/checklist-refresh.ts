@@ -316,9 +316,9 @@ export function checklistItemState(task: Task, item: ChecklistItem, tasks: reado
     const clock = new Date(Math.min(now.getTime(), pausedAt ? Date.parse(pausedAt) : Infinity, closedAt ? Date.parse(closedAt) : Infinity));
     const data = checklistRefreshData(task);
     // Items following the same schedule version form one round, so "the list is complete" means all of them.
-    const rounds = schedule.anchor === 'completion' ? completionRounds(schedule, data.marks, (task.checklist ?? [])
-        .filter(other => other.id === item.id || resolveChecklistRefresh(task, other.id, tasks).schedule?.id === schedule.id)
-        .map(other => other.id), clock, endDate) : undefined;
+    // The task's own round (TASK_ROUND_ID) waits for its steps on that schedule, or for itself when it has none.
+    const steps = (task.checklist ?? []).filter(other => other.id === item.id || resolveChecklistRefresh(task, other.id, tasks).schedule?.id === schedule.id).map(other => other.id);
+    const rounds = schedule.anchor === 'completion' ? completionRounds(schedule, data.marks, steps.length ? steps : [item.id], clock, endDate) : undefined;
     const cycle = rounds ? rounds.cycle : findCycle(schedule, clock, -1, endDate);
     const ended = !!closedAt || !!endDate && checklistLocalDay(now, schedule.timeZone) > endDate;
     const mark = cycle ? data.marks[item.id]?.[cycle.id] : undefined;
@@ -332,8 +332,29 @@ export function hasRecurringChecklist(task: Task, tasks: readonly Task[], now = 
     return !!task.checklist?.some(item => { const state = checklistItemState(task, item, tasks, now); return state.recurring; });
 }
 /** A started, not-yet-ended round exists. Otherwise completing the task means completing the whole task. */
+/**
+ * Under a task-level "reopen in place" repeat (the list default schedule) the task itself has rounds too,
+ * recorded under this reserved id next to its steps. It never names a real checklist item.
+ */
+export const TASK_ROUND_ID = '@task';
+/** The placeholder item whose marks record the task's own rounds. */
+export const checklistTaskRoundItem = (task: Task): ChecklistItem => ({ id: TASK_ROUND_ID, title: task.title, isCompleted: false });
+const taskRoundItem = checklistTaskRoundItem;
+/** The task's own round: complete once its steps on that round are, or by its own mark when it has none. */
+export function taskRoundState(task: Task, tasks: readonly Task[], now = new Date()): ChecklistItemState {
+    const own = checklistItemState(task, taskRoundItem(task), tasks, now);
+    if (!own.recurring || !own.cycle) return own;
+    const steps = (task.checklist ?? []).map(item => checklistItemState(task, item, tasks, now)).filter(state => state.recurring && state.cycle?.id === own.cycle!.id);
+    return steps.length ? { ...own, completed: steps.every(state => state.completed) } : own;
+}
 export function hasActiveChecklistRound(task: Task, tasks: readonly Task[], now = new Date()): boolean {
-    return !!task.checklist?.some(item => { const state = checklistItemState(task, item, tasks, now); return state.recurring && !state.ended && !!state.cycle; });
+    const live = (state: ChecklistItemState) => state.recurring && !state.ended && !!state.cycle;
+    return live(taskRoundState(task, tasks, now)) || !!task.checklist?.some(item => live(checklistItemState(task, item, tasks, now)));
+}
+/** Nothing is left to do this round: every step (refreshing or one-time) and the task's own round are done. */
+export function isRoundComplete(task: Task, tasks: readonly Task[], now = new Date()): boolean {
+    const own = taskRoundState(task, tasks, now);
+    return (task.checklist ?? []).every(item => checklistItemState(task, item, tasks, now).completed) && (!own.recurring || !own.cycle || own.completed);
 }
 /** Items that stop refreshing keep their current-period checkbox instead of falling back to an old raw boolean. */
 export function checklistFreezeUpdates(before: readonly Task[], after: readonly Task[], taskIds: readonly string[], now: Date): Map<string, NonNullable<Task['checklist']>> {
@@ -363,9 +384,11 @@ export function checklistDraftState(task: Task, tasks: readonly Task[], now = ne
 export function changeChecklistCompletion(task: Task, tasks: readonly Task[], changes: Array<{ itemId: string; completed: boolean; cycleId?: string }>, now: Date, deviceId: string) {
     const data = checklistRefreshData(task), marks = { ...data.marks }, checklist = [...(task.checklist ?? [])];
     for (const change of changes) {
-        const index = checklist.findIndex(item => item.id === change.itemId);
-        if (index < 0 || !safeKey(change.itemId)) throw new Error('This checklist item no longer exists.');
-        const state = checklistItemState(task, checklist[index], tasks, now);
+        const own = change.itemId === TASK_ROUND_ID;
+        const index = own ? -1 : checklist.findIndex(item => item.id === change.itemId);
+        if (!own && (index < 0 || !safeKey(change.itemId))) throw new Error('This checklist item no longer exists.');
+        const state = own ? checklistItemState(task, taskRoundItem(task), tasks, now) : checklistItemState(task, checklist[index], tasks, now);
+        if (own && !state.recurring) throw new Error('This task no longer repeats in place.');
         if (state.recurring) {
             if (!state.cycle || change.cycleId !== state.cycle.id) throw new Error('The checklist period changed. Review the current period before saving.');
             const old = data.marks[change.itemId]?.[state.cycle.id];
@@ -457,4 +480,12 @@ export function checklistHistory(task: Task, item: ChecklistItem, tasks: readonl
         }
     }
     return [...history.values()].sort((a, b) => b.dueAt.localeCompare(a.dueAt) || a.id.localeCompare(b.id)).slice(0, limit);
+}
+/** Recent rounds of the task itself: done when its own mark is, or when every step on that round was checked. */
+export function taskRoundHistory(task: Task, tasks: readonly Task[], now: Date, limit = 8) {
+    const own = checklistTaskRoundItem(task), schedule = resolveChecklistRefresh(task, undefined, tasks).schedule;
+    const steps = (task.checklist ?? []).filter(item => schedule && resolveChecklistRefresh(task, item.id, tasks).schedule?.id === schedule.id);
+    const marks = checklistRefreshData(task).marks;
+    return checklistHistory(task, own, tasks, now, limit).map(round => ({ ...round,
+        completed: round.completed || (steps.length > 0 && steps.every(item => marks[item.id]?.[round.id]?.completed === true)) }));
 }

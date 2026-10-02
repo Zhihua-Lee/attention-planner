@@ -1,11 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { CalendarCheck, CalendarClock, CalendarDays, CircleDot, Clock3, FolderTree, Link2, Repeat2, Timer, X } from 'lucide-react';
 import { changeWork, commitToDay, createNextRecurringTask, estimateMinutes, localPlanDate, localPlanInput, planDatePart, planDateValue, planTimePart, plannerTimeZone,
-  scheduleWork, skipRecurringWork, taskPlanner, useTaskStore, type ExecutionBlock, type Task, type WorkBlock } from '@mindwtr/core';
+  checklistTargetPolicy, checklistWallTime, generateUUID, scheduleWork, skipRecurringWork, taskPlanner, taskRoundHistory, taskRoundState, useTaskStore, type ExecutionBlock, type Task, type WorkBlock } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { checkReservation, editTask } from '../../lib/lifecycle-actions';
 import { returnTaskToInbox } from '../../lib/return-task-to-inbox';
-import { RepeatPicker } from './RepeatPicker';
+import { RepeatMenu } from './RepeatMenu';
+import { setTaskRepeat, type RepeatSession } from '../../lib/checklist-refresh-actions';
+import { ruleLabel, taskRepeat, type TaskRepeat } from '../../lib/repeat-rules';
 import { TaskLinks } from './TaskLinks';
 import { usePlannerEnvironment } from './usePlannerEnvironment';
 
@@ -40,6 +42,8 @@ export function TaskProperties({ task, reason, closed, blockId, run, busy, onOpe
   const activeBlocks = blocks.filter(b => b.state === 'scheduled' || b.state === 'pending'), pastBlocks = blocks.filter(b => b.state === 'done' || b.state === 'cancelled');
   const today = localPlanDate(now), days = planner.days.filter(d => d.selected).map(d => d.date).sort();
   const next = useMemo(() => task.recurrence ? createNextRecurringTask(task, now.toISOString(), 'next') : null, [task, now]);
+  const repeat = taskRepeat(task, now), round = taskRoundState(task, [task], now);
+  const [session, setSession] = useState<RepeatSession>(() => ({ id: generateUUID(), initial: checklistTargetPolicy(task)?.schedule }));
   const nextDate = next?.availableAt || next?.scheduledAt || next?.startTime || next?.dueDate;
   const edit = (build: (latest: Task) => Partial<Task>, success?: string) => run(() => editTask(task.id, latest => build(latest)), success);
   const setDate = (key: 'availableAt' | 'dueDate', day: string, time: string) => edit(() => ({ [key]: day ? planDateValue(day, time) : undefined }));
@@ -150,15 +154,21 @@ export function TaskProperties({ task, reason, closed, blockId, run, busy, onOpe
         void edit(() => ({ projectId: kind === 'p' ? id : undefined, areaId: kind === 'a' ? id : undefined }));
       }}><option value="">{l('Unassigned', '暂不分类')}</option>{areas.map(a => <optgroup key={a.id} label={a.name}><option value={`a:${a.id}`}>{a.name}</option>{projects.filter(p => p.areaId === a.id).map(p => <option key={p.id} value={`p:${p.id}`}>{p.title}</option>)}</optgroup>)}{projects.filter(p => !p.areaId).map(p => <option key={p.id} value={`p:${p.id}`}>{p.title}</option>)}</select>
     </Row> },
-    { id: 'repeat', empty: !task.recurrence && !repeatOpen, node: <Row id="repeat" icon={<Repeat2 className="h-4 w-4" />} label={l('Repeat', '重复')}>
+    { id: 'repeat', empty: repeat.kind === 'none' && !repeatOpen, node: <Row id="repeat" icon={<Repeat2 className="h-4 w-4" />} label={l('Repeat', '重复')}>
       <div className="w-full space-y-2">
         <div className="flex flex-wrap items-center gap-1">
-          <button type="button" className={`${small} text-foreground`} onClick={() => setRepeatOpen(!repeatOpen)}>{task.recurrence ? `${({ daily: l('Daily', '按天'), weekly: l('Weekly', '按周'), monthly: l('Monthly', '按月'), yearly: l('Yearly', '按年') } as Record<string, string>)[typeof task.recurrence === 'string' ? task.recurrence : task.recurrence.rule] ?? ''}${nextDate ? ` · ${l('next', '下次')} ${nextDate}` : ''}` : l('Does not repeat', '不重复')}</button>
-          {task.recurrence && !closed && <><button className={small} disabled={busy} onClick={() => run(() => editTask(task.id, skipRecurringWork), l('Occurrence skipped, not marked completed.', '已跳过本次，没有伪造完成记录。'))}>{l('Skip this occurrence', '跳过本次')}</button>
-            <button className={small} disabled={busy} onClick={() => edit(() => ({ recurrence: undefined }), l('Repeating stopped; this task is kept.', '已停止后续重复，当前任务保留。'))}>{l('Stop repeating', '停止后续重复')}</button></>}
+          <button type="button" className={`${small} text-foreground`} aria-expanded={repeatOpen} onClick={() => { if (!repeatOpen) setSession({ id: generateUUID(), initial: checklistTargetPolicy(task)?.schedule }); setRepeatOpen(!repeatOpen); }}>
+            {repeat.kind === 'none' ? l('None', '不重复') : `${ruleLabel(repeat.rule, zh, true)} · ${repeat.kind === 'copy' ? l('new copy', '新建一份') : l('reopen', '原地重开')}`}
+          </button>
+          {repeat.kind === 'reopen' && round.cycle && <span className="text-xs text-muted-foreground" data-task-round={round.cycle.id}>{l('This round', '本轮')} {round.cycle.day}{round.next ? ` · ${l('next', '下次')} ${checklistWallTime(round.next.dueAt, round.schedule!.timeZone)}` : round.ended ? ` · ${l('ended', '已结束')}` : ''}</span>}
+          {repeat.kind === 'copy' && nextDate && <span className="text-xs text-muted-foreground">{l('next', '下次')} {nextDate}</span>}
+          {repeat.kind === 'copy' && !closed && <button className={small} disabled={busy} onClick={() => run(() => editTask(task.id, skipRecurringWork), l('Occurrence skipped, not marked completed.', '已跳过本次，没有记为完成。'))}>{l('Skip this occurrence', '跳过本次')}</button>}
         </div>
-        {repeatOpen && <div className="rounded-md border border-border p-3"><RepeatPicker value={task.recurrence} onChange={value => void edit(() => ({ recurrence: value }))} />
-          <p className="mt-2 text-xs text-muted-foreground">{l('Applies to this occurrence and later ones; the next one is only created after completing or skipping.', '用于本次及以后；完成或跳过本次后才生成下一次。')}</p></div>}
+        {repeat.kind === 'reopen' && (() => { const history = taskRoundHistory(task, [task], now); return history.length > 1 && <details className="text-xs" data-task-round-history>
+          <summary className="min-h-9 cursor-pointer content-center text-muted-foreground">{l('History', '完成历史')}</summary>
+          <div className="space-y-1 pb-1">{history.map(r => <p key={r.id}>{r.day} · {r.completed ? l('Completed', '已完成') : r.current ? l('Current', '本轮') : l('Not completed', '未完成')}</p>)}</div>
+        </details>; })()}
+        {repeatOpen && <RepeatMenu scope="task" value={repeat} disabled={busy || !!task.deletedAt} onChange={next => void run(() => setTaskRepeat(task.id, next as TaskRepeat, session))} />}
       </div>
     </Row> },
     { id: 'links', empty: !task.parentTaskId && !linkedHere, node: <Row id="links" icon={<Link2 className="h-4 w-4" />} label={l('Linked to', '关联')}>

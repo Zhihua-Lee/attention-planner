@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { ArrowRight, Check, Inbox, Trash2 } from 'lucide-react';
-import { checklistItemState, flushPendingSave, useTaskStore, type Task } from '@mindwtr/core';
+import { checklistItemState, flushPendingSave, taskRoundState, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -16,7 +16,9 @@ export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolea
     // A refresh rule only depends on this task, so the card needs no other store data.
     const { now } = usePlannerEnvironment();
     const states = task.checklist?.map(item => checklistItemState(task, item, [task], now)) ?? [];
-    const round = states.filter(state => state.recurring && state.cycle);
+    // The task's own round (task-level "reopen") counts alongside its repeating steps.
+    const own = taskRoundState(task, [task], now);
+    const round = [...(own.recurring && own.cycle ? [own] : []), ...states.filter(state => state.recurring && state.cycle)];
     const recurring = round.some(state => !state.ended);
     const checked = recurring ? round.every(state => state.completed) : task.status === 'done';
     const lock = useRef(false);
@@ -49,7 +51,7 @@ export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolea
         <div className="flex items-start gap-1 pr-11">
             <label className="relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-lg hover:bg-muted">
                 <input type="checkbox" checked={checked} disabled={busy}
-                    aria-label={recurring ? (checked ? l('Reopen current round', '重新打开本轮清单') : l('Complete current round', '完成本轮清单')) : task.status === 'done' ? l('Reopen task', '重新打开任务') : l('Complete task', '完成任务')}
+                    aria-label={recurring ? (checked ? l('Reopen current round', '重新打开本轮') : l('Complete current round', '完成本轮')) : task.status === 'done' ? l('Reopen task', '重新打开任务') : l('Complete task', '完成任务')}
                     className="h-5 w-5 cursor-pointer appearance-none rounded-full border-2 border-muted-foreground/60 bg-card checked:border-primary checked:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                     onChange={() => void run(async () => {
                         if (recurring) await setChecklistRoundCompletion(task.id, !checked, zh);

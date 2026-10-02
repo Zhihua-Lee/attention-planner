@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Task } from './types';
-import { changeChecklistCompletion, checklistDraftState, checklistEndImpact, checklistFreezeUpdates, checklistEndPreview, checklistEndUpdates, checklistHistory, checklistItemState,
+import { changeChecklistCompletion, isRoundComplete, taskRoundHistory, taskRoundState, TASK_ROUND_ID, checklistDraftState, checklistEndImpact, checklistFreezeUpdates, checklistEndPreview, checklistEndUpdates, checklistHistory, checklistItemState,
     checklistLocalDay, checklistRefreshData, hasActiveChecklistRound, hasRecurringChecklist, makeChecklistPolicy, mergeChecklistRefresh, projectChecklist,
     updateChecklistPolicy, validateChecklistRefresh, validateChecklistSchedule, type ChecklistRefreshPolicy, type ChecklistRefreshSchedule } from './checklist-refresh';
 
@@ -303,5 +303,52 @@ describe('refresh a set time after the list is completed', () => {
         assert.throws(() => validateChecklistSchedule(schedule({ frequency: 'hourly' as never })));
         assert.throws(() => validateChecklistSchedule(after({ weekdays: [2] })), /no weekdays/);
         assert.throws(() => validateChecklistSchedule({ ...after(), anchor: 'sometimes' }));
+    });
+});
+
+describe('a task that reopens in place', () => {
+    const bare = () => { const t = configured(); t.checklist = undefined; return t; };
+    const mark = (t: Task, itemId: string, at = now) => {
+        const cycleId = itemId === TASK_ROUND_ID ? taskRoundState(t, [t], at).cycle?.id : view(t, at, [t], itemId).cycle?.id;
+        const changed = changeChecklistCompletion(t, [t], [{ itemId, completed: true, cycleId }], at, 'a');
+        return { ...t, checklist: changed.checklist, planner: { ...t.planner!, checklistRefresh: changed.refresh } };
+    };
+    it('has its own round without steps, completed by its own mark', () => {
+        const t = bare();
+        assert.equal(hasActiveChecklistRound(t, [t], now), true);
+        assert.equal(taskRoundState(t, [t], now).cycle?.id, 'series-a/2026-09-29');
+        assert.equal(isRoundComplete(t, [t], now), false);
+        const done = mark(t, TASK_ROUND_ID);
+        assert.equal(isRoundComplete(done, [done], now), true);
+        assert.equal(isRoundComplete(done, [done], new Date('2026-10-01T12:00:00Z')), false); // Thursday's round reopens it.
+    });
+    it('is complete once every step on the round is', () => {
+        const t = configured();
+        assert.equal(taskRoundState(t, [t], now).completed, false);
+        const done = mark(mark(t, 'prepare'), 'grade');
+        assert.equal(taskRoundState(done, [done], now).completed, true);
+        assert.equal(isRoundComplete(done, [done], now), true);
+    });
+    it('after-completion rounds wait for the task itself when it has no steps', () => {
+        const t = bare();
+        t.planner!.checklistRefresh!.defaults!.schedule = schedule({ anchor: 'completion', frequency: 'daily', interval: 1, weekdays: undefined });
+        const done = mark(t, TASK_ROUND_ID);
+        assert.equal(taskRoundState(done, [done], new Date('2026-09-30T12:01:00Z')).cycle?.id, 'series-a/r2');
+    });
+    it('rejects a task-round mark when the task no longer repeats in place', () => {
+        const t = task('plain'); t.checklist = undefined;
+        assert.throws(() => changeChecklistCompletion(t, [t], [{ itemId: TASK_ROUND_ID, completed: true }], now, 'a'), /no longer repeats/);
+    });
+});
+
+describe('task round history', () => {
+    it('counts a round as done when its steps were checked', () => {
+        let t = configured();
+        for (const itemId of ['prepare', 'grade']) {
+            const changed = changeChecklistCompletion(t, [t], [{ itemId, completed: true, cycleId: view(t, now, [t], itemId).cycle?.id }], now, 'a');
+            t = { ...t, planner: { ...t.planner!, checklistRefresh: changed.refresh } };
+        }
+        const history = taskRoundHistory(t, [t], new Date('2026-10-01T12:00:00Z'));
+        assert.deepEqual(history.slice(0, 2).map(x => [x.day, x.completed, x.current]), [['2026-10-01', false, true], ['2026-09-29', true, false]]);
     });
 });

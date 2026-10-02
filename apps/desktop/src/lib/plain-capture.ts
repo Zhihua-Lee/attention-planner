@@ -1,4 +1,5 @@
 import { checklistForSave, type Task } from '@mindwtr/core';
+import type { TaskRepeat } from './repeat-rules';
 
 export type PlainCaptureDraft = {
     title: string;
@@ -15,6 +16,8 @@ export type PlainCaptureDraft = {
     availableAt?: string;
     checklist?: Task['checklist'];
     recurrence?: Task['recurrence'];
+    /** The repeat menu's choice; "reopen" is applied as the new task's checklist refresh. */
+    taskRepeat?: TaskRepeat;
 };
 
 export type PlainCaptureError = 'title' | 'schedule' | 'due' | 'availability' | 'interval' | 'duration';

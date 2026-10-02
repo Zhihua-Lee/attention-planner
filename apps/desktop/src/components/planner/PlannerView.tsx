@@ -4,7 +4,7 @@ import { PlannerTaskCard } from './PlannerTaskCard';
 import { ChecklistProgress } from './ChecklistProgress';
 import { isInputComposition } from '../../lib/input-method';
 import { Plus } from 'lucide-react';
-import { hasActiveChecklistRound, projectChecklist, activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
+import { hasActiveChecklistRound, isRoundComplete, activeWorkBlocks, resolveAreaFilter, taskMatchesAreaFilter, createPlanningPolicy, flushPendingSave, isCommittedOn, localPlanDate, validPlanDay, commitToDay, selectNow, taskPlanner, useTaskStore, type Task } from '@mindwtr/core';
 import { useLanguage } from '../../contexts/language-context';
 import { editTask, openTaskDetails, setCurrentWork, downloadPlannerBackup } from '../../lib/lifecycle-actions';
 import { completeTaskWithUndo } from '../../lib/complete-task-with-undo';
@@ -15,6 +15,7 @@ import { usePlannerEnvironment } from './usePlannerEnvironment';
 import { PlanningPreferences } from './PlanningPreferences';
 import { CalendarEventDetails } from './CalendarEventDetails';
 import { PlannerCalendar } from './PlannerCalendar';
+import { InfoTip } from '../ui/InfoTip';
 import { buildPlannerCalendarDay } from './planner-calendar-layout';
 import type { ExternalCalendarEvent } from '@mindwtr/core';
 const button = 'min-h-11 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:opacity-40';
@@ -119,7 +120,7 @@ export function PlannerView({
     }
   }));
   const row = (task: Task) => <PlannerTaskCard key={task.id} task={task} blocked={Boolean(policy.executionBlock(task))} />;
-  const roundComplete = (task: Task) => hasActiveChecklistRound(task, allTasks, now) && projectChecklist(task, allTasks, now)!.every(item => item.isCompleted);
+  const roundComplete = (task: Task) => hasActiveChecklistRound(task, allTasks, now) && isRoundComplete(task, allTasks, now);
   const projection = tasks.filter(visibleInArea).map(task => ({
     ...task,
     areaId: task.areaId || projects.find(p => p.id === task.projectId)?.areaId,
@@ -163,10 +164,10 @@ export function PlannerView({
           day: l('Your day', '这一天'),
           calendar: l('Calendar', '日历'),
           history: l('Completed', '已完成')
-        }[mode]}</h1>{mode !== 'now' && isFocusMode && <button className={button} onClick={() => capture()}><Plus className="mr-1 inline h-4 w-4" />{l('Add task', '添加任务')}</button>}</header>
+        }[mode]}{mode === 'inbox' && <span className="ml-2"><InfoTip label={l('About Inbox', '关于收件箱')}>{l('Write it down first. Organize or schedule only when you need to.', '先写下来。需要的时候再整理或安排，不必先决定分类。')}</InfoTip></span>}</h1>{mode !== 'now' && isFocusMode && <button className={button} onClick={() => capture()}><Plus className="mr-1 inline h-4 w-4" />{l('Add task', '添加任务')}</button>}</header>
         {error && <p role="alert" className="rounded border border-destructive p-3 text-sm text-destructive">{error}</p>}
         {(mode === 'calendar' || mode === 'day' || mode === 'now') && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{!loaded ? l('Loading calendars…', '正在读取日历…') : calendarError ? l('Calendar unavailable; automatic moves are paused.', '日历读取失败，已暂停自动移动。') : l('Calendar constraints loaded', '已读取日历约束')}</span><button className="min-h-11 px-2 underline" onClick={refresh}>{l('Refresh', '刷新')}</button>{calendarError && <details><summary>{l('Details', '详情')}</summary>{calendarError}</details>}</div>}
-        {mode === 'inbox' && <><p className="text-sm text-muted-foreground">{l('Write it down first. Organize or schedule only when you need to.', '先写下来。需要的时候再整理或安排，不必先决定分类。')}</p><form className="flex flex-wrap gap-2" onSubmit={e => {
+        {mode === 'inbox' && <><form className="flex flex-wrap gap-2" onSubmit={e => {
         e.preventDefault();
         void create();
       }}><input className="min-h-11 min-w-0 basis-full sm:basis-0 flex-1 rounded-lg border border-border bg-card px-3" aria-label={l('Add task', '添加任务')} placeholder={l('Add task…', '记一件事…')} value={quick} onChange={e => setQuick(e.target.value)} onKeyDown={e => {
@@ -179,7 +180,7 @@ export function PlannerView({
                 {!!selection.task.checklist?.length && <ChecklistProgress task={selection.task} onEditStep={id => openTaskDetails(selection.task.id, undefined, `step:${id}`)} />}
                 <div className="flex flex-wrap gap-2"><button className={`${button} bg-primary text-primary-foreground`} onClick={() => setCurrentWork(selection.task.id)}>{l('Start / continue', '开始／继续')}</button><button className={button} onClick={() => openTaskDetails(selection.task.id)}>{l('Progress / details', '进度／详情')}</button><button className={button} onClick={() => run(async () => {
               if (await completeTaskWithUndo(selection.task.id, t)) setCurrentWork(null);
-            })}>{hasActiveChecklistRound(selection.task, allTasks, now) ? l('Complete current round', '完成本轮清单') : l('Complete task', '完成任务')}</button><button className={button} onClick={() => run(() => editTask(selection.task.id, () => ({
+            })}>{hasActiveChecklistRound(selection.task, allTasks, now) ? l('Complete current round', '完成本轮') : l('Complete task', '完成任务')}</button><button className={button} onClick={() => run(() => editTask(selection.task.id, () => ({
               snoozedUntil: new Date(now.getTime() + 30 * 60000).toISOString()
             })))}>{l('Hide suggestion for 30 min', '30分钟后再推荐')}</button><button className={button} onClick={() => {
               setExcluded(old => new Set([...old, selection.task.id]));
@@ -202,12 +203,12 @@ export function PlannerView({
                 <span className="shrink-0 text-xs text-muted-foreground">{live ? l('Now', '进行中') : item.kind === 'event' ? l('Calendar', '日程') : l('Reserved', '已预留')}</span>
               </button></li>;
             })}</ul> : <p className="text-sm text-muted-foreground">{l('No more timed items today.', '今天没有其余定时安排。')}</p>}
-            {todayChosen.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">{l('Chosen for today · not necessarily timed', '今天想做 · 不代表已占用时段')}</h3><TaskTreeList tasks={todayChosen} render={row} listId="now-today" /></div>}
+            {todayChosen.length > 0 && <div className="space-y-2"><h3 className="flex items-center gap-1 text-sm font-semibold">{l('Chosen for today', '今天想做')}<InfoTip label={l('About day choices', '关于想做')}>{l('Choosing a day does not reserve time or set a deadline.', '只是这天想做，不占用时段，也不是截止日期。')}</InfoTip></h3><TaskTreeList tasks={todayChosen} render={row} listId="now-today" /></div>}
         </section>{pending.length > 0 && <p className="text-sm">{l(`${pending.length} allocations need rescheduling. Open Calendar to see why.`, `${pending.length} 个工作时段待续排，可在日历查看原因。`)}</p>}</>}
         {(mode === 'calendar' || mode === 'day') && <>
             {active.some(t => taskPlanner(t).legacyFocus) && <details className="rounded-lg border border-border p-3"><summary className="min-h-11 cursor-pointer text-sm">{l('Old undated selections · choose their day', '旧版未注明日期的选择 · 指定哪天想做')}</summary>{active.filter(t => taskPlanner(t).legacyFocus).map(task => <div key={task.id} className="flex min-h-11 flex-wrap items-center gap-2 text-sm"><button className="underline" onClick={() => openTaskDetails(task.id)}>{task.title}</button><button className={button} onClick={() => run(() => editTask(task.id, (latest, c) => commitToDay(latest, day, true, c)))}>{l('Choose for this day', '选入这一天')}</button></div>)}</details>}
-            {committed.length > 0 && <section className="space-y-2"><h2 className="text-sm font-semibold">{l('Chosen for this day · not necessarily timed', '这一天想做 · 不代表已占用时段')}</h2><TaskTreeList tasks={committed} render={row} listId="committed" /></section>}
-            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">{calendar}<aside className="space-y-3"><h2 className="font-semibold">{l('Tasks to arrange', '待安排任务')}</h2><p className="text-xs text-muted-foreground">{l('Future availability is shown, never hidden. Open a task to reserve multiple blocks.', '未来可用的任务仍可提前规划。打开详情可预留多个时段。')}</p><div className="max-h-[70dvh] space-y-2 overflow-y-auto"><TaskTreeList tasks={active.filter(policy.isCandidate).filter(t => !activeWorkBlocks(t).length && !isCommittedOn(t, day))} render={row} listId="unscheduled" /></div><details><summary className="min-h-11 cursor-pointer text-sm">{l('Waiting / paused tasks', '等待条件／暂不做')}</summary><div className="space-y-2"><TaskTreeList tasks={active.filter(t => t.status !== 'inbox' && !policy.isCandidate(t))} render={row} listId="waiting" /></div></details></aside></div>
+            {committed.length > 0 && <section className="space-y-2"><h2 className="flex items-center gap-1 text-sm font-semibold">{l('Chosen for this day', '这一天想做')}<InfoTip label={l('About day choices', '关于想做')}>{l('Choosing a day does not reserve time or set a deadline.', '只是这天想做，不占用时段，也不是截止日期。')}</InfoTip></h2><TaskTreeList tasks={committed} render={row} listId="committed" /></section>}
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">{calendar}<aside className="space-y-3"><h2 className="flex items-center gap-1 font-semibold">{l('Tasks to arrange', '待安排任务')}<InfoTip label={l('About tasks to arrange', '关于待安排任务')}>{l('Future availability is shown, never hidden. Open a task to reserve multiple blocks.', '未来可用的任务仍可提前规划。打开详情可预留多个时段。')}</InfoTip></h2><div className="max-h-[70dvh] space-y-2 overflow-y-auto"><TaskTreeList tasks={active.filter(policy.isCandidate).filter(t => !activeWorkBlocks(t).length && !isCommittedOn(t, day))} render={row} listId="unscheduled" /></div><details><summary className="min-h-11 cursor-pointer text-sm">{l('Waiting / paused tasks', '等待条件／暂不做')}</summary><div className="space-y-2"><TaskTreeList tasks={active.filter(t => t.status !== 'inbox' && !policy.isCandidate(t))} render={row} listId="waiting" /></div></details></aside></div>
             {pending.length > 0 && <section className="space-y-2"><h2 className="font-semibold">{l('Needs rescheduling', '待续排')}</h2>{pending.map(({
           task,
           block
