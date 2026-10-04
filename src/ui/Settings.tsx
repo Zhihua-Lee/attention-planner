@@ -5,7 +5,7 @@ import { addArea, addProject, removeGroup, renameGroup, setSettings } from '../m
 import { parseIcs } from '../model/ics';
 import { importLegacy } from '../model/legacyImport';
 import type { ChipKey } from '../model/types';
-import { brokerStatus, brokerTokens, DriveRemote, trimSlash } from '../store/drive';
+import { brokerStatus, trimSlash } from '../store/drive';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { useT, weekdayShort } from './text';
@@ -13,7 +13,7 @@ import { useT, weekdayShort } from './text';
 const ALL_CHIPS: ChipKey[] = ['due', 'plan', 'effort', 'star', 'area', 'repeat', 'note'];
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { doc, sync } = useStore();
+  const { doc, sync, calendar } = useStore();
   const { t } = useT();
   const s = doc.settings;
   const panel = useRef<HTMLDivElement>(null);
@@ -235,6 +235,23 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
         <section>
           <h3>{t('日历', 'Calendar')}</h3>
+          {calendar.source === 'outlook' && (
+            <div className="inline">
+              <span>
+                {t('Outlook（经 Google Drive）', 'Outlook (via Google Drive)')} ·{' '}
+                {t(
+                  `更新于 ${new Date(calendar.at!).toLocaleTimeString()}`,
+                  `updated ${new Date(calendar.at!).toLocaleTimeString()}`,
+                )}
+              </span>
+              <button className="btn" onClick={() => void store.refreshCalendar(true)}>
+                {t('刷新', 'Refresh')}
+              </button>
+            </div>
+          )}
+          {calendar.error && (
+            <p className="muted">{t('读取日历失败：', 'Could not read the calendar: ') + calendar.error}</p>
+          )}
           <p className="hint">
             {t(
               '导入 .ics 文件，在 NOW 的日程里显示（只存在这台设备上）。',
@@ -356,7 +373,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   }
                   localStorage.setItem('ap:broker', base);
                   localStorage.removeItem('ap:broker-off');
-                  store.connect(new DriveRemote(brokerTokens(base)));
+                  store.connectBroker(base);
                 }}
               >
                 {t('连接', 'Connect')}

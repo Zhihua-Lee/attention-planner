@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1 — 2026-10-04
+
+Now served at todo.onthat.top in place of the previous app.
+
+- The previous app's data in this browser is imported automatically on first start, once, with undo.
+- Sync connects by itself when the sync broker next to the app reports a connected Google Drive.
+- The Outlook calendar export that Power Automate keeps in Google Drive (`outlook-calendar.json`) is read after each
+  sync and shown in NOW; Settings shows when it was last updated.
+- Security headers (CSP, framing, referrer, caching).
+
 ## 0.1.0 — 2026-10-04
 
 First working build of the rewrite.

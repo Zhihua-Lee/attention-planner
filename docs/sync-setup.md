@@ -8,7 +8,7 @@ at `todo.onthat.top/api/*`, checks that POSTs come from `https://todo.onthat.top
 So the new app can sync wherever it is served on a host that the broker is routed to. The new app writes its own file,
 `attention-planner-v3.json`; the previous app's `attention-planner-v2.json` is never written.
 
-## Option A: when the new app replaces the old one (no broker change)
+## Option A: when the new app replaces the old one (no broker change) — done on 2026-10-04
 
 1. In Cloudflare Pages, remove the custom domain `todo.onthat.top` from the `attention-planner` project and add it to
    `attention-planner-next`.

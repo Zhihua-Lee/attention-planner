@@ -33,8 +33,9 @@ Chinese and English interface; light and dark themes; respects reduced motion.
 
 ## Status
 
-Version 0.1.0 is the first working build. Google Drive sync is implemented and tested against a simulated drive; it
-still has to be connected to the sync broker for real use. Outlook calendar and push reminders are not built yet. See
+Version 0.1.1 runs at todo.onthat.top in place of the previous app. On first start it imports the previous app's data
+from the browser, connects Google Drive sync through the sync broker when you are already signed in, and shows your
+Outlook calendar from the export Power Automate keeps in Google Drive. Push reminders are not built yet. See
 [VERIFICATION.md](VERIFICATION.md) for what has been checked.
 
 ## Run it

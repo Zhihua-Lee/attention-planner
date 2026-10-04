@@ -3,16 +3,21 @@ import { emptyDoc, restore, type Ctx } from '../model/doc';
 import { importLegacy, type ImportReport } from '../model/legacyImport';
 import { mergeDocs } from '../model/merge';
 import type { Doc } from '../model/types';
-import { brokerStatus, brokerTokens, DriveRemote } from './drive';
+import { brokerStatus, brokerTokens, DriveRemote, readOutlookExport, type TokenSource } from './drive';
+import { addDays, dayOf } from '../model/dates';
+import { outlookEvents } from '../model/outlook';
 import { deviceId, load, save } from './storage';
 import { syncOnce, type Remote } from './sync';
 
 export type SyncState = { status: 'off' | 'idle' | 'syncing' | 'error'; lastAt?: string; error?: string };
+/** Where calendar events come from: the Outlook export in Google Drive, an imported .ics file, or nowhere yet. */
+export type CalendarState = { source: 'outlook' | 'none'; at?: string; error?: string };
 export type State = {
   ready: boolean;
   doc: Doc;
   canUndo: boolean;
   sync: SyncState;
+  calendar: CalendarState;
   saveError?: string;
   /** Set once when the previous app's data was imported on start. */
   imported?: ImportReport;
@@ -51,10 +56,18 @@ export class Store {
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private syncTimer: ReturnType<typeof setTimeout> | undefined;
   private remote: Remote | null = null;
+  private tokens: TokenSource | null = null;
+  private calendarAt = 0;
   readonly device = deviceId();
 
   constructor() {
-    this.state = { ready: false, doc: emptyDoc(this.ctx()), canUndo: false, sync: { status: 'off' } };
+    this.state = {
+      ready: false,
+      doc: emptyDoc(this.ctx()),
+      canUndo: false,
+      sync: { status: 'off' },
+      calendar: { source: 'none' },
+    };
   }
 
   ctx = (): Ctx => ({ now: new Date(), device: this.device });
@@ -74,13 +87,13 @@ export class Store {
     this.set({ ready: true, doc });
     this.importPreviousApp();
     const broker = local.get('ap:broker');
-    if (broker) this.connect(new DriveRemote(brokerTokens(broker)));
+    if (broker) this.connectBroker(broker);
     else if (!local.get('ap:broker-off')) {
       // Served next to the sync broker and already signed in: connect without asking.
       void brokerStatus('/api').then((s) => {
         if (s !== 'connected' || this.remote) return;
         local.set('ap:broker', '/api');
-        this.connect(new DriveRemote(brokerTokens('/api')));
+        this.connectBroker('/api');
       });
     }
     window.addEventListener('focus', () => this.scheduleSync(500));
@@ -142,8 +155,15 @@ export class Store {
     if (ok === (this.state.saveError !== undefined)) this.set({ saveError: ok ? undefined : 'storage' });
   }
 
-  connect(remote: Remote | null) {
+  /** Sync through the broker at `base`; the same Google access also reads the Outlook calendar export. */
+  connectBroker(base: string) {
+    this.tokens = brokerTokens(base);
+    this.connect(new DriveRemote(this.tokens), this.tokens);
+  }
+  connect(remote: Remote | null, tokens: TokenSource | null = null) {
     this.remote = remote;
+    this.tokens = tokens;
+    if (!remote) this.set({ calendar: { source: 'none' } });
     this.set({ sync: remote ? { status: 'idle' } : { status: 'off' } });
     if (remote) this.scheduleSync(0);
   }
@@ -162,11 +182,29 @@ export class Store {
       const doc = this.state.doc === sent ? merged : mergeDocs(this.state.doc, merged);
       this.set({ doc, sync: { status: 'idle', lastAt: new Date().toISOString() } });
       this.scheduleSave();
+      void this.refreshCalendar();
     } catch (e) {
       this.set({ sync: { ...this.state.sync, status: 'error', error: e instanceof Error ? e.message : String(e) } });
+    }
+  }
+
+  /** Read the Outlook export at most every 10 minutes (or when forced) and show its events on this device. */
+  async refreshCalendar(force = false) {
+    if (!this.tokens || (!force && Date.now() - this.calendarAt < 10 * 60e3)) return;
+    this.calendarAt = Date.now();
+    try {
+      const payload = await readOutlookExport(this.tokens);
+      if (payload === null) return this.set({ calendar: { source: 'none' } });
+      const today = dayOf(new Date());
+      const events = outlookEvents(payload, addDays(today, -14), addDays(today, 120));
+      this.commit((d) => ({ ...d, events }), { undoable: false });
+      this.set({ calendar: { source: 'outlook', at: new Date().toISOString() } });
+    } catch (e) {
+      this.set({ calendar: { ...this.state.calendar, error: e instanceof Error ? e.message : String(e) } });
     }
   }
 }
 
 export const store = new Store();
+
 export const useStore = () => useSyncExternalStore(store.subscribe, store.get);

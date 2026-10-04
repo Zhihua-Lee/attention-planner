@@ -167,3 +167,45 @@ describe('ics import', () => {
     ]);
   });
 });
+
+describe('outlook export', () => {
+  it('reads the Power Automate export: shapes, all-day, midnight crossings and the window', async () => {
+    const { outlookEvents } = await import('./outlook');
+    const local = (d: string, t: string) => new Date(`${d}T${t}:00`).toISOString();
+    const payload = {
+      events: [
+        { id: 'a', subject: '组会', start: local('2026-09-29', '14:00'), end: local('2026-09-29', '15:00') },
+        {
+          id: 'b',
+          title: '值班',
+          startWithTimeZone: local('2026-09-29', '22:00'),
+          endWithTimeZone: local('2026-09-30', '02:00'),
+        },
+        {
+          id: 'c',
+          subject: '假期',
+          start: local('2026-09-30', '00:00'),
+          end: local('2026-10-01', '00:00'),
+          isAllDay: true,
+        },
+        { id: 'd', subject: '太远', start: local('2026-12-01', '09:00'), end: local('2026-12-01', '10:00') },
+        {
+          id: 'e',
+          subject: 'Graph 格式',
+          start: { dateTime: '2026-09-30T09:00:00' },
+          end: { dateTime: '2026-09-30T09:30:00' },
+        },
+      ],
+    };
+    expect(
+      outlookEvents(payload, '2026-09-28', '2026-10-31').map((e) => `${e.day} ${e.start}-${e.end} ${e.title}`),
+    ).toEqual([
+      '2026-09-29 14:00-15:00 组会',
+      '2026-09-29 22:00-23:59 值班',
+      '2026-09-30 00:00-02:00 值班',
+      '2026-09-30 09:00-09:30 Graph 格式',
+    ]);
+    expect(outlookEvents({ value: [] }, '2026-09-28', '2026-10-31')).toEqual([]);
+    expect(outlookEvents('nonsense', '2026-09-28', '2026-10-31')).toEqual([]);
+  });
+});

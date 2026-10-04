@@ -110,3 +110,28 @@ export class DriveRemote implements Remote {
     return { version: etag };
   }
 }
+
+/**
+ * The Outlook calendar export that a Power Automate flow keeps up to date in Google Drive.
+ * The file was created by this sync broker's Google client (marked with an app property), so the same
+ * `drive.file` permission can read it. Returns null when there is no such file.
+ */
+export async function readOutlookExport(
+  token: TokenSource,
+  fetcher: typeof fetch = fetch.bind(globalThis),
+): Promise<unknown | null> {
+  const auth = { Authorization: `Bearer ${await token()}` };
+  const q = encodeURIComponent(
+    "appProperties has { key='attentionPlannerRole' and value='outlookCalendarExport' } and trashed = false",
+  );
+  const list = await fetcher(
+    `https://www.googleapis.com/drive/v3/files?spaces=drive&orderBy=modifiedTime%20desc&pageSize=1&fields=files(id)&q=${q}`,
+    { headers: auth },
+  );
+  if (!list.ok) throw new Error(`Google Drive answered ${list.status}.`);
+  const id = ((await list.json()) as { files?: { id: string }[] }).files?.[0]?.id;
+  if (!id) return null;
+  const body = await fetcher(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, { headers: auth });
+  if (!body.ok) throw new Error(`Google Drive answered ${body.status}.`);
+  return body.json();
+}

@@ -112,3 +112,20 @@ describe('sync broker tokens', () => {
     expect(calls).toBe(1);
   });
 });
+
+describe('Outlook export in Google Drive', () => {
+  it('finds the file by its marker and returns its JSON, or null when there is none', async () => {
+    const { readOutlookExport } = await import('./drive');
+    let files: { id: string }[] = [];
+    const fake = (async (url: string) => {
+      if (url.includes('/files?')) {
+        expect(decodeURIComponent(url)).toContain("key='attentionPlannerRole' and value='outlookCalendarExport'");
+        return new Response(JSON.stringify({ files }));
+      }
+      return new Response(JSON.stringify({ events: [{ subject: 'x' }] }));
+    }) as typeof fetch;
+    expect(await readOutlookExport(async () => 't', fake)).toBeNull();
+    files = [{ id: 'f' }];
+    expect(await readOutlookExport(async () => 't', fake)).toEqual({ events: [{ subject: 'x' }] });
+  });
+});

@@ -175,7 +175,7 @@ export function NowView({ now, open }: { now: Date; open: (id: string) => void }
 }
 
 function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
-  const { doc } = useStore();
+  const { doc, sync } = useStore();
   const { t, lang } = useT();
   const today = dayOf(now);
   const [range, setRange] = useState<'day' | 'week'>('day');
@@ -228,7 +228,15 @@ function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
       )}
       {noEvents && (
         <div className="agenda-note">
-          {t('日历还没接入：可以在设置里导入 .ics 文件。', 'No calendar yet: import an .ics file in Settings.')}
+          {sync.status === 'off'
+            ? t(
+                '日历还没接入：在设置里连接同步后会自动读取 Outlook 日历，也可以导入 .ics 文件。',
+                'No calendar yet: connect sync in Settings to read your Outlook calendar, or import an .ics file.',
+              )
+            : t(
+                'Google Drive 里没找到 Outlook 日历导出文件；也可以在设置里导入 .ics 文件。',
+                'No Outlook calendar export found in Google Drive; you can also import an .ics file in Settings.',
+              )}
         </div>
       )}
     </section>

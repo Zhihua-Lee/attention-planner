@@ -24,7 +24,7 @@
 
 ## 当前状态
 
-0.1.0 是第一个可用版本。Google Drive 同步已经实现，并用模拟的云盘测试过；要真正使用，还需要接上同步中转。Outlook 日历和推送提醒还没有做。具体验证了什么见 [VERIFICATION.md](VERIFICATION.md)。
+0.1.1 已经在 todo.onthat.top 上取代旧应用。第一次打开时会自动导入浏览器里旧应用的数据；如果已经登录过，会自动通过同步中转连接 Google Drive 同步；Power Automate 导出到 Google Drive 的 Outlook 日历会显示在 NOW 里。推送提醒还没有做。具体验证了什么见 [VERIFICATION.md](VERIFICATION.md)。
 
 ## 运行
 
