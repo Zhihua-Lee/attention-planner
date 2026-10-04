@@ -31,27 +31,60 @@ test('a reserved time happening now comes first', async ({ page }) => {
   await expect(card).toContainText('现在是预留的时段 · 到 17:00');
 });
 
-test('the agenda moves by day and week, and opens a task', async ({ page }) => {
+test('the calendar moves by day, three days and week, and opens a task', async ({ page }) => {
   await start(page);
-  await add(page, '明天下午 复习', '周五交报告');
+  await add(page, '明天下午 复习', '周五交报告', '今天 15点 写引言 1小时');
   await page.getByRole('tab', { name: 'NOW' }).click();
   const agenda = page.getByRole('region', { name: '日程' });
+  await agenda.getByRole('button', { name: '日', exact: true }).click();
   await expect(agenda).toContainText('9/29 周二 · 今天');
+  await expect(agenda.locator('.cal-date.is-today')).toContainText('29');
+  await expect(agenda.locator('.blk.slot', { hasText: '写引言' })).toContainText('15:00–16:00');
   await agenda.getByRole('button', { name: '后一天' }).click();
   await expect(agenda).toContainText('9/30 周三');
-  await expect(agenda.locator('.pill', { hasText: '复习' })).toContainText('下午');
-  await agenda.getByRole('button', { name: '周' }).click();
+  await expect(agenda.locator('.strip-chip', { hasText: '复习' })).toContainText('下午');
+  await agenda.getByRole('button', { name: '三日' }).click();
+  await expect(agenda.locator('.cal-date')).toHaveCount(3);
+  await agenda.getByRole('button', { name: '周', exact: true }).click();
   await expect(agenda).toContainText('9/28 – 10/4');
-  await expect(agenda.locator('.witem.due', { hasText: '交报告' })).toBeVisible();
-  await agenda.getByRole('button', { name: '今天' }).isDisabled();
+  await expect(agenda.locator('.cal-date')).toHaveCount(7);
+  await expect(agenda.locator('.strip-chip.due', { hasText: '交报告' })).toBeVisible();
   await agenda.getByRole('button', { name: '下一周' }).click();
   await expect(agenda).toContainText('10/5 – 10/11');
   await agenda.getByRole('button', { name: '今天' }).click();
-  await agenda.getByRole('button', { name: /周三 9\/30/ }).click();
-  await expect(agenda).toContainText('9/30 周三');
-  await agenda.locator('.pill', { hasText: '复习' }).click();
+  await expect(agenda).toContainText('9/28 – 10/4');
+  await agenda.locator('.strip-chip', { hasText: '复习' }).click();
   await expect(page.getByTestId('task-detail')).toBeVisible();
   await expect(page.getByRole('textbox', { name: '任务名称' })).toHaveValue('复习');
+});
+
+test('overlapping events sit side by side, and clicking an empty slot reserves it', async ({ page }) => {
+  await start(page);
+  await page.getByRole('button', { name: '设置' }).click();
+  const ev = (uid: string, s: string, e: string, t: string) =>
+    ['BEGIN:VEVENT', `UID:${uid}`, `SUMMARY:${t}`, `DTSTART${s}`, `DTEND${e}`, 'END:VEVENT'].join('\r\n');
+  const ics = [
+    'BEGIN:VCALENDAR',
+    ev('a', ':20260929T140000', ':20260929T150000', '组会'),
+    ev('b', ':20260929T143000', ':20260929T153000', '一对一'),
+    ev('h', ';VALUE=DATE:20260929', ';VALUE=DATE:20260930', '秋假'),
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: '导入 .ics' }).click();
+  await (await chooser).setFiles({ name: 'cal.ics', mimeType: 'text/calendar', buffer: Buffer.from(ics) });
+  await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
+  const agenda = page.getByRole('region', { name: '日程' });
+  await agenda.getByRole('button', { name: '日', exact: true }).click();
+  await expect(agenda.locator('.strip-chip.allday', { hasText: '秋假' })).toBeVisible();
+  const a = await agenda.locator('.blk.event', { hasText: '组会' }).boundingBox();
+  const b = await agenda.locator('.blk.event', { hasText: '一对一' }).boundingBox();
+  expect(a!.x + a!.width).toBeLessThanOrEqual(b!.x + 1); // side by side, not on top of each other
+  const col = agenda.locator('.cal-col').first();
+  await col.click({ position: { x: 5, y: 17 * 44 + 4 } }); // 17:00
+  await page.getByRole('textbox', { name: '这段时间做什么？' }).fill('跑步');
+  await page.getByRole('textbox', { name: '这段时间做什么？' }).press('Enter');
+  await expect(agenda.locator('.blk.slot', { hasText: '跑步' })).toContainText('17:00–18:00');
 });
 
 test('the capacity check warns when a deadline will not fit', async ({ page }) => {

@@ -3,8 +3,8 @@ import type { CalendarEvent, Day } from './types';
 
 /**
  * Read timed events from an iCalendar (.ics) file and expand simple repeats (DAILY/WEEKLY with
- * INTERVAL, BYDAY, UNTIL, COUNT) into a window of days. All-day events are skipped: the agenda
- * shows them as nothing to plan around. Times are converted to this device's time zone.
+ * INTERVAL, BYDAY, UNTIL, COUNT) into a window of days. All-day events go to the all-day strip and
+ * never count as busy time. Times are converted to this device's time zone.
  */
 export function parseIcs(text: string, from: Day, to: Day): CalendarEvent[] {
   const lines = text.replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
@@ -74,11 +74,33 @@ function expand(
   to: Day,
 ): CalendarEvent[] {
   if (!ev.DTSTART || ev.STATUS?.value === 'CANCELLED') return [];
+  const unescape = (s: string) => s.replace(/\\([,;\\])/g, '$1').replace(/\\n/gi, ' ');
+  const title = unescape(ev.SUMMARY?.value ?? '') || '(无标题)';
+  const location = unescape(ev.LOCATION?.value ?? '').trim() || undefined;
   const start = icsDate(ev.DTSTART.value, ev.DTSTART.params.TZID);
-  if (!start) return [];
+  if (!start) {
+    // A date-only value: an all-day event; its end date is exclusive.
+    const d = /^(\d{4})(\d{2})(\d{2})$/.exec(ev.DTSTART.value.trim());
+    if (!d) return [];
+    const first = `${d[1]}-${d[2]}-${d[3]}`;
+    const e = ev.DTEND && /^(\d{4})(\d{2})(\d{2})$/.exec(ev.DTEND.value.trim());
+    const last = e ? addDays(`${e[1]}-${e[2]}-${e[3]}`, -1) : first;
+    const days: CalendarEvent[] = [];
+    for (let day = first, n = 0; n < 31 && day <= last; n++, day = addDays(day, 1))
+      if (day >= from && day <= to)
+        days.push({
+          id: `${ev.UID?.value ?? title}@${day}`,
+          title,
+          day,
+          start: '00:00',
+          end: '23:59',
+          allDay: true,
+          ...(location ? { location } : {}),
+        });
+    return days;
+  }
   const end = ev.DTEND ? icsDate(ev.DTEND.value, ev.DTEND.params.TZID) : new Date(start.getTime() + 3600e3);
   const length = Math.max(15, Math.round(((end ?? start).getTime() - start.getTime()) / 60000));
-  const title = (ev.SUMMARY?.value ?? '').replace(/\\([,;\\])/g, '$1').replace(/\\n/gi, ' ') || '(无标题)';
   const uid = ev.UID?.value ?? `${title}-${start.toISOString()}`;
   const make = (at: Date): CalendarEvent => {
     const m = nowMinutes(at);
@@ -88,6 +110,7 @@ function expand(
       day: dayOf(at),
       start: timeOf(m),
       end: timeOf(Math.min(m + length, 24 * 60 - 1)),
+      ...(location ? { location } : {}),
     };
   };
   const exdates = new Set(

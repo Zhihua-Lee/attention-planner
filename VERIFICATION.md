@@ -5,7 +5,8 @@ Last updated 2026-10-04.
 What was checked for each release; the full record lives in [docs/verification/](docs/verification/). A record covers
 only that release as described.
 
-| Version | Summary                                                                | Unit | Browser (UI)                                              | Manual                                            | Link                                  |
-| ------- | ---------------------------------------------------------------------- | ---- | --------------------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
-| v0.1.1  | Replaces the previous app; automatic import, sync and Outlook calendar | 41   | 68 (desktop + phone + reduced-motion; 1 skipped on phone) | Live checks on todo.onthat.top                    | [v0.1.1](docs/verification/v0.1.1.md) |
-| v0.1.0  | First working build of the rewrite                                     | 39   | 65 (desktop + phone + reduced-motion; 1 skipped on phone) | Screenshots at 390 px and 1280 px, light and dark | [v0.1.0](docs/verification/v0.1.0.md) |
+| Version | Summary                                                                | Unit | Browser (UI)                                              | Manual                                                                 | Link                                  |
+| ------- | ---------------------------------------------------------------------- | ---- | --------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------- |
+| v0.1.2  | Outlook-like calendar in NOW                                           | 43   | 71 (desktop + phone + reduced-motion; 1 skipped on phone) | Screenshots: week at 1366 px, day/3-day/week at 390 px, light and dark | [v0.1.2](docs/verification/v0.1.2.md) |
+| v0.1.1  | Replaces the previous app; automatic import, sync and Outlook calendar | 41   | 68 (desktop + phone + reduced-motion; 1 skipped on phone) | Live checks on todo.onthat.top                                         | [v0.1.1](docs/verification/v0.1.1.md) |
+| v0.1.0  | First working build of the rewrite                                     | 39   | 65 (desktop + phone + reduced-motion; 1 skipped on phone) | Screenshots at 390 px and 1280 px, light and dark                      | [v0.1.0](docs/verification/v0.1.0.md) |
