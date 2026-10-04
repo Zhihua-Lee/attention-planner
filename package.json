@@ -1,0 +1,41 @@
+{
+  "name": "attention-planner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One list; the app tells you what to do now.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:ui": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "icons": "node scripts/icons.mjs",
+    "notices": "node scripts/notices.mjs"
+  },
+  "dependencies": {
+    "dompurify": "3.4.16",
+    "marked": "18.0.14",
+    "motion": "14.0.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "fake-indexeddb": "6.2.5",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "vite": "8.3.2",
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
