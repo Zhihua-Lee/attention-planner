@@ -1362,6 +1362,21 @@ mark {
 }
 
 @media (max-width: 520px) {
+  /* One row of filters that scrolls sideways, instead of wrapping onto a second line. */
+  .filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+  .filters::-webkit-scrollbar {
+    display: none;
+  }
+  .filter,
+  .filter-select {
+    flex: none;
+  }
   .detail {
     padding-left: 14px;
   }
