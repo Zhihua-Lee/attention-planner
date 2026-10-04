@@ -51,11 +51,8 @@ export function nowCandidates(doc: Doc, now: Date): Pick[] {
   return out;
 }
 
-/** Timed events on a day (all-day ones are left out unless asked for: they are not busy time). */
-export const eventsOn = (doc: Doc, day: Day, withAllDay = false): CalendarEvent[] =>
-  (doc.events ?? [])
-    .filter((e) => e.day === day && (withAllDay || !e.allDay))
-    .sort((a, b) => a.start.localeCompare(b.start));
+export const eventsOn = (doc: Doc, day: Day): CalendarEvent[] =>
+  (doc.events ?? []).filter((e) => e.day === day).sort((a, b) => a.start.localeCompare(b.start));
 
 export function currentEvent(doc: Doc, now: Date): CalendarEvent | undefined {
   const m = nowMinutes(now);

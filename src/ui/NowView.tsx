@@ -1,13 +1,20 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
-import { addDays, dayOf, weekStart } from '../model/dates';
-import { capacity, currentEvent, freeUntilNext, nowCandidates, stepProgress } from '../model/derive';
+import { addDays, dayOf, minutesOf, nowMinutes, timeOf, weekStart } from '../model/dates';
+import {
+  agenda,
+  capacity,
+  currentEvent,
+  freeUntilNext,
+  nowCandidates,
+  stepProgress,
+  type AgendaItem,
+} from '../model/derive';
 import { complete, remainingEffort } from '../model/doc';
 import type { Day } from '../model/types';
 import { store, useStore } from '../store/store';
-import { CalendarGrid } from './CalendarGrid';
 import { toast } from './common';
-import { dueLabel, duration, monthDay, reasonText, relDay, ruleLabel, useT, weekdayName } from './text';
+import { dueLabel, duration, monthDay, partName, reasonText, relDay, ruleLabel, useT, weekdayName } from './text';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -138,76 +145,47 @@ export function NowView({ now, open }: { now: Date; open: (id: string) => void }
   }
 
   return (
-    <div className="now-layout">
-      <div className="now-side">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.section
-            key={event?.id ?? pick?.task.id ?? 'none'}
-            className="focus"
-            aria-live="polite"
-            data-testid="now-card"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.22, ease }}
-          >
-            {card}
-          </motion.section>
-        </AnimatePresence>
-        {short && (
-          <div className="capacity" role="note">
-            <span className="dot" aria-hidden="true" />
-            {t(
-              `${short.task.title}：${relDay(short.task.due!, today, lang)}前大约还差 ${duration(short.missing, lang)}`,
-              `${short.task.title}: about ${duration(short.missing, lang)} short before ${relDay(short.task.due!, today, lang)}`,
-            )}
-          </div>
-        )}
-      </div>
+    <div className="stack">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.section
+          key={event?.id ?? pick?.task.id ?? 'none'}
+          className="focus"
+          aria-live="polite"
+          data-testid="now-card"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.22, ease }}
+        >
+          {card}
+        </motion.section>
+      </AnimatePresence>
+      {short && (
+        <div className="capacity" role="note">
+          <span className="dot" aria-hidden="true" />
+          {t(
+            `${short.task.title}：${relDay(short.task.due!, today, lang)}前大约还差 ${duration(short.missing, lang)}`,
+            `${short.task.title}: about ${duration(short.missing, lang)} short before ${relDay(short.task.due!, today, lang)}`,
+          )}
+        </div>
+      )}
       <Agenda now={now} open={open} />
     </div>
   );
 }
 
-type Range = 'day' | '3day' | 'week';
-const STEP: Record<Range, number> = { day: 1, '3day': 3, week: 7 };
-
 function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
   const { doc, sync } = useStore();
   const { t, lang } = useT();
   const today = dayOf(now);
-  const [range, setRangeState] = useState<Range>(() => {
-    try {
-      const r = localStorage.getItem('ap:range');
-      return r === 'day' || r === '3day' || r === 'week' ? r : window.innerWidth >= 1000 ? 'week' : 'day';
-    } catch {
-      return 'day';
-    }
-  });
-  const setRange = (r: Range) => {
-    setRangeState(r);
-    try {
-      localStorage.setItem('ap:range', r);
-    } catch {
-      /* only a convenience */
-    }
-  };
+  const [range, setRange] = useState<'day' | 'week'>('day');
   const [cursor, setCursor] = useState<Day>(today);
-  const first = range === 'week' ? weekStart(cursor) : cursor;
-  const days = Array.from({ length: STEP[range] }, (_, i) => addDays(first, i));
-  const atToday = range === 'week' ? first === weekStart(today) : cursor === today;
+  const ws = weekStart(cursor);
+  const atToday = range === 'day' ? cursor === today : ws === weekStart(today);
   const label =
     range === 'day'
       ? `${monthDay(cursor)} ${weekdayName(cursor, lang)}${cursor === today ? ` · ${t('今天', 'today')}` : ''}`
-      : `${monthDay(days[0])} – ${monthDay(days.at(-1)!)}`;
-  const prev = {
-    day: t('前一天', 'Previous day'),
-    '3day': t('前三天', 'Previous 3 days'),
-    week: t('上一周', 'Previous week'),
-  }[range];
-  const next = { day: t('后一天', 'Next day'), '3day': t('后三天', 'Next 3 days'), week: t('下一周', 'Next week') }[
-    range
-  ];
+      : `${monthDay(ws)} – ${monthDay(addDays(ws, 6))}`;
   const noEvents = !doc.events?.length;
   return (
     <section className="agenda" aria-label={t('日程', 'Agenda')}>
@@ -216,10 +194,18 @@ function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
           <button className="today-btn" disabled={atToday} onClick={() => setCursor(today)}>
             {t('今天', 'Today')}
           </button>
-          <button className="arrow" aria-label={prev} onClick={() => setCursor(addDays(cursor, -STEP[range]))}>
+          <button
+            className="arrow"
+            aria-label={range === 'day' ? t('前一天', 'Previous day') : t('上一周', 'Previous week')}
+            onClick={() => setCursor(addDays(cursor, range === 'day' ? -1 : -7))}
+          >
             ‹
           </button>
-          <button className="arrow" aria-label={next} onClick={() => setCursor(addDays(cursor, STEP[range]))}>
+          <button
+            className="arrow"
+            aria-label={range === 'day' ? t('后一天', 'Next day') : t('下一周', 'Next week')}
+            onClick={() => setCursor(addDays(cursor, range === 'day' ? 1 : 7))}
+          >
             ›
           </button>
           <span className="lbl" aria-live="polite">
@@ -230,15 +216,16 @@ function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
           <button aria-pressed={range === 'day'} onClick={() => setRange('day')}>
             {t('日', 'Day')}
           </button>
-          <button aria-pressed={range === '3day'} onClick={() => setRange('3day')}>
-            {t('三日', '3 days')}
-          </button>
           <button aria-pressed={range === 'week'} onClick={() => setRange('week')}>
             {t('周', 'Week')}
           </button>
         </div>
       </div>
-      <CalendarGrid days={days} now={now} open={open} />
+      {range === 'day' ? (
+        <DayView day={cursor} now={now} open={open} />
+      ) : (
+        <WeekView start={ws} now={now} open={open} pickDay={(d) => (setCursor(d), setRange('day'))} />
+      )}
       {noEvents && (
         <div className="agenda-note">
           {sync.status === 'off'
@@ -253,5 +240,153 @@ function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
         </div>
       )}
     </section>
+  );
+}
+
+function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) => void }) {
+  const { doc } = useStore();
+  const { t, lang } = useT();
+  const items = agenda(doc, day, now);
+  const isToday = day === dayOf(now);
+  const n = nowMinutes(now);
+  const timed = items.filter(
+    (x): x is Extract<AgendaItem, { kind: 'event' | 'slot' }> => x.kind === 'event' || x.kind === 'slot',
+  );
+  const spans = timed.map((x) =>
+    x.kind === 'event' ? [minutesOf(x.event.start), minutesOf(x.event.end)] : [x.start, x.end],
+  );
+  // The working day, stretched to include now and anything scheduled outside it.
+  const lo = Math.max(0, Math.floor(Math.min(9 * 60, isToday ? n : 9 * 60, ...spans.map((s) => s[0])) / 60) * 60);
+  const hi = Math.min(24 * 60, Math.ceil(Math.max(18 * 60, isToday ? n + 30 : 0, ...spans.map((s) => s[1])) / 60) * 60);
+  const PX = 22 / 60;
+  const y = (m: number) => (m - lo) * PX;
+  const loose = items.filter((x) => x.kind === 'loose' || x.kind === 'due');
+  const order = { am: 1, pm: 2, eve: 3 } as const;
+  loose.sort(
+    (a, b) =>
+      (a.kind === 'due' ? 0 : a.kind === 'loose' && a.part ? order[a.part] : 4) -
+      (b.kind === 'due' ? 0 : b.kind === 'loose' && b.part ? order[b.part] : 4),
+  );
+  return (
+    <>
+      {loose.length > 0 && (
+        <div className="loose">
+          {loose.map((x) =>
+            x.kind === 'due' ? (
+              <button key={`d${x.task.id}`} className="pill" onClick={() => open(x.task.id)}>
+                <span className="part late">{t('截止', 'Due')}</span>
+                {x.task.title}
+              </button>
+            ) : x.kind === 'loose' ? (
+              <button key={x.entryId} className="pill" onClick={() => open(x.task.id)}>
+                {x.part && <span className="part">{partName(x.part, lang)}</span>}
+                {x.task.title}
+              </button>
+            ) : null,
+          )}
+        </div>
+      )}
+      <div className="timeline" style={{ height: (hi - lo) * PX }}>
+        {Array.from({ length: (hi - lo) / 60 }, (_, k) => lo + k * 60).map((m) => (
+          <div key={m} className="hour" style={{ top: y(m) }}>
+            {timeOf(m)}
+          </div>
+        ))}
+        {timed.map((x) => {
+          const [s, e] = x.kind === 'event' ? [minutesOf(x.event.start), minutesOf(x.event.end)] : [x.start, x.end];
+          const style = { top: y(s) + 1, height: Math.max(16, y(e) - y(s) - 2) };
+          return x.kind === 'event' ? (
+            <div key={x.event.id} className="blk event" style={style}>
+              <span>{x.event.title}</span>
+              <span className="t">
+                {x.event.start}–{x.event.end}
+              </span>
+            </div>
+          ) : (
+            <button key={x.entryId} className="blk slot" style={style} onClick={() => open(x.task.id)}>
+              <span>{x.task.title}</span>
+              <span className="t">
+                {timeOf(s)}–{timeOf(e)}
+              </span>
+            </button>
+          );
+        })}
+        {isToday && n >= lo && n <= hi && (
+          <div className="nowline" style={{ top: y(n) }} aria-label={`${t('现在', 'Now')} ${timeOf(n)}`} />
+        )}
+      </div>
+    </>
+  );
+}
+
+function WeekView({
+  start,
+  now,
+  open,
+  pickDay,
+}: {
+  start: Day;
+  now: Date;
+  open: (id: string) => void;
+  pickDay: (d: Day) => void;
+}) {
+  const { doc } = useStore();
+  const { t, lang } = useT();
+  const today = dayOf(now);
+  return (
+    <div className="week">
+      {Array.from({ length: 7 }, (_, i) => addDays(start, i)).map((day) => {
+        const items = agenda(doc, day, now)
+          .map((x) => ({
+            x,
+            k:
+              x.kind === 'event'
+                ? x.event.start
+                : x.kind === 'slot'
+                  ? timeOf(x.start)
+                  : x.kind === 'loose'
+                    ? x.part === 'am'
+                      ? '08:00'
+                      : x.part === 'pm'
+                        ? '12:00'
+                        : x.part === 'eve'
+                          ? '18:00'
+                          : '00:00'
+                    : '23:59',
+          }))
+          .sort((a, b) => a.k.localeCompare(b.k));
+        return (
+          <div key={day} className={`wday${day === today ? ' is-today' : ''}`}>
+            <button className="dname" onClick={() => pickDay(day)}>
+              {weekdayName(day, lang)} {monthDay(day)}
+            </button>
+            <div className="witems">
+              {items.length === 0 && <span className="wempty">{t('空', '—')}</span>}
+              {items.map(({ x }, k) =>
+                x.kind === 'event' ? (
+                  <div key={k} className="witem event">
+                    <span className="t">{x.event.start}</span>
+                    <span className="n">{x.event.title}</span>
+                  </div>
+                ) : (
+                  <button key={k} className={`witem ${x.kind}`} onClick={() => open(x.task.id)}>
+                    <span className="t">
+                      {x.kind === 'slot'
+                        ? timeOf(x.start)
+                        : x.kind === 'due'
+                          ? t('截止', 'Due')
+                          : x.part
+                            ? partName(x.part, lang)
+                            : t('不定', 'Any')}
+                    </span>
+                    <span className="n">{x.task.title}</span>
+                  </button>
+                ),
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

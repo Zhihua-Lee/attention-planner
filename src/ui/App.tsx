@@ -78,7 +78,7 @@ export function App() {
   if (!ready) return <div className="app loading" aria-busy="true" />;
   return (
     <MotionConfig reducedMotion="user">
-      <div className={`app${tab === 'now' ? ' wide' : ''}`}>
+      <div className="app">
         <header className="top">
           <div className="tabs" role="tablist" aria-label={t('主菜单', 'Main')}>
             <button role="tab" className="tab" aria-selected={tab === 'now'} onClick={() => setTab('now')}>

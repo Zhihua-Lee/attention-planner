@@ -107,16 +107,7 @@ export type Project = {
   deleted?: boolean;
 };
 
-export type CalendarEvent = {
-  id: string;
-  title: string;
-  day: Day;
-  start: Time;
-  end: Time;
-  /** Shown in the all-day strip; never counted as busy time. */
-  allDay?: boolean;
-  location?: string;
-};
+export type CalendarEvent = { id: string; title: string; day: Day; start: Time; end: Time };
 
 export type ChipKey = 'due' | 'plan' | 'effort' | 'star' | 'area' | 'repeat' | 'note';
 

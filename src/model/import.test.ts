@@ -156,11 +156,10 @@ describe('ics import', () => {
     'END:VEVENT',
     'END:VCALENDAR',
   ].join('\r\n');
-  it('expands weekly repeats, keeps all-day events apart and unescapes text', () => {
+  it('expands weekly repeats, skips all-day events and unescapes text', () => {
     const events = parseIcs(ics, '2026-09-28', '2026-10-31');
     expect(events.map((e) => `${e.day} ${e.start}-${e.end} ${e.title}`)).toEqual([
       '2026-09-28 09:00-10:30 上课',
-      '2026-09-30 00:00-23:59 Holiday',
       '2026-09-30 09:00-10:30 上课',
       '2026-10-02 16:00-17:00 Dentist, follow-up',
       '2026-10-05 09:00-10:30 上课',
@@ -204,10 +203,8 @@ describe('outlook export', () => {
       '2026-09-29 14:00-15:00 组会',
       '2026-09-29 22:00-23:59 值班',
       '2026-09-30 00:00-02:00 值班',
-      '2026-09-30 00:00-23:59 假期',
       '2026-09-30 09:00-09:30 Graph 格式',
     ]);
-    expect(outlookEvents(payload, '2026-09-28', '2026-10-31').find((e) => e.title === '假期')?.allDay).toBe(true);
     expect(outlookEvents({ value: [] }, '2026-09-28', '2026-10-31')).toEqual([]);
     expect(outlookEvents('nonsense', '2026-09-28', '2026-10-31')).toEqual([]);
   });

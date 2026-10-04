@@ -1,16 +1,5 @@
 # Changelog
 
-## 0.1.2 — 2026-10-04
-
-A calendar like Outlook's in NOW.
-
-- Day, 3-day and week views: dates on top with today circled, an all-day strip (all-day events, deadlines, tasks without
-  a set time), and an hour grid that opens at the current time with a red now line.
-- Overlapping events sit side by side; each shows its title, time and location.
-- Click an empty spot to reserve that time for a new task.
-- On a wide screen NOW shows the task card on the left and the calendar on the right; the week view opens by default.
-- All-day events are read from the Outlook export and from .ics files; they never count as busy time.
-
 ## 0.1.1 — 2026-10-04
 
 Now served at todo.onthat.top in place of the previous app.
