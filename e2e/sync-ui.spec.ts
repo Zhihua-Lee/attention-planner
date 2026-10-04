@@ -68,7 +68,13 @@ test('reminder settings are in Settings and keep their times', async ({ page }) 
   await page.getByRole('button', { name: '设置' }).click();
   const sheet = page.getByRole('dialog', { name: '设置' });
   await expect(sheet.getByRole('heading', { name: '提醒' })).toBeVisible();
-  await expect(sheet.getByRole('button', { name: '开启提醒' }).or(sheet.getByText('不支持推送通知'))).toBeVisible();
+  // Whether the browser allows notifications differs between machines; one of the three states is shown.
+  await expect(
+    sheet
+      .getByRole('button', { name: '开启提醒' })
+      .or(sheet.getByText('不支持推送通知'))
+      .or(sheet.getByText('通知被浏览器禁止了')),
+  ).toBeVisible();
   await sheet.getByLabel('截止当天提醒时间').fill('08:30');
   await sheet.getByLabel('预留时段提前几分钟').selectOption('15');
   await sheet.getByRole('button', { name: '完成' }).click();
