@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 — 2026-10-04
+
+- **Calendar subscriptions by address**: add any .ics or webcal link (a class timetable, public holidays) in
+  Settings → 日历; it is read now and every 30 minutes, alongside the Outlook export and imported files. Each source
+  is replaced on its own. Feeds are fetched through a small function on this site (`/ics`) that passes only
+  calendar files, size-capped, and refuses local addresses.
+
 ## 0.1.6 — 2026-10-04
 
 - **Steps wrap**: long steps wrap and grow instead of being cut off; Shift+Enter adds a line.

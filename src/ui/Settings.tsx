@@ -16,12 +16,14 @@ import { useT, weekdayShort } from './text';
 const ALL_CHIPS: ChipKey[] = ['due', 'plan', 'effort', 'star', 'area', 'repeat', 'note'];
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { doc, sync, calendar } = useStore();
+  const { doc, sync, calendar, subs } = useStore();
   const { t } = useT();
   const s = doc.settings;
   const panel = useRef<HTMLDivElement>(null);
   const [broker, setBroker] = useState(() => localStorage.getItem('ap:broker') ?? '/api');
   const [checking, setChecking] = useState(false);
+  const [subName, setSubName] = useState('');
+  const [subUrl, setSubUrl] = useState('');
   const [push, setPush] = useState<PushState | 'busy'>('off');
   useEffect(() => {
     void pushState().then(setPush);
@@ -396,6 +398,77 @@ export function Settings({ onClose }: { onClose: () => void }) {
           {calendar.error && (
             <p className="muted">{t('读取日历失败：', 'Could not read the calendar: ') + calendar.error}</p>
           )}
+          <div className="subs">
+            {(s.calendars ?? []).map((c) => (
+              <div key={c.id} className="sub-row">
+                <span className="sub-name">{c.name}</span>
+                <span className="muted">
+                  {subs[c.id]?.error
+                    ? t('读取失败：', 'Failed: ') + subs[c.id].error
+                    : subs[c.id]?.at
+                      ? t(
+                          `${subs[c.id].count} 个日程 · ${new Date(subs[c.id].at!).toLocaleTimeString()}`,
+                          `${subs[c.id].count} events · ${new Date(subs[c.id].at!).toLocaleTimeString()}`,
+                        )
+                      : t('读取中…', 'Reading…')}
+                </span>
+                <button
+                  className="mini"
+                  aria-label={`${t('取消订阅', 'Unsubscribe')}: ${c.name}`}
+                  onClick={() => {
+                    set({ calendars: (s.calendars ?? []).filter((x) => x.id !== c.id) });
+                    store.setEvents(`sub:${c.id}`, []);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <div className="inline">
+              <input
+                value={subName}
+                onChange={(e) => setSubName(e.target.value)}
+                placeholder={t('名称，如“课表”', 'Name, e.g. Classes')}
+                aria-label={t('订阅名称', 'Subscription name')}
+              />
+              <input
+                className="grow"
+                value={subUrl}
+                onChange={(e) => setSubUrl(e.target.value)}
+                placeholder="https://… .ics / webcal://…"
+                aria-label={t('日历订阅地址', 'Calendar address')}
+              />
+              <button
+                className="btn"
+                disabled={!subUrl.trim()}
+                onClick={() => {
+                  const id = Math.random().toString(36).slice(2, 10);
+                  set({
+                    calendars: [
+                      ...(s.calendars ?? []),
+                      { id, name: subName.trim() || t('订阅的日历', 'Subscribed calendar'), url: subUrl.trim() },
+                    ],
+                  });
+                  setSubName('');
+                  setSubUrl('');
+                  setTimeout(() => void store.refreshSubscriptions(true), 0);
+                }}
+              >
+                {t('订阅', 'Subscribe')}
+              </button>
+              {(s.calendars ?? []).length > 0 && (
+                <button className="btn" onClick={() => void store.refreshSubscriptions(true)}>
+                  {t('全部刷新', 'Refresh all')}
+                </button>
+              )}
+            </div>
+            <p className="hint">
+              {t(
+                '填日历的订阅链接（.ics 或 webcal），每 30 分钟自动更新。',
+                'Paste a calendar subscription link (.ics or webcal); it refreshes every 30 minutes.',
+              )}
+            </p>
+          </div>
           <p className="hint">
             {t(
               '导入 .ics 文件，在 NOW 的日程里显示（只存在这台设备上）。',
@@ -409,7 +482,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 readFile('.ics,text/calendar', (text) => {
                   const today = dayOf(new Date());
                   const events = parseIcs(text, addDays(today, -14), addDays(today, 120));
-                  store.commit((d) => ({ ...d, events }), { undoable: false });
+                  store.setEvents('file', events);
                   toast(t(`导入了 ${events.length} 个日程`, `Imported ${events.length} events`));
                 })
               }
@@ -417,10 +490,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
               {t('导入 .ics', 'Import .ics')}
             </button>
             {doc.events?.length ? (
-              <button
-                className="btn"
-                onClick={() => store.commit((d) => ({ ...d, events: undefined }), { undoable: false })}
-              >
+              <button className="btn" onClick={() => store.setEvents('file', [])}>
                 {t('清除日历', 'Clear calendar')}
               </button>
             ) : null}

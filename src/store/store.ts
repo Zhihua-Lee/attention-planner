@@ -2,10 +2,11 @@ import { useSyncExternalStore } from 'react';
 import { emptyDoc, restore, type Ctx } from '../model/doc';
 import { importLegacy, type ImportReport } from '../model/legacyImport';
 import { mergeDocs } from '../model/merge';
-import type { Doc } from '../model/types';
+import type { CalendarEvent, Doc } from '../model/types';
 import { brokerStatus, brokerTokens, DriveRemote, readOutlookExport, type TokenSource } from './drive';
 import { addDays, dayOf } from '../model/dates';
 import { outlookEvents } from '../model/outlook';
+import { parseIcs } from '../model/ics';
 import { syncReminders } from './push';
 import { deviceId, load, save } from './storage';
 import { syncOnce, type Remote } from './sync';
@@ -13,12 +14,15 @@ import { syncOnce, type Remote } from './sync';
 export type SyncState = { status: 'off' | 'idle' | 'syncing' | 'error'; lastAt?: string; error?: string };
 /** Where calendar events come from: the Outlook export in Google Drive, an imported .ics file, or nowhere yet. */
 export type CalendarState = { source: 'outlook' | 'none'; at?: string; error?: string };
+/** Each subscription's last read: when, how many events, or what went wrong. */
+export type SubState = Record<string, { at?: string; count?: number; error?: string }>;
 export type State = {
   ready: boolean;
   doc: Doc;
   canUndo: boolean;
   sync: SyncState;
   calendar: CalendarState;
+  subs: SubState;
   saveError?: string;
   /** Set once when the previous app's data was imported on start. */
   imported?: ImportReport;
@@ -69,6 +73,7 @@ export class Store {
       canUndo: false,
       sync: { status: 'off' },
       calendar: { source: 'none' },
+      subs: {},
     };
   }
 
@@ -99,7 +104,12 @@ export class Store {
         this.connectBroker('/api');
       });
     }
-    window.addEventListener('focus', () => this.scheduleSync(500));
+    window.addEventListener('focus', () => {
+      this.scheduleSync(500);
+      void this.refreshSubscriptions();
+    });
+    void this.refreshSubscriptions(true);
+    setInterval(() => void this.refreshSubscriptions(), 30 * 60e3);
     window.addEventListener('beforeunload', () => void this.flush());
   }
 
@@ -204,6 +214,45 @@ export class Store {
     }
   }
 
+  /** Replace the events from one source (Outlook, an imported file, a subscription); other sources stay. */
+  setEvents(source: string, events: CalendarEvent[]) {
+    this.commit(
+      (d) => ({
+        ...d,
+        events: [
+          ...(d.events ?? []).filter((e) => (e.source ?? 'file') !== source),
+          ...events.map((e) => ({ ...e, source })),
+        ],
+      }),
+      { undoable: false },
+    );
+  }
+
+  private subsAt = 0;
+  /** Read every calendar subscription (at most every 30 minutes unless forced). */
+  async refreshSubscriptions(force = false) {
+    const subs = this.state.doc.settings.calendars ?? [];
+    if (!subs.length || (!force && Date.now() - this.subsAt < 30 * 60e3)) return;
+    this.subsAt = Date.now();
+    const today = dayOf(new Date());
+    for (const sub of subs) {
+      try {
+        const res = await fetch(`/ics?url=${encodeURIComponent(sub.url)}`);
+        if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+        const events = parseIcs(await res.text(), addDays(today, -14), addDays(today, 120));
+        this.setEvents(`sub:${sub.id}`, events);
+        this.set({ subs: { ...this.state.subs, [sub.id]: { at: new Date().toISOString(), count: events.length } } });
+      } catch (e) {
+        this.set({
+          subs: {
+            ...this.state.subs,
+            [sub.id]: { ...this.state.subs[sub.id], error: e instanceof Error ? e.message : String(e) },
+          },
+        });
+      }
+    }
+  }
+
   /** Read the Outlook export at most every 10 minutes (or when forced) and show its events on this device. */
   async refreshCalendar(force = false) {
     if (!this.tokens || (!force && Date.now() - this.calendarAt < 10 * 60e3)) return;
@@ -213,7 +262,7 @@ export class Store {
       if (payload === null) return this.set({ calendar: { source: 'none' } });
       const today = dayOf(new Date());
       const events = outlookEvents(payload, addDays(today, -14), addDays(today, 120));
-      this.commit((d) => ({ ...d, events }), { undoable: false });
+      this.setEvents('outlook', events);
       this.set({ calendar: { source: 'outlook', at: new Date().toISOString() } });
     } catch (e) {
       this.set({ calendar: { ...this.state.calendar, error: e instanceof Error ? e.message : String(e) } });

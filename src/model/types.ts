@@ -128,6 +128,8 @@ export type CalendarEvent = {
   /** Shown in the all-day strip; never counted as busy time. */
   allDay?: boolean;
   location?: string;
+  /** Where it came from: 'outlook', 'file', or 'sub:<id>' for a subscription. */
+  source?: string;
 };
 
 export type StepTool = 'due' | 'effort' | 'repeat' | 'promote';
@@ -141,6 +143,8 @@ export type Settings = {
   workDays: number[];
   /** Capture chips shown up front, in order; the rest sit under "more". */
   chips: ChipKey[];
+  /** Calendar subscriptions by address (an .ics or webcal link), read every half hour. */
+  calendars?: { id: string; name: string; url: string }[];
   /** The list is ordered automatically, or by hand. */
   listSort?: 'smart' | 'manual';
   /** Reminder times: on a deadline's day, and minutes before a reserved time. */

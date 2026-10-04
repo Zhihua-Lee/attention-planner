@@ -1781,3 +1781,25 @@ mark {
   grid-template-columns: auto auto minmax(0, 1fr) auto;
   padding-left: 6px;
 }
+
+.subs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.sub-row .sub-name {
+  font-weight: 600;
+}
+.sub-row .muted {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -132,3 +132,34 @@ test("the previous app's data in this browser is imported once, with undo", asyn
   await expect(page.locator('.tt', { hasText: '旧应用里的任务' })).toHaveCount(1);
   await expect(page.locator('.toast')).toHaveCount(0);
 });
+
+test('a calendar subscribed by address appears in the agenda and can be removed', async ({ page }) => {
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'BEGIN:VEVENT',
+    'UID:s1',
+    'SUMMARY:水文课',
+    'LOCATION:SC 3505',
+    'DTSTART:20260929T130000',
+    'DTEND:20260929T141500',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  await page.route('**/ics?url=*', (route) => {
+    expect(decodeURIComponent(route.request().url())).toContain('example.edu/classes.ics'); // webcal is turned into https on the server
+    return route.fulfill({ status: 200, contentType: 'text/calendar', body: ics });
+  });
+  await start(page);
+  await page.getByRole('button', { name: '设置' }).click();
+  const sheet = page.getByRole('dialog', { name: '设置' });
+  await sheet.getByLabel('订阅名称').fill('课表');
+  await sheet.getByLabel('日历订阅地址').fill('webcal://example.edu/classes.ics');
+  await sheet.getByRole('button', { name: '订阅', exact: true }).click();
+  await expect(sheet.locator('.sub-row', { hasText: '课表' })).toContainText('1 个日程');
+  await sheet.getByRole('button', { name: '完成' }).click();
+  await expect(page.locator('.blk.event', { hasText: '水文课' })).toContainText('13:00–14:15');
+  await page.getByRole('button', { name: '设置' }).click();
+  await page.getByRole('button', { name: '取消订阅: 课表' }).click();
+  await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
+  await expect(page.locator('.blk.event', { hasText: '水文课' })).toHaveCount(0);
+});
