@@ -304,7 +304,7 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
           {loose.map((x) =>
             x.kind === 'due' || x.kind === 'loose' ? (
               <button
-                key={x.kind === 'due' ? `d${x.task.id}` : x.entryId}
+                key={x.kind === 'due' ? `d${x.task.id}${x.step ?? ''}` : x.entryId}
                 className="pill"
                 aria-expanded={peek.is(`t:${x.task.id}`)}
                 onClick={togglePeek(`t:${x.task.id}`)}
@@ -314,7 +314,7 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
                 ) : (
                   x.part && <span className="part">{partName(x.part, lang)}</span>
                 )}
-                {x.task.title}
+                {x.kind === 'due' && x.step ? `${x.step} · ${x.task.title}` : x.task.title}
               </button>
             ) : null,
           )}
@@ -449,10 +449,10 @@ function WeekView({
         });
       else
         list.push({
-          key: `d${x.task.id}`,
+          key: `d${x.task.id}${x.step ?? ''}`,
           k: '23:59',
           time: t('截止', 'Due'),
-          title: x.task.title,
+          title: x.step ? `${x.step} · ${x.task.title}` : x.task.title,
           cls: 'due',
           ref: { kind: 'task', taskId: x.task.id },
         });

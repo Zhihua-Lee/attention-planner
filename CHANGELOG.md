@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.4 — 2026-10-04
+
+Steps can carry more, without getting noisier.
+
+- A step can have its own deadline. The earliest unfinished one leads: NOW says "步骤“画图”今天截止", the list shows
+  it, and the agenda marks it on its day.
+- A step can have an estimate; without a task estimate, the task's effort is the sum of its steps, and what is left
+  counts only unfinished steps.
+- Step repeat is back in full: any step, in any task, can follow the task's rounds (when it reopens), not repeat, or
+  repeat on its own rule with the same form as tasks.
+- A step can become its own task, linked to the old one and keeping its deadline and estimate.
+- Steps reorder by dragging the handle (or ↑/↓ on it), instead of two buttons.
+- Settings choose which buttons follow each step (deadline, effort, repeat, make it a task); dragging and deleting
+  are always there. On a phone the buttons appear when a step is tapped, and steps use the full width.
+- A task without an estimate shows "未填" instead of a second "设置".
+
 ## 0.1.3 — 2026-10-04
 
 The 0.1.2 Outlook-style redesign was rolled back; these changes build on the 0.1.1 agenda instead.

@@ -1,12 +1,12 @@
 import { addDays, dayOf, diffDays, isoWeekday, minutesOf, nowMinutes, PARTS, timeOf } from './dates';
-import { isFinished, isSnoozed, liveTasks, planOf, remainingEffort, stepDone, stepsOf } from './doc';
+import { isFinished, isSnoozed, liveTasks, planOf, remainingEffort, stepDone, stepsOf, effectiveDue } from './doc';
 import type { CalendarEvent, Day, Doc, Part, Settings, Task } from './types';
 
 export type Reason =
   | { kind: 'slot'; until: string }
   | { kind: 'part'; part: Part }
-  | { kind: 'overdue'; days: number }
-  | { kind: 'dueToday' }
+  | { kind: 'overdue'; days: number; step?: string }
+  | { kind: 'dueToday'; step?: string }
   | { kind: 'today' }
   | { kind: 'star' }
   | { kind: 'oldest' };
@@ -40,9 +40,13 @@ export function nowCandidates(doc: Doc, now: Date): Pick[] {
     for (const p of planOf(t))
       if (p.day === today && p.part && PARTS[p.part].from <= m && m < PARTS[p.part].to)
         push(t, { kind: 'part', part: p.part });
-  const byDue = ready.filter((t) => t.due).sort((a, b) => a.due!.localeCompare(b.due!));
-  for (const t of byDue) if (t.due! < today) push(t, { kind: 'overdue', days: diffDays(today, t.due!) });
-  for (const t of byDue) if (t.due === today) push(t, { kind: 'dueToday' });
+  const byDue = ready
+    .map((t) => ({ t, d: effectiveDue(t, now) }))
+    .filter((x) => x.d)
+    .sort((a, b) => a.d!.day.localeCompare(b.d!.day));
+  for (const { t, d } of byDue)
+    if (d!.day < today) push(t, { kind: 'overdue', days: diffDays(today, d!.day), step: d!.step?.text });
+  for (const { t, d } of byDue) if (d!.day === today) push(t, { kind: 'dueToday', step: d!.step?.text });
   for (const t of ready)
     if (planOf(t).some((p) => p.day === today && !p.start && !(p.part && PARTS[p.part].from > m)))
       push(t, { kind: 'today' });
@@ -104,13 +108,14 @@ export type Shortfall = { task: Task; missing: number };
  */
 export function capacity(doc: Doc, now: Date): Shortfall | null {
   const today = dayOf(now);
+  const dueOf = (t: Task) => t.due ?? effectiveDue(t, now)?.day;
   const due = openTasks(doc, now)
-    .filter((t) => t.due && t.due >= today && remainingEffort(t))
-    .sort((a, b) => a.due!.localeCompare(b.due!));
+    .filter((t) => dueOf(t) && dueOf(t)! >= today && remainingEffort(t, now))
+    .sort((a, b) => dueOf(a)!.localeCompare(dueOf(b)!));
   for (const t of due) {
-    const need = due.filter((o) => o.due! <= t.due!).reduce((s, o) => s + remainingEffort(o)!, 0);
+    const need = due.filter((o) => dueOf(o)! <= dueOf(t)!).reduce((s, o) => s + remainingEffort(o, now)!, 0);
     let free = 0;
-    for (let d = today; d <= t.due!; d = addDays(d, 1))
+    for (let d = today; d <= dueOf(t)!; d = addDays(d, 1))
       free += freeMinutes(doc, doc.settings, d, d === today ? nowMinutes(now) : 0);
     if (need > free) return { task: t, missing: Math.ceil((need - free) / 30) * 30 };
   }
@@ -121,7 +126,7 @@ export type Filter = 'all' | 'today' | 'new' | 'due' | 'snoozed';
 
 /** Recently captured and not yet given a day or a deadline: the automatic "unsorted". */
 export const isNew = (t: Task, now: Date) =>
-  (now.getTime() - new Date(t.created).getTime()) / 864e5 <= 7 && !planOf(t).length && !t.due;
+  (now.getTime() - new Date(t.created).getTime()) / 864e5 <= 7 && !planOf(t).length && !effectiveDue(t, now);
 
 export function matches(t: Task, f: Filter, now: Date): boolean {
   const today = dayOf(now);
@@ -129,11 +134,11 @@ export function matches(t: Task, f: Filter, now: Date): boolean {
     case 'all':
       return true;
     case 'today':
-      return t.due === today || planOf(t).some((p) => p.day === today);
+      return effectiveDue(t, now)?.day === today || planOf(t).some((p) => p.day === today);
     case 'new':
       return isNew(t, now);
     case 'due':
-      return !!t.due;
+      return !!effectiveDue(t, now);
     case 'snoozed':
       return isSnoozed(t, today);
   }
@@ -154,7 +159,7 @@ export function listTasks(doc: Doc, now: Date, f: Filter, group?: { areaId?: str
     (a, b) =>
       Number(isSnoozed(a, today)) - Number(isSnoozed(b, today)) ||
       Number(!!b.star) - Number(!!a.star) ||
-      (a.due ?? '9').localeCompare(b.due ?? '9') ||
+      (effectiveDue(a, now)?.day ?? '9').localeCompare(effectiveDue(b, now)?.day ?? '9') ||
       b.created.localeCompare(a.created),
   );
   // Group a task right after the task it links to, one level deep, when both are listed.
@@ -190,7 +195,7 @@ export type AgendaItem =
   | { kind: 'event'; event: CalendarEvent }
   | { kind: 'slot'; task: Task; start: number; end: number; entryId: string }
   | { kind: 'loose'; task: Task; part?: Part; entryId: string }
-  | { kind: 'due'; task: Task };
+  | { kind: 'due'; task: Task; step?: string };
 
 export function agenda(doc: Doc, day: Day, now: Date): AgendaItem[] {
   const items: AgendaItem[] = eventsOn(doc, day).map((event) => ({ kind: 'event', event }));
@@ -209,6 +214,8 @@ export function agenda(doc: Doc, day: Day, now: Date): AgendaItem[] {
         else if (!isSnoozed(t, today)) items.push({ kind: 'loose', task: t, part: p.part, entryId: p.id });
       }
     if (t.due === day) items.push({ kind: 'due', task: t });
+    for (const s of stepsOf(t))
+      if (s.due === day && !stepDone(t, s, now)) items.push({ kind: 'due', task: t, step: s.text });
   }
   return items;
 }

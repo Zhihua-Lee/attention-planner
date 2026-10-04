@@ -56,6 +56,10 @@ export type Step = {
   /** For a repeating step: the round key it was checked in, and when. */
   doneIn?: string;
   doneAt?: string;
+  /** A deadline for this step only, earlier than the task's own. */
+  due?: Day;
+  /** Estimated minutes for this step; when steps carry estimates, the task's effort is their sum. */
+  effort?: number;
   /** `undefined` follows the task's repeat; `'none'` never resets; a rule resets on its own. */
   repeat?: 'none' | RepeatRule;
   s: Stamp;
@@ -118,6 +122,8 @@ export type CalendarEvent = {
   location?: string;
 };
 
+export type StepTool = 'due' | 'effort' | 'repeat' | 'promote';
+
 export type ChipKey = 'due' | 'plan' | 'effort' | 'star' | 'area' | 'repeat' | 'note';
 
 export type Settings = {
@@ -127,6 +133,8 @@ export type Settings = {
   workDays: number[];
   /** Capture chips shown up front, in order; the rest sit under "more". */
   chips: ChipKey[];
+  /** Buttons shown after each step (dragging and deleting are always there). */
+  stepTools?: StepTool[];
   theme: 'system' | 'light' | 'dark';
   lang: 'zh' | 'en';
   s: Stamp;

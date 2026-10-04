@@ -126,9 +126,32 @@ export function isFinished(t: Task, now: Date): boolean {
 
 export const isSnoozed = (t: Task, today: Day) => !!t.snooze && (!t.snooze.until || t.snooze.until > today);
 
-export function remainingEffort(t: Task): number | undefined {
-  if (!t.effort) return undefined;
+/** The task's effort: its own estimate, or else the sum of its steps' estimates. */
+export function taskEffort(t: Task): number | undefined {
+  if (t.effort) return t.effort;
+  const sum = stepsOf(t).reduce((s, x) => s + (x.effort ?? 0), 0);
+  return sum || undefined;
+}
+
+/**
+ * What is left to do. With step estimates and no task estimate, it is the estimate of the steps not yet done;
+ * otherwise the task's estimate minus the minutes logged on reserved times.
+ */
+export function remainingEffort(t: Task, now = new Date()): number | undefined {
+  if (!t.effort) {
+    const steps = stepsOf(t).filter((s) => s.effort);
+    if (!steps.length) return undefined;
+    return steps.filter((s) => !stepDone(t, s, now)).reduce((sum, s) => sum + s.effort!, 0);
+  }
   return Math.max(0, t.effort - live(t.plan).reduce((s, p) => s + (p.doneMin ?? 0), 0));
+}
+
+/** The earliest deadline that still matters: the task's, or an earlier one on a step not yet done. */
+export function effectiveDue(t: Task, now = new Date()): { day: Day; step?: Step } | undefined {
+  let best: { day: Day; step?: Step } | undefined = t.due ? { day: t.due } : undefined;
+  for (const s of stepsOf(t))
+    if (s.due && !stepDone(t, s, now) && (!best || s.due < best.day)) best = { day: s.due, step: s };
+  return best;
 }
 
 // ---------- writing ----------
@@ -218,11 +241,37 @@ export const updateStep = (
   ctx: Ctx,
   id: string,
   stepId: string,
-  patch: Partial<Pick<Step, 'text' | 'repeat' | 'order'>>,
+  patch: Partial<Pick<Step, 'text' | 'repeat' | 'order' | 'due' | 'effort'>>,
 ) =>
   edit(doc, ctx, (e) =>
-    e.child(id, 'steps', (steps) => steps.map((s) => (s.id === stepId ? { ...s, ...patch, s: e.s } : s))),
+    e.child(id, 'steps', (steps) =>
+      steps.map((s) => {
+        if (s.id !== stepId) return s;
+        const next = { ...s, ...patch, s: e.s };
+        for (const k of Object.keys(patch) as (keyof typeof patch)[]) if (patch[k] === undefined) delete next[k];
+        return next;
+      }),
+    ),
   );
+
+/** Put the steps in the given order (after a drag). */
+export const reorderSteps = (doc: Doc, ctx: Ctx, id: string, ids: string[]) =>
+  edit(doc, ctx, (e) =>
+    e.child(id, 'steps', (steps) =>
+      steps.map((s) => {
+        const i = ids.indexOf(s.id);
+        return i < 0 || s.order === i ? s : { ...s, order: i, s: e.s };
+      }),
+    ),
+  );
+
+/** A step that has grown: it becomes its own task, linked to this one, keeping its deadline and estimate. */
+export function promoteStep(doc: Doc, ctx: Ctx, id: string, stepId: string): [Doc, string] {
+  const step = doc.tasks[id]?.steps.find((s) => s.id === stepId && !s.deleted);
+  if (!step) throw new Error('This step no longer exists.');
+  const [withTask, newId] = addTask(doc, ctx, { title: step.text, linkTo: id, due: step.due, effort: step.effort });
+  return [removeStep(withTask, ctx, id, stepId), newId];
+}
 
 export const removeStep = (doc: Doc, ctx: Ctx, id: string, stepId: string) =>
   edit(doc, ctx, (e) =>

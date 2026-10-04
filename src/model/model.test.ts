@@ -234,3 +234,53 @@ describe('sync merge', () => {
     expect(purged.tasks[id]).toBeUndefined();
   });
 });
+
+describe('steps with their own deadline, estimate and repeat', () => {
+  it('the earliest deadline of an unfinished step leads, and NOW names the step', async () => {
+    const { effectiveDue, updateStep } = await import('./doc');
+    let [d, id] = make('Report', { due: '2026-10-02', steps: ['Draw figure', 'Write'] });
+    const [draw] = stepsOf(d.tasks[id]);
+    d = updateStep(d, ctx(), id, draw.id, { due: '2026-09-29' });
+    expect(effectiveDue(d.tasks[id], T0)).toMatchObject({ day: '2026-09-29', step: { text: 'Draw figure' } });
+    expect(nowCandidates(d, T0)[0].reason).toEqual({ kind: 'dueToday', step: 'Draw figure' });
+    d = toggleStep(d, ctx(), id, draw.id, true);
+    expect(effectiveDue(d.tasks[id], T0)).toEqual({ day: '2026-10-02' });
+  });
+  it('step estimates add up, and what is left counts only unfinished steps', async () => {
+    const { taskEffort, remainingEffort, updateStep } = await import('./doc');
+    let [d, id] = make('Report', { steps: ['A', 'B'] });
+    const [a, b] = stepsOf(d.tasks[id]);
+    d = updateStep(d, ctx(), id, a.id, { effort: 60 });
+    d = updateStep(d, ctx(), id, b.id, { effort: 90 });
+    expect(taskEffort(d.tasks[id])).toBe(150);
+    d = toggleStep(d, ctx(), id, a.id, true);
+    expect(remainingEffort(d.tasks[id], T0)).toBe(90);
+    d = updateStep(d, ctx(), id, b.id, { effort: undefined });
+    expect(stepsOf(d.tasks[id])[1].effort).toBeUndefined();
+  });
+  it('a step becomes its own task, linked to the old one, keeping its deadline', async () => {
+    const { promoteStep, updateStep } = await import('./doc');
+    let [d, id] = make('Paper', { steps: ['Redraw figure 3'] });
+    const [step] = stepsOf(d.tasks[id]);
+    d = updateStep(d, ctx(), id, step.id, { due: '2026-09-30' });
+    const [next, newId] = promoteStep(d, ctx(), id, step.id);
+    expect(next.tasks[newId]).toMatchObject({ title: 'Redraw figure 3', linkTo: id, due: '2026-09-30' });
+    expect(stepsOf(next.tasks[id])).toHaveLength(0);
+  });
+  it('steps take a dragged order', async () => {
+    const { reorderSteps } = await import('./doc');
+    let [d, id] = make('t', { steps: ['a', 'b', 'c'] });
+    const ids = stepsOf(d.tasks[id]).map((s) => s.id);
+    d = reorderSteps(d, ctx(), id, [ids[2], ids[0], ids[1]]);
+    expect(stepsOf(d.tasks[id]).map((s) => s.text)).toEqual(['c', 'a', 'b']);
+  });
+  it('a step with its own rule clears itself in a task that does not repeat', async () => {
+    const { updateStep } = await import('./doc');
+    let [d, id] = make('Inbox zero', { steps: ['Check mail'] });
+    const [s] = stepsOf(d.tasks[id]);
+    d = updateStep(d, ctx(), id, s.id, { repeat: { freq: 'daily', every: 1, fromDone: false, start: '2026-09-28' } });
+    d = toggleStep(d, ctx(), id, s.id, true);
+    expect(stepDone(d.tasks[id], stepsOf(d.tasks[id])[0], T0)).toBe(true);
+    expect(stepDone(d.tasks[id], stepsOf(d.tasks[id])[0], at('2026-09-30'))).toBe(false);
+  });
+});

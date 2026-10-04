@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { forwardRef, useState } from 'react';
 import { dayOf } from '../model/dates';
 import { finishedTasks, listTasks, matches, openTasks, type Filter } from '../model/derive';
-import { complete, isSnoozed, liveTasks, planOf, setField, taskRound, uncomplete } from '../model/doc';
+import { complete, isSnoozed, liveTasks, planOf, setField, taskRound, uncomplete, effectiveDue } from '../model/doc';
 import type { Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
@@ -139,6 +139,7 @@ function Row({
   const today = dayOf(now);
   const [completing, setCompleting] = useState(false);
   const round = taskRound(task, now);
+  const due = effectiveDue(task, now);
   const finished = !!task.done || !!round?.done;
   const snoozed = isSnoozed(task, today);
   const next = planOf(task).filter((p) => p.day >= today);
@@ -234,8 +235,11 @@ function Row({
                 {t('下一轮', 'Next round')} {planLabel({ day: dayOf(round.nextAt) }, today, lang)}
               </span>
             )}
-            {task.due && !finished && (
-              <span className={task.due < today ? 'late' : ''}>{dueLabel(task.due, today, lang)}</span>
+            {due && !finished && (
+              <span className={due.day < today ? 'late' : ''} title={due.step?.text}>
+                {due.step ? `${due.step.text} · ` : ''}
+                {dueLabel(due.day, today, lang)}
+              </span>
             )}
           </span>
         )}

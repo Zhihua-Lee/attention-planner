@@ -23,7 +23,7 @@ test('details edit in place: title, steps, arrangement, effort, snooze', async (
   await detail.getByRole('textbox', { name: '添加步骤' }).press('Enter');
   await detail.getByRole('textbox', { name: '添加步骤' }).fill('画图');
   await detail.getByRole('textbox', { name: '添加步骤' }).press('Enter');
-  await detail.getByRole('button', { name: '上移: 画图' }).click();
+  await detail.getByRole('button', { name: /拖动排序.*: 画图/ }).press('ArrowUp');
   await expect(detail.locator('.step-text').first()).toHaveValue('画图');
   await detail.getByRole('button', { name: '+ 添加' }).click();
   await page.getByRole('dialog').getByRole('button', { name: /明天/ }).click();
@@ -33,7 +33,7 @@ test('details edit in place: title, steps, arrangement, effort, snooze', async (
   await page.getByRole('dialog').getByRole('button', { name: '上午' }).click();
   await expect(detail.locator('.pill', { hasText: '明天 晚上' })).toBeVisible();
   await expect(detail.locator('.pill', { hasText: '后天 上午' })).toBeVisible();
-  await detail.getByRole('button', { name: '设置' }).click();
+  await detail.getByRole('button', { name: '未填' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '2 小时' }).click();
   await detail.getByRole('checkbox', { name: '暂缓' }).check();
   await detail.getByRole('textbox', { name: '暂缓原因' }).fill('等数据');

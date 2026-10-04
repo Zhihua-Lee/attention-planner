@@ -10,25 +10,21 @@ import {
   complete,
   isSnoozed,
   live,
-  moveStep,
   planOf,
   remainingEffort,
   removePlan,
-  removeStep,
   removeTask,
   setField,
-  stepDone,
-  stepsOf,
+  taskEffort,
   taskRound,
-  toggleStep,
   uncomplete,
   updatePlan,
-  updateStep,
 } from '../model/doc';
-import type { RepeatRule, Task } from '../model/types';
+import type { Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
 import { EffortPicker, GroupPicker, LinkPicker, PlanPicker, RepeatEditor, WhenPicker } from './pickers';
+import { StepList } from './StepList';
 import { duration, monthDay, planLabel, ruleLabel, useT } from './text';
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
@@ -39,7 +35,7 @@ const commit = (fn: Parameters<typeof store.commit>[0]) => {
   }
 };
 
-type PopKey = 'plan-add' | `plan-${string}` | 'effort' | 'group' | 'link' | `step-${string}`;
+type PopKey = 'plan-add' | `plan-${string}` | 'effort' | 'group' | 'link';
 
 /** Everything about one task, edited where it is shown. */
 export function TaskDetail({ task, now }: { task: Task; now: Date }) {
@@ -54,7 +50,6 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   const set = <K extends Parameters<typeof setField>[3]>(field: K, value: Task[K]) =>
     commit((d, c) => setField(d, c, id, field, value));
   const plan = planOf(task);
-  const steps = stepsOf(task);
   const round = taskRound(task, now);
   const done = plannedDone(task);
   const group = task.projectId
@@ -123,9 +118,13 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
             aria-expanded={pop.is('effort')}
             onClick={(e) => pop.toggle('effort', e.currentTarget)}
           >
-            {task.effort ? duration(task.effort, lang) : t('设置', 'Set')}
+            {task.effort
+              ? duration(task.effort, lang)
+              : taskEffort(task)
+                ? `${duration(taskEffort(task)!, lang)}${t('（步骤合计）', ' (sum of steps)')}`
+                : t('未填', 'Not set')}
           </button>
-          {task.effort && (done.reserved || done.worked) ? (
+          {taskEffort(task) && (done.reserved || done.worked) ? (
             <span className="muted">
               {[
                 done.reserved && `${t('已排', 'reserved')} ${duration(done.reserved, lang)}`,
@@ -139,68 +138,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
 
         <span className="lbl">{t('步骤', 'Steps')}</span>
         <span className="val steps">
-          {steps.map((s, i) => {
-            const checked = stepDone(task, s, now);
-            return (
-              <span key={s.id} className={`step${checked ? ' done' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  aria-label={s.text}
-                  onChange={(e) => commit((d, c) => toggleStep(d, c, id, s.id, e.target.checked))}
-                />
-                <input
-                  className="step-text"
-                  defaultValue={s.text}
-                  key={s.s.rev}
-                  aria-label={t('步骤内容', 'Step text')}
-                  onBlur={(e) =>
-                    e.target.value.trim() &&
-                    e.target.value !== s.text &&
-                    commit((d, c) => updateStep(d, c, id, s.id, { text: e.target.value.trim() }))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur();
-                  }}
-                />
-                <span className="step-tools">
-                  {task.repeat?.mode === 'reopen' && (
-                    <button
-                      className={`mini${s.repeat ? ' on' : ''}`}
-                      aria-label={`${t('重复', 'Repeat')}: ${s.text}`}
-                      aria-expanded={pop.is(`step-${s.id}`)}
-                      onClick={(e) => pop.toggle(`step-${s.id}`, e.currentTarget)}
-                    >
-                      ↻
-                    </button>
-                  )}
-                  <button
-                    className="mini"
-                    disabled={i === 0}
-                    aria-label={`${t('上移', 'Move up')}: ${s.text}`}
-                    onClick={() => commit((d, c) => moveStep(d, c, id, s.id, -1))}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    className="mini"
-                    disabled={i === steps.length - 1}
-                    aria-label={`${t('下移', 'Move down')}: ${s.text}`}
-                    onClick={() => commit((d, c) => moveStep(d, c, id, s.id, 1))}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    className="mini"
-                    aria-label={`${t('删除', 'Delete')}: ${s.text}`}
-                    onClick={() => commit((d, c) => removeStep(d, c, id, s.id))}
-                  >
-                    ×
-                  </button>
-                </span>
-              </span>
-            );
-          })}
+          <StepList task={task} now={now} />
           <input
             className="step-new"
             value={newStep}
@@ -430,39 +368,6 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
                 pop.close();
               }}
             />
-          )}
-          {steps.map(
-            (s) =>
-              pop.is(`step-${s.id}`) && (
-                <div className="menu" key={s.id}>
-                  <div className="menu-title">{s.text}</div>
-                  {(
-                    [
-                      [undefined, t('跟随任务', 'Follow the task')],
-                      ['none', t('不重复', 'Does not repeat')],
-                      [
-                        { freq: 'daily', every: 1, fromDone: false, start: today } as RepeatRule,
-                        t('单独：每天', 'Own: daily'),
-                      ],
-                      [
-                        { freq: 'weekly', every: 1, fromDone: false, start: today } as RepeatRule,
-                        t('单独：每周', 'Own: weekly'),
-                      ],
-                    ] as const
-                  ).map(([v, n]) => (
-                    <button
-                      key={n}
-                      className={`menu-item${JSON.stringify(s.repeat ?? null) === JSON.stringify(v ?? null) || (typeof v === 'object' && typeof s.repeat === 'object' && v.freq === s.repeat.freq) ? ' on' : ''}`}
-                      onClick={() => {
-                        commit((d, c) => updateStep(d, c, id, s.id, { repeat: v }));
-                        pop.close();
-                      }}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              ),
           )}
         </Popover>
       )}

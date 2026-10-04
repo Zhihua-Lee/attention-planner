@@ -1616,3 +1616,86 @@ mark {
 .sheet-scrim {
   z-index: 70;
 }
+
+/* steps: drag handle, checkbox, text with its tags, tools */
+.step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.step-list .step {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  background: var(--surface);
+  border-radius: 6px;
+}
+.handle {
+  width: 22px;
+  height: 28px;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  border-radius: 4px;
+  font-size: 14px;
+  opacity: 0.6;
+}
+.handle:hover,
+.handle:focus-visible {
+  opacity: 1;
+  background: var(--bg);
+}
+.handle:active {
+  cursor: grabbing;
+}
+.step-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+}
+.step-main .step-text {
+  flex: 1 1 8em;
+}
+.step-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.step-tag {
+  font-size: 11.5px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.step-tag.late {
+  color: var(--late);
+}
+.step-repeat {
+  min-width: 260px;
+  border: 0;
+  padding: 4px;
+}
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 14px;
+}
+
+/* Phone: steps get the full width; a step's buttons appear once that step is tapped. */
+@media (max-width: 520px) {
+  .props .val.steps {
+    grid-column: 1 / -1;
+  }
+  .step-list .step-tools {
+    display: none;
+  }
+  .step-list .step:focus-within .step-tools {
+    display: flex;
+  }
+}

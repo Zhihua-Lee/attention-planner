@@ -65,10 +65,18 @@ export function reasonText(r: Reason, lang: Lang): string {
       return zh ? `现在是预留的时段 · 到 ${r.until}` : `Reserved time now · until ${r.until}`;
     case 'part':
       return zh ? `你打算今天${partName(r.part, lang)}做` : `Planned for this ${partName(r.part, lang).toLowerCase()}`;
-    case 'overdue':
-      return zh ? `截止已过 ${r.days} 天` : `${r.days} day${r.days > 1 ? 's' : ''} past due`;
+    case 'overdue': {
+      const what = r.step ? (zh ? `步骤“${r.step}”` : `Step “${r.step}”: `) : '';
+      return zh ? `${what}截止已过 ${r.days} 天` : `${what}${r.days} day${r.days > 1 ? 's' : ''} past due`;
+    }
     case 'dueToday':
-      return zh ? '今天截止' : 'Due today';
+      return r.step
+        ? zh
+          ? `步骤“${r.step}”今天截止`
+          : `Step “${r.step}” is due today`
+        : zh
+          ? '今天截止'
+          : 'Due today';
     case 'today':
       return zh ? '今天想做的' : 'Planned for today';
     case 'star':

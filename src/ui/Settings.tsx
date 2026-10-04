@@ -8,6 +8,7 @@ import type { ChipKey } from '../model/types';
 import { brokerStatus, trimSlash } from '../store/drive';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
+import { DEFAULT_STEP_TOOLS } from './StepList';
 import { useT, weekdayShort } from './text';
 
 const ALL_CHIPS: ChipKey[] = ['due', 'plan', 'effort', 'star', 'area', 'repeat', 'note'];
@@ -182,6 +183,40 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section>
+          <h3>{t('步骤后面的按钮', 'Buttons after each step')}</h3>
+          <p className="hint">
+            {t(
+              '拖动排序和删除一直都在；其余按需打开。已经设了的截止、用时、重复会以小标签显示在步骤后面。',
+              'Dragging and deleting are always there; turn on the rest as you need them. A deadline, estimate or repeat already set shows as a small tag.',
+            )}
+          </p>
+          <div className="checks">
+            {(
+              [
+                ['due', t('截止', 'Deadline')],
+                ['effort', t('用时', 'Effort')],
+                ['repeat', t('重复', 'Repeat')],
+                ['promote', t('独立成任务', 'Make it a task')],
+              ] as const
+            ).map(([k, n]) => {
+              const tools = s.stepTools ?? DEFAULT_STEP_TOOLS;
+              return (
+                <label key={k} className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={tools.includes(k)}
+                    onChange={(e) =>
+                      set({ stepTools: e.target.checked ? [...tools, k] : tools.filter((x) => x !== k) })
+                    }
+                  />
+                  {n}
+                </label>
+              );
+            })}
+          </div>
         </section>
 
         <section>

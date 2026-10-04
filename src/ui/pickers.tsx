@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { addDays, dayOf, isoWeekday, minutesOf, nowMinutes, timeOf } from '../model/dates';
 import { eventsOn } from '../model/derive';
 import { liveTasks, planOf } from '../model/doc';
-import type { Day, Doc, Frequency, Part, PlanEntry, Repeat, RepeatRule, Task } from '../model/types';
+import type { Day, Doc, Frequency, Part, PlanEntry, Repeat, RepeatRule, Task, Step } from '../model/types';
 import { duration, monthDay, relDay, weekdayName, weekdayShort, useT } from './text';
 
 export type When = Pick<PlanEntry, 'part' | 'start' | 'minutes'>;
@@ -366,7 +366,199 @@ export function LinkPicker({
 
 const freqs: Frequency[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
-/** The step-by-step repeat form: mode, frequency, every, from completion, days, when to stop, more. */
+/**
+ * The rule itself: frequency, every, from completion, weekdays or day of month, when to stop, and (under "More")
+ * the start, the opening time and pause. Shared by a task's repeat and a step's own repeat.
+ */
+export function RuleForm({
+  rule,
+  today,
+  set,
+  allowCount,
+  allowHourly,
+  opensAt,
+  paused,
+}: {
+  rule: RepeatRule;
+  today: Day;
+  set: (patch: Partial<RepeatRule>) => void;
+  allowCount: boolean;
+  allowHourly: boolean;
+  opensAt: boolean;
+  paused?: { value: boolean; onChange: (v: boolean) => void };
+}) {
+  const { t, lang } = useT();
+  const ends = rule.until ? 'until' : rule.count && allowCount ? 'count' : 'never';
+  const unit = {
+    hourly: t('小时', 'hours'),
+    daily: t('天', 'days'),
+    weekly: t('周', 'weeks'),
+    monthly: t('个月', 'months'),
+    yearly: t('年', 'years'),
+  }[rule.freq];
+  return (
+    <div className="form">
+      <label>
+        {t('频率', 'Frequency')}
+        <select
+          value={rule.freq}
+          onChange={(e) => {
+            const freq = e.target.value as Frequency;
+            set({
+              freq,
+              ...(freq === 'weekly' && !rule.weekdays?.length ? { weekdays: [isoWeekday(rule.start)] } : {}),
+            });
+          }}
+        >
+          {(rule.fromDone && allowHourly ? (['hourly', ...freqs] as Frequency[]) : freqs).map((f) => (
+            <option key={f} value={f}>
+              {
+                {
+                  hourly: t('按小时', 'Hourly'),
+                  daily: t('按天', 'Daily'),
+                  weekly: t('按周', 'Weekly'),
+                  monthly: t('按月', 'Monthly'),
+                  yearly: t('按年', 'Yearly'),
+                }[f]
+              }
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        {t('每隔', 'Every')}
+        <span className="inline">
+          <input
+            type="number"
+            min={1}
+            max={999}
+            value={rule.every}
+            onChange={(e) => {
+              const n = e.target.valueAsNumber;
+              if (n >= 1 && n <= 999) set({ every: Math.round(n) });
+            }}
+          />
+          {unit}
+        </span>
+      </label>
+      <label className="check-row">
+        <input
+          type="checkbox"
+          checked={rule.fromDone}
+          onChange={(e) =>
+            set({ fromDone: e.target.checked, freq: !e.target.checked && rule.freq === 'hourly' ? 'daily' : rule.freq })
+          }
+        />
+        {t('从完成后计时', 'Count from completion')}
+      </label>
+      {!rule.fromDone && rule.freq === 'weekly' && (
+        <div className="weekdays" role="group" aria-label={t('星期', 'Days')}>
+          {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+            const on = (rule.weekdays ?? [isoWeekday(rule.start)]).includes(d);
+            return (
+              <button
+                key={d}
+                aria-pressed={on}
+                onClick={() => {
+                  const cur = rule.weekdays ?? [isoWeekday(rule.start)];
+                  const next = on ? cur.filter((x) => x !== d) : [...cur, d].sort();
+                  if (next.length) set({ weekdays: next });
+                }}
+              >
+                {weekdayShort(d, lang)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {!rule.fromDone && rule.freq === 'monthly' && (
+        <label>
+          {t('每月哪天', 'Day of month')}
+          <select
+            value={rule.monthDay ?? ''}
+            onChange={(e) => set({ monthDay: e.target.value ? Number(e.target.value) : undefined })}
+          >
+            <option value="">{t('与开始同一天', 'Same as the start')}</option>
+            <option value={-1}>{t('最后一天', 'Last day')}</option>
+            {Array.from({ length: 31 }, (_, i) => (
+              <option key={i} value={i + 1}>
+                {i + 1}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label>
+        {t('何时停止', 'Ends')}
+        <span className="inline">
+          <select
+            value={ends}
+            onChange={(e) => {
+              const m = e.target.value;
+              set(
+                m === 'until'
+                  ? { until: rule.until ?? addDays(today, 30), count: undefined }
+                  : m === 'count'
+                    ? { until: undefined, count: rule.count ?? 10 }
+                    : { until: undefined, count: undefined },
+              );
+            }}
+          >
+            <option value="never">{t('不设结束', 'Never')}</option>
+            <option value="until">{t('到指定日期', 'On a date')}</option>
+            {allowCount && <option value="count">{t('达到指定次数', 'After a number of times')}</option>}
+          </select>
+          {ends === 'until' && (
+            <input
+              type="date"
+              aria-label={t('结束日期', 'End date')}
+              value={rule.until}
+              onChange={(e) => e.target.value && set({ until: e.target.value })}
+            />
+          )}
+          {ends === 'count' && (
+            <input
+              type="number"
+              min={1}
+              max={999}
+              aria-label={t('总次数', 'Total times')}
+              value={rule.count}
+              onChange={(e) => {
+                const n = e.target.valueAsNumber;
+                if (n >= 1) set({ count: Math.round(n) });
+              }}
+            />
+          )}
+        </span>
+      </label>
+      <details className="more">
+        <summary>{t('更多', 'More')}</summary>
+        <label>
+          {t('开始日期', 'Starts')}
+          <input type="date" value={rule.start} onChange={(e) => e.target.value && set({ start: e.target.value })} />
+        </label>
+        {opensAt && (
+          <label>
+            {t('刷新时刻', 'Opens at')}
+            <input
+              type="time"
+              value={rule.time ?? '00:00'}
+              onChange={(e) => e.target.value && set({ time: e.target.value === '00:00' ? undefined : e.target.value })}
+            />
+          </label>
+        )}
+        {paused && (
+          <label className="check-row">
+            <input type="checkbox" checked={paused.value} onChange={(e) => paused.onChange(e.target.checked)} />
+            {t('暂停', 'Paused')}
+          </label>
+        )}
+      </details>
+    </div>
+  );
+}
+
+/** A task's repeat: none, reopen in place, or a new copy; then the rule. */
 export function RepeatEditor({
   task,
   today,
@@ -376,22 +568,10 @@ export function RepeatEditor({
   today: Day;
   onChange: (r: Repeat | undefined) => void;
 }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const r = task.repeat;
-  const rule: RepeatRule | undefined = r?.rule;
-  const set = (patch: Partial<RepeatRule>) => r && onChange({ ...r, rule: { ...r.rule, ...patch } });
   const fresh = (): RepeatRule =>
-    rule ?? { freq: 'daily', every: 1, fromDone: false, start: task.due ?? planOf(task)[0]?.day ?? today };
-  const ends = rule?.until ? 'until' : rule?.count && r?.mode === 'copy' ? 'count' : 'never';
-  const unit =
-    rule &&
-    {
-      hourly: t('小时', 'hours'),
-      daily: t('天', 'days'),
-      weekly: t('周', 'weeks'),
-      monthly: t('个月', 'months'),
-      yearly: t('年', 'years'),
-    }[rule.freq];
+    r?.rule ?? { freq: 'daily', every: 1, fromDone: false, start: task.due ?? planOf(task)[0]?.day ?? today };
   return (
     <div className="repeat-editor">
       <div className="seg" role="radiogroup" aria-label={t('重复', 'Repeat')}>
@@ -431,178 +611,83 @@ export function RepeatEditor({
             ? t('完成后这一个归档，并新建下一次。', 'Completing it files this one and creates the next.')
             : ''}
       </p>
-      {rule && (
-        <div className="form">
-          <label>
-            {t('频率', 'Frequency')}
-            <select
-              value={rule.freq}
-              onChange={(e) => {
-                const freq = e.target.value as Frequency;
-                set({
-                  freq,
-                  ...(freq === 'weekly' && !rule.weekdays?.length ? { weekdays: [isoWeekday(rule.start)] } : {}),
-                });
-              }}
-            >
-              {(rule.fromDone && r!.mode === 'reopen' ? (['hourly', ...freqs] as Frequency[]) : freqs).map((f) => (
-                <option key={f} value={f}>
-                  {
-                    {
-                      hourly: t('按小时', 'Hourly'),
-                      daily: t('按天', 'Daily'),
-                      weekly: t('按周', 'Weekly'),
-                      monthly: t('按月', 'Monthly'),
-                      yearly: t('按年', 'Yearly'),
-                    }[f]
-                  }
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('每隔', 'Every')}
-            <span className="inline">
-              <input
-                type="number"
-                min={1}
-                max={999}
-                value={rule.every}
-                onChange={(e) => {
-                  const n = e.target.valueAsNumber;
-                  if (n >= 1 && n <= 999) set({ every: Math.round(n) });
-                }}
-              />
-              {unit}
-            </span>
-          </label>
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={rule.fromDone}
-              onChange={(e) =>
-                set({
-                  fromDone: e.target.checked,
-                  freq: !e.target.checked && rule.freq === 'hourly' ? 'daily' : rule.freq,
-                })
-              }
-            />
-            {t('从完成后计时', 'Count from completion')}
-          </label>
-          {!rule.fromDone && rule.freq === 'weekly' && (
-            <div className="weekdays" role="group" aria-label={t('星期', 'Days')}>
-              {[1, 2, 3, 4, 5, 6, 7].map((d) => {
-                const on = (rule.weekdays ?? [isoWeekday(rule.start)]).includes(d);
-                return (
-                  <button
-                    key={d}
-                    aria-pressed={on}
-                    onClick={() => {
-                      const cur = rule.weekdays ?? [isoWeekday(rule.start)];
-                      const next = on ? cur.filter((x) => x !== d) : [...cur, d].sort();
-                      if (next.length) set({ weekdays: next });
-                    }}
-                  >
-                    {weekdayShort(d, lang)}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {!rule.fromDone && rule.freq === 'monthly' && (
-            <label>
-              {t('每月哪天', 'Day of month')}
-              <select
-                value={rule.monthDay ?? ''}
-                onChange={(e) => set({ monthDay: e.target.value ? Number(e.target.value) : undefined })}
-              >
-                <option value="">{t('与开始同一天', 'Same as the start')}</option>
-                <option value={-1}>{t('最后一天', 'Last day')}</option>
-                {Array.from({ length: 31 }, (_, i) => (
-                  <option key={i} value={i + 1}>
-                    {i + 1}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label>
-            {t('何时停止', 'Ends')}
-            <span className="inline">
-              <select
-                value={ends}
-                onChange={(e) => {
-                  const m = e.target.value;
-                  set(
-                    m === 'until'
-                      ? { until: rule.until ?? addDays(today, 30), count: undefined }
-                      : m === 'count'
-                        ? { until: undefined, count: rule.count ?? 10 }
-                        : { until: undefined, count: undefined },
-                  );
-                }}
-              >
-                <option value="never">{t('不设结束', 'Never')}</option>
-                <option value="until">{t('到指定日期', 'On a date')}</option>
-                {r!.mode === 'copy' && <option value="count">{t('达到指定次数', 'After a number of times')}</option>}
-              </select>
-              {ends === 'until' && (
-                <input
-                  type="date"
-                  aria-label={t('结束日期', 'End date')}
-                  value={rule.until}
-                  onChange={(e) => e.target.value && set({ until: e.target.value })}
-                />
-              )}
-              {ends === 'count' && (
-                <input
-                  type="number"
-                  min={1}
-                  max={999}
-                  aria-label={t('总次数', 'Total times')}
-                  value={rule.count}
-                  onChange={(e) => {
-                    const n = e.target.valueAsNumber;
-                    if (n >= 1) set({ count: Math.round(n) });
-                  }}
-                />
-              )}
-            </span>
-          </label>
-          <details className="more">
-            <summary>{t('更多', 'More')}</summary>
-            <label>
-              {t('开始日期', 'Starts')}
-              <input
-                type="date"
-                value={rule.start}
-                onChange={(e) => e.target.value && set({ start: e.target.value })}
-              />
-            </label>
-            {r!.mode === 'reopen' && (
-              <>
-                <label>
-                  {t('刷新时刻', 'Opens at')}
-                  <input
-                    type="time"
-                    value={rule.time ?? '00:00'}
-                    onChange={(e) =>
-                      e.target.value && set({ time: e.target.value === '00:00' ? undefined : e.target.value })
-                    }
-                  />
-                </label>
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={!!r!.paused}
-                    onChange={(e) => onChange({ ...r!, paused: e.target.checked || undefined })}
-                  />
-                  {t('暂停', 'Paused')}
-                </label>
-              </>
-            )}
-          </details>
-        </div>
+      {r && (
+        <RuleForm
+          rule={r.rule}
+          today={today}
+          set={(patch) => onChange({ ...r, rule: { ...r.rule, ...patch } })}
+          allowCount={r.mode === 'copy'}
+          allowHourly={r.mode === 'reopen'}
+          opensAt={r.mode === 'reopen'}
+          paused={
+            r.mode === 'reopen'
+              ? { value: !!r.paused, onChange: (v) => onChange({ ...r, paused: v || undefined }) }
+              : undefined
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * A step's repeat. In a task that reopens, a step can follow the task's rounds; any step can repeat on its own rule
+ * (it clears itself when its round comes) or not repeat at all.
+ */
+export function StepRepeatEditor({
+  task,
+  step,
+  today,
+  onChange,
+}: {
+  task: Task;
+  step: Step;
+  today: Day;
+  onChange: (r: Step['repeat']) => void;
+}) {
+  const { t } = useT();
+  const reopen = task.repeat?.mode === 'reopen';
+  const own = typeof step.repeat === 'object' ? step.repeat : undefined;
+  const mode = own ? 'own' : step.repeat === 'none' || !reopen ? 'none' : 'follow';
+  const options = [
+    ...(reopen ? ([['follow', t('跟随任务', 'Follow the task')]] as const) : []),
+    ['none', t('不重复', 'Does not repeat')] as const,
+    ['own', t('单独重复', 'Its own rule')] as const,
+  ];
+  return (
+    <div className="repeat-editor step-repeat">
+      <div className="menu-title">{step.text}</div>
+      <div className="seg" role="radiogroup" aria-label={t('步骤重复', 'Step repeat')}>
+        {options.map(([k, n]) => (
+          <button
+            key={k}
+            role="radio"
+            aria-checked={mode === k}
+            onClick={() =>
+              onChange(
+                k === 'follow'
+                  ? undefined
+                  : k === 'none'
+                    ? reopen
+                      ? 'none'
+                      : undefined
+                    : (own ?? { freq: 'daily', every: 1, fromDone: false, start: today }),
+              )
+            }
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      {own && (
+        <RuleForm
+          rule={own}
+          today={today}
+          set={(patch) => onChange({ ...own, ...patch })}
+          allowCount={false}
+          allowHourly
+          opensAt
+        />
       )}
     </div>
   );
