@@ -355,6 +355,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     return;
                   }
                   localStorage.setItem('ap:broker', base);
+                  localStorage.removeItem('ap:broker-off');
                   store.connect(new DriveRemote(brokerTokens(base)));
                 }}
               >
@@ -365,7 +366,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 <button className="btn" onClick={() => void store.syncNow()}>
                   {t('立即同步', 'Sync now')}
                 </button>
-                <button className="btn" onClick={() => (localStorage.removeItem('ap:broker'), store.connect(null))}>
+                <button
+                  className="btn"
+                  onClick={() => (
+                    localStorage.removeItem('ap:broker'),
+                    localStorage.setItem('ap:broker-off', '1'),
+                    store.connect(null)
+                  )}
+                >
                   {t('断开', 'Disconnect')}
                 </button>
               </>

@@ -1,13 +1,41 @@
 import { useSyncExternalStore } from 'react';
 import { emptyDoc, restore, type Ctx } from '../model/doc';
+import { importLegacy, type ImportReport } from '../model/legacyImport';
 import { mergeDocs } from '../model/merge';
 import type { Doc } from '../model/types';
-import { brokerTokens, DriveRemote } from './drive';
+import { brokerStatus, brokerTokens, DriveRemote } from './drive';
 import { deviceId, load, save } from './storage';
 import { syncOnce, type Remote } from './sync';
 
 export type SyncState = { status: 'off' | 'idle' | 'syncing' | 'error'; lastAt?: string; error?: string };
-export type State = { ready: boolean; doc: Doc; canUndo: boolean; sync: SyncState; saveError?: string };
+export type State = {
+  ready: boolean;
+  doc: Doc;
+  canUndo: boolean;
+  sync: SyncState;
+  saveError?: string;
+  /** Set once when the previous app's data was imported on start. */
+  imported?: ImportReport;
+};
+
+/** Where the previous app kept its data in this browser (same origin once the domain moves here). */
+export const LEGACY_KEY = 'attention-planner-data-v2';
+const local = {
+  get: (k: string) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k: string, v: string) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* storage refused; nothing to remember */
+    }
+  },
+};
 
 const KEY = 'doc';
 const UNDO_LIMIT = 50;
@@ -44,10 +72,41 @@ export class Store {
     const stored = await load<Doc>(KEY);
     const doc = stored?.v === 1 ? stored : this.state.doc;
     this.set({ ready: true, doc });
-    const broker = localStorage.getItem('ap:broker');
+    this.importPreviousApp();
+    const broker = local.get('ap:broker');
     if (broker) this.connect(new DriveRemote(brokerTokens(broker)));
+    else if (!local.get('ap:broker-off')) {
+      // Served next to the sync broker and already signed in: connect without asking.
+      void brokerStatus('/api').then((s) => {
+        if (s !== 'connected' || this.remote) return;
+        local.set('ap:broker', '/api');
+        this.connect(new DriveRemote(brokerTokens('/api')));
+      });
+    }
     window.addEventListener('focus', () => this.scheduleSync(500));
     window.addEventListener('beforeunload', () => void this.flush());
+  }
+
+  /** Import what the previous app left in this browser, once. Records keep their ids, so devices that each import merge cleanly. */
+  private importPreviousApp() {
+    const raw = local.get(LEGACY_KEY);
+    if (!raw || local.get('ap:legacy-imported')) return;
+    try {
+      const data: unknown = JSON.parse(raw);
+      let report: ImportReport | undefined;
+      this.commit((d, c) => {
+        const [next, r] = importLegacy(d, c, data);
+        report = r;
+        return next;
+      });
+      local.set('ap:legacy-imported', new Date().toISOString());
+      if (report?.tasks) this.set({ imported: report });
+    } catch {
+      /* unreadable: leave it for a manual import from Settings */
+    }
+  }
+  clearImported() {
+    this.set({ imported: undefined });
   }
 
   /** Apply a change. `undoable: false` is for changes that should not appear as an undo step. */

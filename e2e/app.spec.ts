@@ -106,3 +106,29 @@ test('no horizontal scroll and nothing overlaps the top bar', async ({ page }) =
   await row(page, '一个名字特别').locator('.title-btn').click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("the previous app's data in this browser is imported once, with undo", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('seeded')) {
+      localStorage.setItem('seeded', '1');
+      localStorage.setItem(
+        'attention-planner-data-v2',
+        JSON.stringify({
+          tasks: [
+            { id: 'old-1', title: '旧应用里的任务', status: 'next' },
+            { id: 'old-2', title: '等回信', status: 'waiting' },
+          ],
+        }),
+      );
+    }
+  });
+  await start(page);
+  await expect(page.locator('.toast')).toContainText('已导入旧应用的 2 个任务');
+  await page.getByRole('tab', { name: '清单' }).click();
+  await expect(row(page, '旧应用里的任务')).toBeVisible();
+  await page.waitForTimeout(400);
+  await page.reload();
+  await page.getByRole('tab', { name: '清单' }).click();
+  await expect(page.locator('.tt', { hasText: '旧应用里的任务' })).toHaveCount(1);
+  await expect(page.locator('.toast')).toHaveCount(0);
+});

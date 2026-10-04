@@ -11,7 +11,7 @@ import { useT } from './text';
 type Tab = 'now' | 'list';
 
 export function App() {
-  const { ready, doc, canUndo, sync, saveError } = useStore();
+  const { ready, doc, canUndo, sync, saveError, imported } = useStore();
   const { t } = useT();
   const now = useNow();
   const [tab, setTab] = useState<Tab>(() => (location.hash === '#list' ? 'list' : 'now'));
@@ -26,6 +26,14 @@ export function App() {
     else document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.lang = doc.settings.lang === 'zh' ? 'zh-CN' : 'en';
   }, [doc.settings.theme, doc.settings.lang]);
+
+  useEffect(() => {
+    if (!imported) return;
+    toast(t(`已导入旧应用的 ${imported.tasks} 个任务`, `Imported ${imported.tasks} tasks from the previous app`), () =>
+      store.undo(),
+    );
+    store.clearImported();
+  }, [imported, t]);
 
   const open = (id: string) => {
     setTab('list');
