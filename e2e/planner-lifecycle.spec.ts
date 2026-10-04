@@ -30,9 +30,9 @@ test('a future available task can be planned today but is not recommended now',a
 });
 test('repeat skip is not completion and stopping repetition keeps the current occurrence',async({page})=>{
     await openApp(page);await createTask(page,'Wash sheets');const detail=await openTask(page,'Wash sheets');
-    await showAllProperties(detail);await detail.locator('[data-property="repeat"]').getByRole('button',{name:'None',exact:true}).click();await detail.locator('[data-repeat-menu="task"]').getByRole('radio',{name:'New copy',exact:true}).click();await detail.locator('[data-repeat-menu="task"]').getByRole('button',{name:'Weekdays',exact:true}).click();
+    await showAllProperties(detail);await detail.locator('[data-property="repeat"]').getByRole('button',{name:'None',exact:true}).click();await detail.locator('[data-repeat-menu="task"]').getByRole('radio',{name:'New copy',exact:true}).click();
     await expect.poll(async()=>(await readTasks(page))[0].recurrence).toBeTruthy();
     await detail.getByRole('button',{name:'Skip this occurrence'}).click();
     await expect.poll(async()=>(await readTasks(page)).filter((t:any)=>t.title==='Wash sheets').length).toBe(2);const tasks=await readTasks(page);const skipped=tasks.find((t:any)=>t.planner?.skippedAt);expect(skipped.status).toBe('archived');expect(skipped.completedAt).toBeUndefined();await detail.getByRole('button',{name:'Back',exact:true}).click();
-    await page.goto(`/?view=plan&task=${tasks.find((t:any)=>!t.planner?.skippedAt).id}`);await detail.locator('[data-property="repeat"]').getByRole('button',{name:/Weekdays/}).click();await detail.locator('[data-repeat-menu="task"]').getByRole('radio',{name:'None',exact:true}).click();await expect.poll(async()=>(await readTasks(page)).find((t:any)=>!t.planner?.skippedAt)?.recurrence).toBeUndefined();
+    await page.goto(`/?view=plan&task=${tasks.find((t:any)=>!t.planner?.skippedAt).id}`);await detail.locator('[data-property="repeat"]').getByRole('button',{name:/Daily/}).click();await detail.locator('[data-repeat-menu="task"]').getByRole('radio',{name:'None',exact:true}).click();await expect.poll(async()=>(await readTasks(page)).find((t:any)=>!t.planner?.skippedAt)?.recurrence).toBeUndefined();
 });

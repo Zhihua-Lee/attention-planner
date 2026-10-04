@@ -63,7 +63,7 @@ export function PlannerTaskCard({ task, blocked }: { task: Task; blocked: boolea
             <button className={`min-h-11 min-w-0 flex-1 break-words py-2 text-left text-[15px] font-semibold leading-6 [overflow-wrap:anywhere] hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${checked ? 'text-muted-foreground line-through' : ''}`} onClick={() => openTaskDetails(task.id)}>{task.title}</button>
         </div>
         <div className="ml-12 flex flex-wrap gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
-            {task.availableAt && <span>{l('Available', '可做起始')} {task.availableAt}</span>}
+            {task.availableAt && <span>{l('Available', '最早')} {task.availableAt}</span>}
             {task.dueDate && <span>{l('Due', '截止')} {task.dueDate}</span>}
             {!!states.length && <span>{recurring ? l('This round', '本轮') : l('Steps', '步骤')} {states.filter(state => state.completed).length}/{states.length}</span>}
             {blocked && task.status !== 'inbox' && <span>{l('Not executable yet; plan kept', '目前不可执行，计划保留')}</span>}

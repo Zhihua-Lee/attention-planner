@@ -83,7 +83,7 @@ export function TaskProperties({ task, reason, closed, blockId, run, busy, onOpe
     return <>
       {value ? date() : <Reveal label={l('+ Set date', '+ 设置日期')} className={small}>{() => date(true)}</Reveal>}
       {value && (() => {
-        const time = (autoFocus = false) => <input type="time" autoFocus={autoFocus} aria-label={key === 'availableAt' ? l('Available time (optional)', '最早可执行时间（可选）') : l('Deadline time (optional)', '截止时刻（可选）')} data-inline-edit="property" className={field}
+        const time = (autoFocus = false) => <input type="time" autoFocus={autoFocus} aria-label={key === 'availableAt' ? l('Available time (optional)', '最早时刻（可选）') : l('Deadline time (optional)', '截止时刻（可选）')} data-inline-edit="property" className={field}
           value={planTimePart(value)} onChange={e => setDate(key, planDatePart(value), e.target.value)} />;
         return planTimePart(value) ? time() : <Reveal label={l('+ time', '+ 时间')} className={small}>{() => time(true)}</Reveal>;
       })()}
@@ -102,14 +102,14 @@ export function TaskProperties({ task, reason, closed, blockId, run, busy, onOpe
       {blockReason && reason !== 'workflow' && reason !== 'lifecycle' && <span className="text-xs text-muted-foreground">{blockReason}</span>}
     </Row> },
     { id: 'dueDate', empty: !task.dueDate, node: <Row id="dueDate" icon={<CalendarCheck className="h-4 w-4" />} label={l('Due', '截止')}>{dateRow('dueDate')}</Row> },
-    { id: 'availableAt', empty: !task.availableAt, node: <Row id="availableAt" icon={<CalendarClock className="h-4 w-4" />} label={l('Available from', '可以开始')}>{dateRow('availableAt')}</Row> },
-    { id: 'days', empty: !days.length, node: <Row id="days" icon={<CalendarDays className="h-4 w-4" />} label={l('Day to do', '哪天想做')}>
+    { id: 'availableAt', empty: !task.availableAt, node: <Row id="availableAt" icon={<CalendarClock className="h-4 w-4" />} label={l('Available from', '最早')}>{dateRow('availableAt')}</Row> },
+    { id: 'days', empty: !days.length, node: <Row id="days" icon={<CalendarDays className="h-4 w-4" />} label={l('Day to do', '哪天做')}>
       {days.map(day => <span key={day} className={`${chip} ${day < today ? 'text-muted-foreground' : ''}`}>{day === today ? l('Today', '今天') : day}
         {!closed && <button type="button" className="rounded p-0.5 hover:bg-background" aria-label={`${l('Remove day commitment', '取消当天意向')}: ${day}`} disabled={busy}
           onClick={() => run(() => editTask(task.id, (latest, clock) => commitToDay(latest, day, false, clock)))}><X className="h-3.5 w-3.5" /></button>}</span>)}
       {!closed && <>
         {!days.includes(today) && <button type="button" className={small} disabled={busy} onClick={() => run(() => editTask(task.id, (latest, clock) => commitToDay(latest, today, true, clock)), l('Day plan updated.', '当天计划已更新。'))}>{l('+ Today', '+ 今天')}</button>}
-        <Reveal label={l('+ Other day', '+ 其他日期')} className={small}>{close => <input type="date" autoFocus aria-label={l('Choose a day', '哪天想做')} data-inline-edit="property" className={field} value=""
+        <Reveal label={l('+ Other day', '+ 其他日期')} className={small}>{close => <input type="date" autoFocus aria-label={l('Choose a day', '哪天做')} data-inline-edit="property" className={field} value=""
           ref={node => { try { node?.showPicker?.(); } catch { /* picker needs a user gesture; the field stays focused */ } }}
           onChange={e => { const day = e.target.value; if (day) { close(); void run(() => editTask(task.id, (latest, clock) => commitToDay(latest, day, true, clock)), l('Day plan updated.', '当天计划已更新。')); } }} />}</Reveal>
       </>}
@@ -126,7 +126,7 @@ export function TaskProperties({ task, reason, closed, blockId, run, busy, onOpe
           <p className="text-xs text-muted-foreground">{l('Confirmed progress', '已确认进度')} {b.completedMinutes}/{b.allocatedMinutes} min{b.reason ? ` · ${b.reason}` : ''}{b.origin === 'rollover' ? ` · ${l('Automatically moved; your deadline is unchanged.', '已自动顺延，原截止日期没有改变。')}` : ''}</p>
           {!!b.history.length && <details><summary className="min-h-9 cursor-pointer text-xs">{l('Previous reservations', '原安排记录')}</summary>{b.history.map((h, i) => <p key={i} className="text-xs text-muted-foreground">{new Date(h.startAt).toLocaleString()} · {h.durationMinutes} min · {h.reason}</p>)}</details>}
         </WorkBlockRow>)}
-        {reservation && <div className="space-y-2 rounded-md border border-primary/40 bg-muted/30 p-3" aria-label={l('Reserve a work block', '预留一个时段')} role="group">
+        {reservation && <div className="space-y-2 rounded-md border border-primary/40 bg-muted/30 p-3" aria-label={l('Reserve a work block', '预留时段')} role="group">
           <div className="flex flex-wrap gap-2">
             <label className="text-xs text-muted-foreground">{l('Start time', '开始时间')}<input type="datetime-local" data-inline-edit="property" className={`${field} ml-1 border-border`} value={reservation.start} onChange={e => setReservation({ ...reservation, start: e.target.value })} /></label>
             <label className="text-xs text-muted-foreground">{l('Minutes for this block', '本次安排几分钟')}<input type="number" data-inline-edit="property" className={`${field} ml-1 w-20 border-border`} min={1} max={1440} value={reservation.duration} onChange={e => setReservation({ ...reservation, duration: e.target.valueAsNumber })} /></label>
@@ -136,13 +136,13 @@ export function TaskProperties({ task, reason, closed, blockId, run, busy, onOpe
           <div className="flex flex-wrap gap-2"><button className="min-h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-40" disabled={busy || !loaded || !!calendarError} onClick={reserve}>{task.status === 'next' ? l('Save reservation', '保存时段') : l('Activate and reserve', '启用并预留')}</button>
             <button className={small} onClick={() => setReservation(null)}>{l('Cancel reservation edit', '取消时段编辑')}</button></div>
         </div>}
-        {!closed && !reservation && <button type="button" className={small} onClick={() => beginReservation()}>{l('Reserve a work block', '预留一个时段')}</button>}
+        {!closed && !reservation && <button type="button" className={small} onClick={() => beginReservation()}>{l('Reserve a work block', '预留时段')}</button>}
         {!!pastBlocks.length && <details><summary className="min-h-9 cursor-pointer text-xs text-muted-foreground">{l('Past blocks', '过去的时段')} · {pastBlocks.length}</summary>
           {pastBlocks.map(b => <p key={b.id} id={`work-${b.id}`} data-block-id={b.id} className="text-xs text-muted-foreground">{blockLabel(b)} · {b.completedMinutes}/{b.allocatedMinutes} min</p>)}</details>}
       </div>
     </Row> },
-    { id: 'estimate', empty: !task.timeEstimate && estimate === null, node: <Row id="estimate" icon={<Timer className="h-4 w-4" />} label={l('Estimate', '预计')}>
-      <input type="number" min={1} aria-label={l('Total estimated minutes (not this reservation)', '总预计分钟数（不是本次时长）')} data-inline-edit="property" className={`${field} w-24`} placeholder={l('minutes', '分钟')}
+    { id: 'estimate', empty: !task.timeEstimate && estimate === null, node: <Row id="estimate" icon={<Timer className="h-4 w-4" />} label={l('Estimate', '预计用时')}>
+      <input type="number" min={1} aria-label={l('Total estimated minutes (not this reservation)', '预计用时（总分钟数，不是单次时长）')} data-inline-edit="property" className={`${field} w-24`} placeholder={l('minutes', '分钟')}
         value={estimate ?? estimateMinutes(task.timeEstimate) ?? ''} onChange={e => setEstimate(e.target.value)}
         onBlur={() => { if (estimate === null) return; const minutes = Number(estimate); setEstimate(null); void edit(() => ({ timeEstimate: estimate && minutes > 0 ? `custom:${minutes}` : undefined } as Partial<Task>)); }}
         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} />

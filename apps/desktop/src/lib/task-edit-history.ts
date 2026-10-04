@@ -47,8 +47,8 @@ export function undoPatch(latest: Task, edit: TaskEdit): { patch: Partial<Task>;
 export function editLabel(parts: readonly EditKey[], zh: boolean): string {
     const names: Record<EditKey, [string, string]> = {
         title: ['title', '标题'], description: ['note', '正文'], checklist: ['checklist', '清单'], dueDate: ['due date', '截止'],
-        availableAt: ['start date', '可以开始'], timeEstimate: ['estimate', '预计'], projectId: ['belonging', '归属'], areaId: ['belonging', '归属'],
-        recurrence: ['repeat', '重复'], status: ['status', '状态'], days: ['day to do', '哪天想做'], blocks: ['time blocks', '时段'], checklistRefresh: ['checklist', '清单'],
+        availableAt: ['start date', '最早'], timeEstimate: ['estimate', '预计用时'], projectId: ['belonging', '归属'], areaId: ['belonging', '归属'],
+        recurrence: ['repeat', '重复'], status: ['status', '状态'], days: ['day to do', '哪天做'], blocks: ['time blocks', '时段'], checklistRefresh: ['checklist', '清单'],
     };
     return [...new Set(parts.map(part => names[part][zh ? 1 : 0]))].join(zh ? '、' : ', ');
 }

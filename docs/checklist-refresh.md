@@ -6,13 +6,13 @@ A task's **Repeat / 重复** property has one menu with three modes:
 - **Reopen / 原地重开.** The same task and checklist start a new round; each round keeps its own checkmarks and history. Stored as `Task.planner.checklistRefresh` (below).
 - **New copy / 新建一份.** Completing the task creates the next one. Stored as the existing `Task.recurrence`.
 
-Both modes share one rule editor: presets (Daily, Weekdays, Weekly on today's weekday, Monthly on today's date, 1 day after done) or **Custom / 自定义** with timing (calendar or after done), interval and unit, weekdays or month dates, start, end and time zone. New rules default to daily at 00:00 from today in the device zone. Hourly intervals exist only for "Reopen" after done. Explanations live in (i) tips, not in the labels. The capture sheet offers the same menu.
+Both modes share one form, each setting once: **Frequency / 频率** (daily, weekly, monthly, yearly; hourly only for Reopen counted from completion), **Every / 每隔**, **Count from completion / 从完成后计时**, weekdays or day of month for calendar rules, and **Ends / 何时停止** (never, on a date, or — New copy only — after a number of times). Reopen keeps start date, refresh time, time zone and pause under **More / 更多**. A new rule repeats daily from today at 00:00 in the device zone. Explanations live in (i) tips, not in the labels. The capture sheet offers the same menu.
 
 Each checklist step has a ↻ button: **Follow task / 跟随任务** (default), **Own rule / 单独**, or **None / 不重复**. A step with its own rule shows a chip and its own round line. Rules never cross tasks: a task link (`parentTaskId`) is only a visual pointer and passes nothing on.
 
 Switching away from "Reopen" freezes the current round's checkmarks as ordinary checklist values. While the menu stays open, cadence edits share one schedule version, and returning to the cadence it opened with keeps the current round's marks.
 
-For a 1560 teaching checklist: Reopen, Custom, weekly on Tuesday and Thursday, start date, 06:00, `America/Chicago`, ends 2026-12-10.
+For a 1560 teaching checklist: Reopen, weekly on Tuesday and Thursday, ends on 2026-12-10; under More, a start date, 06:00 and `America/Chicago`.
 
 ## End dates
 
@@ -32,9 +32,9 @@ Content editing captures the displayed period along with its draft. Unchanged ol
 
 The existing planner clock refreshes while the app is open and on focus/visibility resume. No background process or push notification is required; reopening after offline time computes the current period directly. Refresh and reminders are not the same operation. Fixed IANA timezones are independent of the device timezone; a repeated DST time opens one period, and a nonexistent local time uses the first existing minute after the gap. Nonexistent monthly dates are skipped.
 
-## After done / 完成后
+## Count from completion / 从完成后计时
 
-In **Custom**, set **Timing / 计时** to **After done / 完成后**, then an amount in hours, days, weeks or months. The first round starts at the chosen start date and time. A round counts as complete once every item that follows this rule is checked. The next round starts that long after the last of those checks. Until then, the completed round stays visible, labelled with its next refresh time.
+Check **Count from completion / 从完成后计时**, then set an amount in hours, days, weeks or months. The first round starts at the chosen start date and time. A round counts as complete once every item that follows this rule is checked. The next round starts that long after the last of those checks. Until then, the completed round stays visible, labelled with its next refresh time.
 
 - **No missed rounds.** A list left unfinished keeps its current round indefinitely; it never piles up missed rounds.
 - **Daylight saving.** Days and longer are counted on the rule timezone's wall clock, so 10:15 plus one day stays 10:15 across a DST change. A month is clamped to the end of a shorter month: Jan 31 plus one month is Feb 28/29. Hours are exact elapsed time.

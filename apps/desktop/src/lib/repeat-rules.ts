@@ -16,40 +16,20 @@ export type RepeatRule = {
     time: string;
     timeZone: string;
     end?: string;
+    count?: number; // a new copy only: total occurrences in the series
 };
 export type TaskRepeat = { kind: 'none' } | { kind: 'reopen'; rule: RepeatRule; paused: boolean } | { kind: 'copy'; rule: RepeatRule };
 export type StepRepeat = { kind: 'follow' } | { kind: 'none' } | { kind: 'own'; rule: RepeatRule };
 
 const CODES: RecurrenceByDay[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 export const deviceTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-const isoWeekday = (day: string) => new Date(`${day}T00:00:00Z`).getUTCDay() || 7;
+export const isoWeekday = (day: string) => new Date(`${day}T00:00:00Z`).getUTCDay() || 7;
 
 export function defaultRule(now = new Date(), zone = deviceTimeZone()): RepeatRule {
     return { frequency: 'daily', interval: 1, anchor: 'calendar', startDate: checklistLocalDay(now, zone), time: '00:00', timeZone: zone };
 }
 
-export type PresetId = 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'after-1-day';
-/** Common rules, anchored on today; anything else is a custom rule. */
-export function presetRule(id: PresetId, base: RepeatRule): RepeatRule {
-    const { startDate, time, timeZone, end } = base, today = Number(startDate.slice(8, 10));
-    const keep = { startDate, time, timeZone, end, interval: 1 };
-    switch (id) {
-        case 'daily': return { ...keep, frequency: 'daily', anchor: 'calendar' };
-        case 'weekdays': return { ...keep, frequency: 'weekly', anchor: 'calendar', weekdays: [1, 2, 3, 4, 5] };
-        case 'weekly': return { ...keep, frequency: 'weekly', anchor: 'calendar', weekdays: [isoWeekday(startDate)] };
-        case 'monthly': return { ...keep, frequency: 'monthly', anchor: 'calendar', monthDays: [today] };
-        case 'after-1-day': return { ...keep, frequency: 'daily', anchor: 'completion' };
-    }
-}
 const sameDays = (a: number[] | undefined, b: number[] | undefined) => JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort());
-export function matchingPreset(rule: RepeatRule): PresetId | undefined {
-    return (['daily', 'weekdays', 'weekly', 'monthly', 'after-1-day'] as const).find(id => {
-        const preset = presetRule(id, rule);
-        return preset.frequency === rule.frequency && preset.anchor === rule.anchor && rule.interval === 1
-            && sameDays(preset.weekdays, rule.weekdays) && sameDays(preset.monthDays, rule.monthDays);
-    });
-}
-
 const UNIT = { zh: { hourly: '小时', daily: '天', weekly: '周', monthly: '个月', yearly: '年' }, en: { hourly: 'hour', daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' } };
 const DAY = { zh: ['一', '二', '三', '四', '五', '六', '日'], en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] };
 /** Short label, e.g. "每周二、四" / "Every Tue, Thu", "完成后 3 天". */
@@ -70,6 +50,7 @@ export function ruleLabel(rule: RepeatRule, zh: boolean, withTime = false): stri
     else text = n === 1 ? (zh ? '每天' : 'Daily') : zh ? `每 ${n} 天` : `Every ${n} days`;
     if (withTime && rule.anchor === 'calendar' && rule.time !== '00:00') text += ` ${rule.time}`;
     if (rule.end) text += zh ? ` · 至 ${rule.end}` : ` · until ${rule.end}`;
+    else if (rule.count) text += zh ? ` · 共 ${rule.count} 次` : ` · ${rule.count} times`;
     return text;
 }
 
@@ -97,7 +78,8 @@ export function ruleFromRecurrence(recurrence: NonNullable<Task['recurrence']>, 
     const base = defaultRule(now);
     return { ...base, frequency: value.rule, interval: parsed?.interval ?? 1, anchor: value.strategy === 'fluid' ? 'completion' : 'calendar',
         weekdays: byDay.length ? byDay.map(day => CODES.indexOf(day) + 1) : undefined, monthDays: parsed?.byMonthDay ?? value.byMonthDay,
-        startDate: (task.dueDate || task.availableAt || base.startDate).slice(0, 10), end: value.until?.slice(0, 10) };
+        startDate: (task.dueDate || task.availableAt || base.startDate).slice(0, 10), end: (parsed?.until ?? value.until)?.slice(0, 10),
+        ...((parsed?.count ?? value.count) ? { count: parsed?.count ?? value.count } : {}) };
 }
 export function recurrenceFromRule(rule: RepeatRule, previous?: Task['recurrence']): Recurrence {
     const frequency = rule.frequency === 'hourly' ? 'daily' : rule.frequency;
@@ -106,7 +88,8 @@ export function recurrenceFromRule(rule: RepeatRule, previous?: Task['recurrence
     const old = previous && typeof previous === 'object' ? previous : undefined;
     return { ...(old?.seriesId ? { seriesId: old.seriesId } : {}), rule: frequency, strategy: rule.anchor === 'completion' ? 'fluid' : 'strict',
         ...(byDay?.length ? { byDay } : {}), ...(byMonthDay?.length ? { byMonthDay } : {}),
-        rrule: buildRRuleString(frequency, byDay, rule.interval, { byMonthDay }), ...(rule.end ? { until: rule.end } : {}) };
+        rrule: buildRRuleString(frequency, byDay, rule.interval, { byMonthDay, until: rule.end, count: rule.end ? undefined : rule.count }),
+        ...(rule.end ? { until: rule.end } : rule.count ? { count: rule.count } : {}) };
 }
 
 // ——— reading what a task / step currently does ———

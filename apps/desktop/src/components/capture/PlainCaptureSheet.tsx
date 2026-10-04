@@ -105,7 +105,7 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
         title: text('Write a task name first.', '先写下要做的事情。'),
         schedule: text('Choose a valid date and time.', '请选择有效的日期和时间。'),
         due: text('Choose a valid deadline date.', '请选择有效的截止日期。'),
-        availability: text('This time is before the task becomes available.', '安排时间早于任务最早可执行时间。'),
+        availability: text('This time is before the task becomes available.', '预留时段早于“最早”日期。'),
         duration: text('Use a duration from 1 to 1440 minutes.','时长需为1至1440分钟。'),
         interval: text('Use a whole number from 1 to 999.', '重复间隔请输入1至999的整数。'),
     })[code];
@@ -221,12 +221,12 @@ export function PlainCaptureSheet({ isOpen, onClose, onAdvanced, initialRequest 
                         <details open={Boolean(draft.scheduledAt||draft.plannedDay)} className="rounded-lg border border-border p-3">
                             <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium"><CalendarDays className="h-4 w-4" />{text('When?', '时间安排（可选）')}<ChevronDown className="ml-auto h-4 w-4" /></summary>
                             <div className="mt-3 space-y-3">
-                                <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded border border-border px-3 text-sm" onClick={()=>set('plannedDay',localPlanDate(new Date()))}>{text('Choose today (no time reserved)','今天想做（不预留时段）')}</button><input aria-label={text('Choose a day','哪天想做')} type="date" value={draft.plannedDay??''} onChange={e=>set('plannedDay',e.target.value)} className={inputClass}/></div>
-                                <div className="text-sm">{/* The tip stays outside the label so the label still names and focuses the input. */}<label htmlFor={`${id}-reserve`}>{text('Reserve a time', '准备什么时候做')}</label> <InfoTip label={text('About reserving', '关于预留时段')}>{text('A reserved time appears on the calendar and makes the task Ready; it is not a deadline. Choosing only a day keeps it where you chose.', '预留时段会出现在日历并加入待办，不是截止时间；只选“哪天想做”不会改变保存去向。')}</InfoTip>
+                                <div className="flex flex-wrap gap-2"><button type="button" className="min-h-11 rounded border border-border px-3 text-sm" onClick={()=>set('plannedDay',localPlanDate(new Date()))}>{text('Choose today (no time reserved)','今天做（不预留时段）')}</button><input aria-label={text('Choose a day','哪天做')} type="date" value={draft.plannedDay??''} onChange={e=>set('plannedDay',e.target.value)} className={inputClass}/></div>
+                                <div className="text-sm">{/* The tip stays outside the label so the label still names and focuses the input. */}<label htmlFor={`${id}-reserve`}>{text('Reserve a time', '预留时段')}</label> <InfoTip label={text('About reserving', '关于预留时段')}>{text('A reserved time appears on the calendar and makes the task Ready; it is not a deadline. Choosing only a day keeps it where you chose.', '预留时段会出现在日历并加入待办，不是截止时间；只选“哪天做”不会改变保存去向。')}</InfoTip>
                                     <input id={`${id}-reserve`} type="datetime-local" value={draft.scheduledAt} onChange={event => set('scheduledAt', event.target.value)} className={inputClass} />
                                 </div>
                                 {draft.scheduledAt&&<label className="block text-sm">{text('Minutes for this block','本次安排几分钟')}<input type="number" min={1} max={1440} value={draft.durationMinutes??30} onChange={e=>set('durationMinutes',e.target.valueAsNumber)} className={inputClass}/></label>}
-                                <label className="block text-sm">{text('Available from (optional)','最早可执行日期（可选）')}<input type="date" value={draft.availableAt??''} onChange={e=>set('availableAt',e.target.value)} className={inputClass}/></label>                                <label className="block text-sm">{text('Must finish by', '最晚哪天必须完成')}
+                                <label className="block text-sm">{text('Available from (optional)','最早（可选）')}<input type="date" value={draft.availableAt??''} onChange={e=>set('availableAt',e.target.value)} className={inputClass}/></label>                                <label className="block text-sm">{text('Must finish by', '最晚哪天必须完成')}
                                     <input type="date" value={draft.dueDate} onChange={event => set('dueDate', event.target.value)} className={inputClass} />
                                 </label>
                                 <button type="button" className="min-h-11 px-2 text-sm text-primary" onClick={() => { set('scheduledAt', ''); set('dueDate', ''); set('plannedDay',''); set('availableAt',''); }}>{text('Clear dates', '清除时间')}</button>

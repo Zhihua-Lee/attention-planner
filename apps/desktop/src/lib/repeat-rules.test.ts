@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '@mindwtr/core';
-import { defaultRule, matchingPreset, presetRule, recurrenceFromRule, ruleFromRecurrence, ruleFromSchedule, ruleLabel, sameCadence, scheduleFromRule, stepRepeat, taskRepeat } from './repeat-rules';
+import { defaultRule, recurrenceFromRule, ruleFromRecurrence, ruleFromSchedule, ruleLabel, sameCadence, scheduleFromRule, stepRepeat, taskRepeat } from './repeat-rules';
 
 const today = new Date('2026-10-02T15:00:00Z'); // Friday
 const base = { ...defaultRule(today, 'America/Chicago') };
@@ -10,14 +10,9 @@ describe('repeat rules', () => {
     it('defaults to daily at midnight in the device zone', () => {
         expect(base).toMatchObject({ frequency: 'daily', interval: 1, anchor: 'calendar', startDate: '2026-10-02', time: '00:00', timeZone: 'America/Chicago' });
     });
-    it('builds presets from today and recognizes them again', () => {
-        expect(presetRule('weekly', base).weekdays).toEqual([5]);
-        expect(presetRule('monthly', base).monthDays).toEqual([2]);
-        for (const id of ['daily', 'weekdays', 'weekly', 'monthly', 'after-1-day'] as const) expect(matchingPreset(presetRule(id, base))).toBe(id);
-        expect(matchingPreset({ ...base, interval: 2 })).toBeUndefined();
-    });
     it('labels rules tersely', () => {
-        expect(ruleLabel(presetRule('weekdays', base), true)).toBe('工作日');
+        expect(ruleLabel({ ...base, frequency: 'weekly', weekdays: [1, 2, 3, 4, 5] }, true)).toBe('工作日');
+        expect(ruleLabel({ ...base, count: 5 }, true)).toBe('每天 · 共 5 次');
         expect(ruleLabel({ ...base, frequency: 'weekly', weekdays: [2, 4] }, true)).toBe('每周二、四');
         expect(ruleLabel({ ...base, frequency: 'monthly', monthDays: [-1] }, true)).toBe('每月 最后一天');
         expect(ruleLabel({ ...base, anchor: 'completion', frequency: 'hourly', interval: 3 }, true)).toBe('完成后 3 小时');
@@ -38,6 +33,9 @@ describe('repeat rules', () => {
         expect(recurrence).toMatchObject({ rule: 'weekly', strategy: 'strict', byDay: ['MO', 'WE'], until: '2026-12-31' });
         expect(ruleFromRecurrence(recurrence, task(), today)).toMatchObject({ frequency: 'weekly', weekdays: [1, 3], anchor: 'calendar', end: '2026-12-31' });
         expect(recurrenceFromRule({ ...base, anchor: 'completion', interval: 3 }).strategy).toBe('fluid');
+        const counted = recurrenceFromRule({ ...base, count: 5 });
+        expect(counted).toMatchObject({ count: 5 });
+        expect(ruleFromRecurrence(counted, task(), today).count).toBe(5);
     });
     it('reads what a task and its steps currently do', () => {
         expect(taskRepeat(task(), today).kind).toBe('none');
