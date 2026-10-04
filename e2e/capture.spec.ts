@@ -49,6 +49,7 @@ test('reserving a time uses a half-hour grid and a duration', async ({ page }) =
   await page.getByRole('tab', { name: 'NOW' }).click();
   await expect(page.locator('.blk.slot', { hasText: '准备讲义' })).toContainText('15:00–16:30');
   await page.locator('.blk.slot', { hasText: '准备讲义' }).click();
+  await page.getByRole('dialog', { name: '详情' }).getByRole('button', { name: '打开任务' }).click();
   const detail = page.getByTestId('task-detail');
   await detail.locator('.pill', { hasText: '15:00–16:30' }).click();
   await page.getByRole('spinbutton', { name: '这次已做（分钟）' }).fill('40');

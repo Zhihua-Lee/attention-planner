@@ -1,19 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { addDays, dayOf, minutesOf, nowMinutes, timeOf, weekStart } from '../model/dates';
-import {
-  agenda,
-  capacity,
-  currentEvent,
-  freeUntilNext,
-  nowCandidates,
-  stepProgress,
-  type AgendaItem,
-} from '../model/derive';
+import { agenda, capacity, currentEvent, eventsOn, freeUntilNext, nowCandidates, stepProgress } from '../model/derive';
+import { layoutBlocks, type Block } from '../model/layout';
 import { complete, remainingEffort } from '../model/doc';
-import type { Day } from '../model/types';
+import type { CalendarEvent, Day } from '../model/types';
 import { store, useStore } from '../store/store';
-import { toast } from './common';
+import { Popover, toast, usePopover } from './common';
+import { EventPeek, SlotPeek, TaskPeek } from './Peek';
+import { ReserveSheet } from './Reserve';
 import { dueLabel, duration, monthDay, partName, reasonText, relDay, ruleLabel, useT, weekdayName } from './text';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -243,23 +238,43 @@ function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
   );
 }
 
+const HOUR = 32; // px per hour in the day view
+const MIN = HOUR / 60;
+const GUTTER = 50; // room for the hour labels
+
+/**
+ * One day: what has no set time on top (all-day events, deadlines, plans for the day), then all 24 hours in a
+ * scrolling column that opens at the current time. Overlapping items share the width side by side. Tap an item for
+ * details; tap an empty time to reserve it.
+ */
 function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) => void }) {
   const { doc } = useStore();
   const { t, lang } = useT();
+  const peek = usePopover<string>();
+  const [reserve, setReserve] = useState<number | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
   const items = agenda(doc, day, now);
   const isToday = day === dayOf(now);
   const n = nowMinutes(now);
-  const timed = items.filter(
-    (x): x is Extract<AgendaItem, { kind: 'event' | 'slot' }> => x.kind === 'event' || x.kind === 'slot',
+  const allDay = eventsOn(doc, day, true).filter((e) => e.allDay);
+  const placed = layoutBlocks(
+    items.flatMap((x): Block[] =>
+      x.kind === 'event'
+        ? [
+            {
+              key: x.event.id,
+              kind: 'event',
+              title: x.event.title,
+              s: minutesOf(x.event.start),
+              e: Math.max(minutesOf(x.event.end), minutesOf(x.event.start) + 15),
+              sub: x.event.location,
+            },
+          ]
+        : x.kind === 'slot'
+          ? [{ key: x.entryId, kind: 'slot', title: x.task.title, s: x.start, e: x.end, taskId: x.task.id }]
+          : [],
+    ),
   );
-  const spans = timed.map((x) =>
-    x.kind === 'event' ? [minutesOf(x.event.start), minutesOf(x.event.end)] : [x.start, x.end],
-  );
-  // The working day, stretched to include now and anything scheduled outside it.
-  const lo = Math.max(0, Math.floor(Math.min(9 * 60, isToday ? n : 9 * 60, ...spans.map((s) => s[0])) / 60) * 60);
-  const hi = Math.min(24 * 60, Math.ceil(Math.max(18 * 60, isToday ? n + 30 : 0, ...spans.map((s) => s[1])) / 60) * 60);
-  const PX = 22 / 60;
-  const y = (m: number) => (m - lo) * PX;
   const loose = items.filter((x) => x.kind === 'loose' || x.kind === 'due');
   const order = { am: 1, pm: 2, eve: 3 } as const;
   loose.sort(
@@ -267,57 +282,115 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
       (a.kind === 'due' ? 0 : a.kind === 'loose' && a.part ? order[a.part] : 4) -
       (b.kind === 'due' ? 0 : b.kind === 'loose' && b.part ? order[b.part] : 4),
   );
+
+  // Open at the current time (today) or a little before the first thing scheduled.
+  const first = Math.min(8 * 60, ...placed.map((b) => b.s));
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = Math.max(0, ((isToday ? n : first) - 45) * MIN);
+  }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const events = new Map(eventsOn(doc, day, true).map((e) => [e.id, e]));
+  const togglePeek = (key: string) => (ev: React.MouseEvent<HTMLElement>) => peek.toggle(key, ev.currentTarget);
   return (
     <>
-      {loose.length > 0 && (
+      {(allDay.length > 0 || loose.length > 0) && (
         <div className="loose">
+          {allDay.map((e) => (
+            <button key={e.id} className="pill allday" aria-expanded={peek.is(e.id)} onClick={togglePeek(e.id)}>
+              <span className="part">{t('全天', 'All day')}</span>
+              {e.title}
+            </button>
+          ))}
           {loose.map((x) =>
-            x.kind === 'due' ? (
-              <button key={`d${x.task.id}`} className="pill" onClick={() => open(x.task.id)}>
-                <span className="part late">{t('截止', 'Due')}</span>
-                {x.task.title}
-              </button>
-            ) : x.kind === 'loose' ? (
-              <button key={x.entryId} className="pill" onClick={() => open(x.task.id)}>
-                {x.part && <span className="part">{partName(x.part, lang)}</span>}
+            x.kind === 'due' || x.kind === 'loose' ? (
+              <button
+                key={x.kind === 'due' ? `d${x.task.id}` : x.entryId}
+                className="pill"
+                aria-expanded={peek.is(`t:${x.task.id}`)}
+                onClick={togglePeek(`t:${x.task.id}`)}
+              >
+                {x.kind === 'due' ? (
+                  <span className="part late">{t('截止', 'Due')}</span>
+                ) : (
+                  x.part && <span className="part">{partName(x.part, lang)}</span>
+                )}
                 {x.task.title}
               </button>
             ) : null,
           )}
         </div>
       )}
-      <div className="timeline" style={{ height: (hi - lo) * PX }}>
-        {Array.from({ length: (hi - lo) / 60 }, (_, k) => lo + k * 60).map((m) => (
-          <div key={m} className="hour" style={{ top: y(m) }}>
-            {timeOf(m)}
-          </div>
-        ))}
-        {timed.map((x) => {
-          const [s, e] = x.kind === 'event' ? [minutesOf(x.event.start), minutesOf(x.event.end)] : [x.start, x.end];
-          const style = { top: y(s) + 1, height: Math.max(16, y(e) - y(s) - 2) };
-          return x.kind === 'event' ? (
-            <div key={x.event.id} className="blk event" style={style}>
-              <span>{x.event.title}</span>
-              <span className="t">
-                {x.event.start}–{x.event.end}
-              </span>
+      <div className="day-scroll" ref={scroller}>
+        <div className="timeline" style={{ height: 24 * HOUR }}>
+          {Array.from({ length: 24 }, (_, h) => (
+            <div key={h} className="hour" style={{ top: h * HOUR }}>
+              {h ? timeOf(h * 60) : ''}
             </div>
-          ) : (
-            <button key={x.entryId} className="blk slot" style={style} onClick={() => open(x.task.id)}>
-              <span>{x.task.title}</span>
-              <span className="t">
-                {timeOf(s)}–{timeOf(e)}
-              </span>
-            </button>
-          );
-        })}
-        {isToday && n >= lo && n <= hi && (
-          <div className="nowline" style={{ top: y(n) }} aria-label={`${t('现在', 'Now')} ${timeOf(n)}`} />
-        )}
+          ))}
+          <div
+            className="lane-area"
+            style={{ left: GUTTER }}
+            title={t('点空白处预留时段', 'Tap an empty time to reserve it')}
+            onClick={(e) => {
+              if (e.target !== e.currentTarget) return;
+              setReserve(Math.min(23 * 60 + 30, Math.floor(e.nativeEvent.offsetY / MIN / 30) * 30));
+            }}
+          >
+            {placed.map((b) => (
+              <button
+                key={b.key}
+                className={`blk ${b.kind}${(b.e - b.s) * MIN < 30 ? ' short' : ''}`}
+                style={{
+                  top: b.s * MIN + 1,
+                  height: Math.max(18, (b.e - b.s) * MIN - 2),
+                  left: `calc(${(b.lane / b.lanes) * 100}% + 1px)`,
+                  width: `calc(${100 / b.lanes}% - 3px)`,
+                }}
+                aria-expanded={peek.is(b.key)}
+                onClick={togglePeek(b.key)}
+                title={b.sub ? `${b.title} · ${b.sub}` : b.title}
+              >
+                <span className="bt">{b.title}</span>
+                <span className="t">
+                  {timeOf(b.s)}–{timeOf(Math.min(b.e, 24 * 60 - 1))}
+                  {b.sub ? ` · ${b.sub}` : ''}
+                </span>
+              </button>
+            ))}
+          </div>
+          {isToday && (
+            <div className="nowline" style={{ top: n * MIN }} aria-label={`${t('现在', 'Now')} ${timeOf(n)}`}>
+              <span className="now-tag">{timeOf(n)}</span>
+            </div>
+          )}
+        </div>
       </div>
+      {peek.open && (
+        <Popover anchor={peek.open.el} onClose={peek.close} label={t('详情', 'Details')}>
+          {(() => {
+            const key = peek.open.key;
+            if (key.startsWith('t:')) {
+              const task = doc.tasks[key.slice(2)];
+              return task ? <TaskPeek task={task} open={open} close={peek.close} /> : null;
+            }
+            const ev = events.get(key);
+            if (ev) return <EventPeek event={ev} />;
+            const b = placed.find((x) => x.key === key);
+            const task = b?.taskId ? doc.tasks[b.taskId] : undefined;
+            const entry = task?.plan.find((x) => x.id === key);
+            return task && entry ? <SlotPeek task={task} entry={entry} open={open} close={peek.close} /> : null;
+          })()}
+        </Popover>
+      )}
+      {reserve !== null && <ReserveSheet day={day} start={reserve} onClose={() => setReserve(null)} />}
     </>
   );
 }
+
+type WeekRef =
+  | { kind: 'event'; event: CalendarEvent }
+  | { kind: 'slot'; taskId: string; entryId: string }
+  | { kind: 'task'; taskId: string };
 
 function WeekView({
   start,
@@ -332,61 +405,102 @@ function WeekView({
 }) {
   const { doc } = useStore();
   const { t, lang } = useT();
+  const peek = usePopover<string>();
   const today = dayOf(now);
+  const refs = new Map<string, WeekRef>();
+  const rows = Array.from({ length: 7 }, (_, i) => addDays(start, i)).map((day) => {
+    const list: { key: string; k: string; time: string; title: string; cls: string; ref: WeekRef }[] = [];
+    for (const event of eventsOn(doc, day, true).filter((e) => e.allDay))
+      list.push({
+        key: event.id,
+        k: '00:00',
+        time: t('全天', 'All day'),
+        title: event.title,
+        cls: 'event',
+        ref: { kind: 'event', event },
+      });
+    for (const x of agenda(doc, day, now)) {
+      if (x.kind === 'event')
+        list.push({
+          key: x.event.id,
+          k: x.event.start,
+          time: x.event.start,
+          title: x.event.title,
+          cls: 'event',
+          ref: { kind: 'event', event: x.event },
+        });
+      else if (x.kind === 'slot')
+        list.push({
+          key: x.entryId,
+          k: timeOf(x.start),
+          time: timeOf(x.start),
+          title: x.task.title,
+          cls: 'slot',
+          ref: { kind: 'slot', taskId: x.task.id, entryId: x.entryId },
+        });
+      else if (x.kind === 'loose')
+        list.push({
+          key: x.entryId,
+          k: x.part === 'am' ? '08:00' : x.part === 'pm' ? '12:00' : x.part === 'eve' ? '18:00' : '00:01',
+          time: x.part ? partName(x.part, lang) : t('不定', 'Any'),
+          title: x.task.title,
+          cls: 'loose',
+          ref: { kind: 'task', taskId: x.task.id },
+        });
+      else
+        list.push({
+          key: `d${x.task.id}`,
+          k: '23:59',
+          time: t('截止', 'Due'),
+          title: x.task.title,
+          cls: 'due',
+          ref: { kind: 'task', taskId: x.task.id },
+        });
+    }
+    list.sort((a, b) => a.k.localeCompare(b.k));
+    for (const it of list) refs.set(it.key, it.ref);
+    return { day, list };
+  });
   return (
     <div className="week">
-      {Array.from({ length: 7 }, (_, i) => addDays(start, i)).map((day) => {
-        const items = agenda(doc, day, now)
-          .map((x) => ({
-            x,
-            k:
-              x.kind === 'event'
-                ? x.event.start
-                : x.kind === 'slot'
-                  ? timeOf(x.start)
-                  : x.kind === 'loose'
-                    ? x.part === 'am'
-                      ? '08:00'
-                      : x.part === 'pm'
-                        ? '12:00'
-                        : x.part === 'eve'
-                          ? '18:00'
-                          : '00:00'
-                    : '23:59',
-          }))
-          .sort((a, b) => a.k.localeCompare(b.k));
-        return (
-          <div key={day} className={`wday${day === today ? ' is-today' : ''}`}>
-            <button className="dname" onClick={() => pickDay(day)}>
-              {weekdayName(day, lang)} {monthDay(day)}
-            </button>
-            <div className="witems">
-              {items.length === 0 && <span className="wempty">{t('空', '—')}</span>}
-              {items.map(({ x }, k) =>
-                x.kind === 'event' ? (
-                  <div key={k} className="witem event">
-                    <span className="t">{x.event.start}</span>
-                    <span className="n">{x.event.title}</span>
-                  </div>
-                ) : (
-                  <button key={k} className={`witem ${x.kind}`} onClick={() => open(x.task.id)}>
-                    <span className="t">
-                      {x.kind === 'slot'
-                        ? timeOf(x.start)
-                        : x.kind === 'due'
-                          ? t('截止', 'Due')
-                          : x.part
-                            ? partName(x.part, lang)
-                            : t('不定', 'Any')}
-                    </span>
-                    <span className="n">{x.task.title}</span>
-                  </button>
-                ),
-              )}
-            </div>
+      {rows.map(({ day, list }) => (
+        <div key={day} className={`wday${day === today ? ' is-today' : ''}`}>
+          <button className="dname" onClick={() => pickDay(day)}>
+            {weekdayName(day, lang)} {monthDay(day)}
+          </button>
+          <div className="witems">
+            {list.length === 0 && <span className="wempty">{t('空', '—')}</span>}
+            {list.map((it) => (
+              <button
+                key={it.key}
+                className={`witem ${it.cls}`}
+                aria-expanded={peek.is(it.key)}
+                onClick={(ev) => peek.toggle(it.key, ev.currentTarget)}
+              >
+                <span className="t">{it.time}</span>
+                <span className="n">{it.title}</span>
+              </button>
+            ))}
           </div>
-        );
-      })}
+        </div>
+      ))}
+      {peek.open && (
+        <Popover anchor={peek.open.el} onClose={peek.close} label={t('详情', 'Details')}>
+          {(() => {
+            const v = refs.get(peek.open.key);
+            if (!v) return null;
+            if (v.kind === 'event') return <EventPeek event={v.event} />;
+            const task = doc.tasks[v.taskId];
+            if (!task) return null;
+            const entry = v.kind === 'slot' ? task.plan.find((x) => x.id === v.entryId) : undefined;
+            return entry ? (
+              <SlotPeek task={task} entry={entry} open={open} close={peek.close} />
+            ) : (
+              <TaskPeek task={task} open={open} close={peek.close} />
+            );
+          })()}
+        </Popover>
+      )}
     </div>
   );
 }

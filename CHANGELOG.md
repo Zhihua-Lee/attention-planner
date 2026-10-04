@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.3 — 2026-10-04
+
+The 0.1.2 Outlook-style redesign was rolled back; these changes build on the 0.1.1 agenda instead.
+
+- The day view scrolls through all 24 hours, opens at the current time, and marks now with a line and the time.
+- Events and reserved times that overlap sit side by side.
+- Tap any event, reserved time or task in the agenda for details: time, length, location, effort and steps, with
+  "open task", "change time" and "remove" where they apply.
+- Tap an empty time to reserve it: for a new task or one from the list, with an adjustable start and length, and a
+  note when it overlaps something. On a phone the form rises from the bottom and stays above the keyboard.
+- All-day events (Outlook export, .ics) show above the day and in the week list; they never count as busy time.
+
+## 0.1.2 — 2026-10-04 (rolled back)
+
+An Outlook-style calendar replaced the agenda; it went further than asked and was reverted.
+
 ## 0.1.1 — 2026-10-04
 
 Now served at todo.onthat.top in place of the previous app.

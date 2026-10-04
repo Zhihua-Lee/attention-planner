@@ -1411,3 +1411,208 @@ mark {
   width: 5em;
   flex: none;
 }
+
+/* day view: all 24 hours scroll inside the agenda; it opens at the current time */
+.day-scroll {
+  max-height: clamp(260px, 52dvh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.lane-area {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 8px;
+  cursor: cell;
+}
+.lane-area .blk {
+  right: auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 2px 6px;
+  line-height: 1.3;
+}
+.lane-area .blk .bt,
+.lane-area .blk .t {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lane-area .blk.short {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-block: 0;
+}
+.lane-area .blk.event {
+  border-left: 3px solid var(--muted);
+  color: var(--ink);
+  cursor: pointer;
+}
+.lane-area .blk.event .bt {
+  font-weight: 500;
+}
+.now-tag {
+  position: absolute;
+  left: -44px;
+  top: -9px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--late);
+  color: var(--surface);
+  font: 600 10px/16px var(--font-mono);
+}
+.pill.allday .part {
+  color: var(--accent);
+}
+
+/* details popover */
+.peek {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  max-width: 300px;
+}
+.peek-title {
+  font-weight: 700;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.peek-line {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.peek-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+.peek-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.peek-actions .btn {
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+/* bottom sheet: from the bottom on a phone, above the keyboard; a small dialog on wide screens */
+.sheet-scrim {
+  align-items: flex-end;
+  padding: 0;
+}
+.bsheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--shadow);
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  animation: rise-sheet 0.2s var(--ease);
+}
+@keyframes rise-sheet {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@media (min-width: 600px) {
+  .sheet-scrim {
+    align-items: center;
+    padding: 16px;
+  }
+  .bsheet {
+    border-radius: 16px;
+  }
+}
+.reserve {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.reserve-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.reserve-head h2 {
+  margin: 0;
+  font: 600 18px var(--font-display);
+}
+.reserve-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.reserve-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.row-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.row-chips .opt {
+  padding: 4px 12px;
+}
+.reserve-title,
+.reserve-pick > input {
+  width: 100%;
+  font-size: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 8px 10px;
+}
+.reserve-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.pick {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 14px;
+}
+.pick:hover,
+.pick.on {
+  background: var(--accent-soft);
+}
+.pick.on {
+  font-weight: 600;
+}
+.clash {
+  margin: 0;
+  font-size: 12px;
+  color: var(--star);
+}
+.reserve-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sheet-scrim {
+  z-index: 70;
+}
