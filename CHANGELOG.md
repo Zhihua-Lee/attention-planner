@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.6 — 2026-10-04
+
+- **Steps wrap**: long steps wrap and grow instead of being cut off; Shift+Enter adds a line.
+- **Filters follow the tasks**: "今天" now includes overdue and due-today work (step deadlines too), anything planned
+  today, open rounds of repeating tasks (a daily one is always there until done), and steps due on their own rule.
+  "有截止" became "7 天内截止". "新加的" means not yet given a day, deadline, repeat or place. Chips with nothing in
+  them are hidden; areas and projects are chips instead of a drop-down.
+- **Sort by hand**: the list can be "智能" (as before) or "手动": drag the handle (or ↑/↓ on it); the order syncs and
+  new tasks go on top.
+
 ## 0.1.5 — 2026-10-04
 
 - **Reminders**: push notifications on this device on a deadline's day (an hour before one with a time), on a step's

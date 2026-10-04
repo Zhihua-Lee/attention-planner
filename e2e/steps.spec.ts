@@ -4,7 +4,8 @@ import { add, openRow, row, start, T0, toList } from './helpers';
 /** On a phone a step's buttons appear once the step is focused, so focus it first. */
 const tool = async (detail: import('@playwright/test').Locator, name: string, step: string) => {
   await detail
-    .locator('.step', { has: detail.page().locator(`input[value="${step}"]`) })
+    .locator('.step')
+    .filter({ has: detail.page().getByRole('checkbox', { name: step, exact: true }) })
     .locator('.step-text')
     .click();
   await detail.getByRole('button', { name: `${name}: ${step}` }).click();
@@ -99,4 +100,26 @@ test('a step in a plain task can repeat on its own rule', async ({ page }) => {
   const next = await openRow(page, '日常');
   await expect(next.getByRole('checkbox', { name: '看邮件' })).not.toBeChecked();
   await expect(next.getByRole('checkbox', { name: '一次性的事' })).toBeChecked();
+});
+
+test('a long step wraps instead of being cut off, and Shift+Enter adds a line', async ({ page }) => {
+  await start(page);
+  await add(page, '复习');
+  const detail = await openRow(page, '复习');
+  await addSteps(detail, '把第三章所有例题重新做一遍，特别是第 12 到 20 题，做完对照答案写出错因，再整理到错题本里');
+  const text = detail.locator('.step-text').first();
+  const box = await text.boundingBox();
+  expect(box!.height).toBeGreaterThan(30); // more than one line
+  expect(await text.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await text.click();
+  await page.keyboard.press('Control+End'); // the end of the text, not of the wrapped line
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('第二行');
+  await page.keyboard.press('Enter');
+  await expect(text).toHaveValue(/\n第二行$/);
+  await page.waitForTimeout(400);
+  await page.reload();
+  await toList(page);
+  const again = await openRow(page, '复习');
+  await expect(again.locator('.step-text').first()).toHaveValue(/\n第二行$/);
 });

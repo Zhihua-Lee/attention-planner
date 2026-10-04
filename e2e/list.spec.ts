@@ -56,24 +56,55 @@ test('the note renders Markdown and edits on click', async ({ page }) => {
   await expect(detail.locator('.note-view li')).toHaveText('例题');
 });
 
-test('filters: new, today, due; areas group the list', async ({ page }) => {
+test('filters follow the tasks: today includes repeating work; empty ones hide; areas are chips', async ({ page }) => {
   await start(page);
-  await add(page, '今天下午 整理', '周五交表格', '随手记的');
+  await page.getByRole('tab', { name: '清单' }).click();
+  await expect(page.locator('.filters')).not.toContainText('新加的'); // nothing new yet, so no chip
+  await add(page, '今天下午 整理', '周五交表格', '随手记的', '每天看邮件');
+  // A task that reopens every day belongs to today.
+  const detail = await openRow(page, '每天看邮件');
+  await detail.getByRole('button', { name: '不重复' }).click();
+  await detail.getByRole('radio', { name: '原地重开' }).click();
+  await page.getByRole('button', { name: '收起' }).click();
   await page.getByRole('button', { name: /^新加的/ }).click();
   await expect(page.locator('.list .tt')).toHaveText(['随手记的']);
   await page.getByRole('button', { name: /^今天/ }).click();
-  await expect(page.locator('.list .tt')).toHaveText(['整理']);
-  await page.getByRole('button', { name: /^有截止/ }).click();
+  await expect(page.locator('.list .tt')).toHaveText(['每天看邮件', '整理']); // newest first
+  await page.getByRole('button', { name: /^7 天内截止/ }).click();
   await expect(page.locator('.list .tt')).toHaveText(['交表格']);
   await page.getByRole('button', { name: /^全部/ }).click();
-  const detail = await openRow(page, '交表格');
-  await detail.getByRole('button', { name: '未分类' }).click();
+  const d2 = await openRow(page, '交表格');
+  await d2.getByRole('button', { name: '未分类' }).click();
   await page.getByRole('textbox', { name: '新的区域或项目' }).fill('研究');
   await page.getByRole('dialog').getByRole('button', { name: '区域' }).click();
-  await expect(detail.getByRole('button', { name: '研究' })).toBeVisible();
+  await expect(d2.getByRole('button', { name: '研究' })).toBeVisible();
   await page.getByRole('button', { name: '收起' }).click();
-  await page.getByRole('combobox', { name: '按区域或项目' }).selectOption({ label: '研究' });
+  await page.locator('.filters').getByRole('button', { name: /^研究/ }).click();
   await expect(page.locator('.list .tt')).toHaveText(['交表格']);
+});
+
+test('the list can be sorted by hand by dragging', async ({ page }) => {
+  await start(page);
+  await add(page, '一', '二', '三');
+  await expect(page.locator('.list .tt')).toHaveText(['三', '二', '一']); // newest first
+  await page.getByRole('radio', { name: '手动' }).click();
+  const handle = page.getByRole('button', { name: /拖动排序.*: 一/ });
+  const target = await page.getByRole('button', { name: /拖动排序.*: 三/ }).boundingBox();
+  const box = await handle.boundingBox();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++)
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + ((target!.y - 8 - box!.y) * i) / 10);
+  await page.mouse.up();
+  await expect(page.locator('.list .tt')).toHaveText(['一', '三', '二']);
+  await page.getByRole('button', { name: /拖动排序.*: 二/ }).press('ArrowUp');
+  await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
+  await page.waitForTimeout(400);
+  await page.reload();
+  await page.getByRole('tab', { name: '清单' }).click();
+  await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
+  await page.getByRole('radio', { name: '智能' }).click();
+  await expect(page.locator('.list .tt')).toHaveText(['三', '二', '一']);
 });
 
 test('a linked task is listed right after the task it points to', async ({ page }) => {

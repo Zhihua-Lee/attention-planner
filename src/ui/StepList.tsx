@@ -13,7 +13,7 @@ import {
 } from '../model/doc';
 import type { Step, StepTool, Task } from '../model/types';
 import { store, useStore } from '../store/store';
-import { Popover, toast, usePopover } from './common';
+import { AutoText, Popover, toast, usePopover } from './common';
 import { DayOptions, EffortPicker, StepRepeatEditor } from './pickers';
 import { dueLabel, duration, ruleLabel, useT } from './text';
 
@@ -180,19 +180,12 @@ function StepRow({
         onChange={(e) => commit((d, c) => toggleStep(d, c, task.id, step.id, e.target.checked))}
       />
       <span className="step-main">
-        <input
-          className="step-text"
-          defaultValue={step.text}
+        <AutoText
           key={step.s.rev}
-          aria-label={t('步骤内容', 'Step text')}
-          onBlur={(e) =>
-            e.target.value.trim() &&
-            e.target.value !== step.text &&
-            commit((d, c) => updateStep(d, c, task.id, step.id, { text: e.target.value.trim() }))
-          }
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur();
-          }}
+          className="step-text"
+          value={step.text}
+          label={t('步骤内容', 'Step text')}
+          onCommit={(text) => commit((d, c) => updateStep(d, c, task.id, step.id, { text }))}
         />
         {(step.due || step.effort || own || (step.repeat === 'none' && task.repeat?.mode === 'reopen')) && (
           <span className="step-tags">

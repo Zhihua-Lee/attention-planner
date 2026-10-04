@@ -86,6 +86,8 @@ export type Task = {
   effort?: number;
   areaId?: string;
   projectId?: string;
+  /** Place in the list when it is sorted by hand (smaller first). */
+  rank?: number;
   /** A pointer to another task; only affects how lists group them. */
   linkTo?: string;
   repeat?: Repeat;
@@ -139,6 +141,8 @@ export type Settings = {
   workDays: number[];
   /** Capture chips shown up front, in order; the rest sit under "more". */
   chips: ChipKey[];
+  /** The list is ordered automatically, or by hand. */
+  listSort?: 'smart' | 'manual';
   /** Reminder times: on a deadline's day, and minutes before a reserved time. */
   remind?: { dueAt?: Time; slotLead?: number };
   /** Buttons shown after each step (dragging and deleting are always there). */
@@ -173,6 +177,7 @@ export const TASK_FIELDS = [
   'projectId',
   'linkTo',
   'repeat',
+  'rank',
 ] as const;
 export type TaskField = (typeof TASK_FIELDS)[number];
 /** Free text where two devices' edits can genuinely conflict. */

@@ -302,3 +302,28 @@ describe('projects done in order', () => {
     expect(nowCandidates(d, T0)[0].task.title).toBe('Analyse');
   });
 });
+
+describe('today and the hand-sorted list', () => {
+  it('today includes overdue, planned, an open round and a step due on its own rule', async () => {
+    const { isToday, listTasks } = await import('./derive');
+    const { setSettings, reorderTasks } = await import('./doc');
+    let d = emptyDoc(ctx());
+    const add = (title: string, extra = {}) => ([d] = addTask(d, ctx(), { title, ...extra }));
+    add('late', { due: '2026-09-28' });
+    add('planned', { plan: [{ day: '2026-09-29' }] });
+    add('daily', {
+      repeat: { mode: 'reopen', rule: { freq: 'daily', every: 1, fromDone: false, start: '2026-09-01' } },
+    });
+    add('later', { due: '2026-10-20' });
+    add('waiting', { due: '2026-09-29', snooze: { until: '2026-10-05' } });
+    const today = liveTasks(d)
+      .filter((t) => isToday(t, T0))
+      .map((t) => t.title)
+      .sort();
+    expect(today).toEqual(['daily', 'late', 'planned']);
+    const ids = listTasks(d, T0, 'all').map((t) => t.id);
+    d = setSettings(d, ctx(), { listSort: 'manual' });
+    d = reorderTasks(d, ctx(), ids.slice().reverse());
+    expect(listTasks(d, T0, 'all').map((t) => t.id)).toEqual(ids.slice().reverse());
+  });
+});

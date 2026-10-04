@@ -1743,3 +1743,41 @@ mark {
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* text that wraps and grows instead of being cut off */
+.autotext {
+  resize: none;
+  overflow: hidden;
+  font: inherit;
+  line-height: 1.45;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  padding: 3px 0;
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.autotext:focus {
+  outline: 0;
+  border-bottom-color: var(--accent);
+}
+.step.done .autotext {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* filter chips and the sort switch share one row */
+.list-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.list-bar .filters {
+  flex: 1;
+  min-width: 0;
+}
+.row-main.with-handle {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  padding-left: 6px;
+}

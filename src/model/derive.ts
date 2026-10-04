@@ -1,5 +1,15 @@
 import { addDays, dayOf, diffDays, isoWeekday, minutesOf, nowMinutes, PARTS, timeOf } from './dates';
-import { isFinished, isSnoozed, liveTasks, planOf, remainingEffort, stepDone, stepsOf, effectiveDue } from './doc';
+import {
+  isFinished,
+  isSnoozed,
+  liveTasks,
+  planOf,
+  remainingEffort,
+  stepDone,
+  stepsOf,
+  effectiveDue,
+  taskRound,
+} from './doc';
 import type { CalendarEvent, Day, Doc, Part, Settings, Task } from './types';
 
 export type Reason =
@@ -134,46 +144,73 @@ export function capacity(doc: Doc, now: Date): Shortfall | null {
   return null;
 }
 
-export type Filter = 'all' | 'today' | 'new' | 'due' | 'snoozed';
+/** All, today, new, due within a week, snoozed, or one area (`a:<id>`) or project (`p:<id>`). */
+export type Filter = 'all' | 'today' | 'new' | 'soon' | 'snoozed' | `a:${string}` | `p:${string}`;
 
-/** Recently captured and not yet given a day or a deadline: the automatic "unsorted". */
+/** Recently captured and not yet given a day, deadline, repeat or place: the automatic "unsorted". */
 export const isNew = (t: Task, now: Date) =>
-  (now.getTime() - new Date(t.created).getTime()) / 864e5 <= 7 && !planOf(t).length && !effectiveDue(t, now);
+  (now.getTime() - new Date(t.created).getTime()) / 864e5 <= 7 &&
+  !planOf(t).length &&
+  !effectiveDue(t, now) &&
+  !t.repeat &&
+  !t.areaId &&
+  !t.projectId;
 
-export function matches(t: Task, f: Filter, now: Date): boolean {
+/**
+ * Belongs to today: due today or overdue (a step's deadline counts), planned today, a round of a repeating task
+ * that is open, or a step on its own rule whose round is open. Snoozed tasks wait.
+ */
+export function isToday(t: Task, now: Date): boolean {
   const today = dayOf(now);
+  if (isSnoozed(t, today)) return false;
+  const due = effectiveDue(t, now);
+  if (due && due.day <= today) return true;
+  if (planOf(t).some((p) => p.day === today)) return true;
+  const round = taskRound(t, now);
+  if (round && !round.done) return true;
+  return stepsOf(t).some((s) => typeof s.repeat === 'object' && !stepDone(t, s, now) && today >= s.repeat.start);
+}
+
+export function matches(doc: Doc, t: Task, f: Filter, now: Date): boolean {
+  const today = dayOf(now);
+  if (f.startsWith('a:')) {
+    const id = f.slice(2);
+    return t.areaId === id || (!!t.projectId && doc.projects[t.projectId]?.areaId === id);
+  }
+  if (f.startsWith('p:')) return t.projectId === f.slice(2);
   switch (f) {
-    case 'all':
-      return true;
     case 'today':
-      return effectiveDue(t, now)?.day === today || planOf(t).some((p) => p.day === today);
+      return isToday(t, now);
     case 'new':
       return isNew(t, now);
-    case 'due':
-      return !!effectiveDue(t, now);
+    case 'soon': {
+      const due = effectiveDue(t, now);
+      return !!due && due.day <= addDays(today, 7);
+    }
     case 'snoozed':
       return isSnoozed(t, today);
+    default:
+      return true;
   }
 }
 
-/** The main list: snoozed last, then starred, then by deadline, then newest; linked tasks follow their target. */
-export function listTasks(doc: Doc, now: Date, f: Filter, group?: { areaId?: string; projectId?: string }): Task[] {
+/**
+ * The main list. Sorted automatically (snoozed last, then starred, then by deadline, then newest) or by hand
+ * (new tasks on top); either way a linked task follows the task it points to.
+ */
+export function listTasks(doc: Doc, now: Date, f: Filter): Task[] {
   const today = dayOf(now);
-  const rows = openTasks(doc, now).filter(
-    (t) =>
-      matches(t, f, now) &&
-      (!group?.areaId ||
-        t.areaId === group.areaId ||
-        (t.projectId && doc.projects[t.projectId]?.areaId === group.areaId)) &&
-      (!group?.projectId || t.projectId === group.projectId),
-  );
-  rows.sort(
-    (a, b) =>
-      Number(isSnoozed(a, today)) - Number(isSnoozed(b, today)) ||
-      Number(!!b.star) - Number(!!a.star) ||
-      (effectiveDue(a, now)?.day ?? '9').localeCompare(effectiveDue(b, now)?.day ?? '9') ||
-      b.created.localeCompare(a.created),
-  );
+  const rows = openTasks(doc, now).filter((t) => matches(doc, t, f, now));
+  if (doc.settings.listSort === 'manual')
+    rows.sort((a, b) => (a.rank ?? -Infinity) - (b.rank ?? -Infinity) || b.created.localeCompare(a.created));
+  else
+    rows.sort(
+      (a, b) =>
+        Number(isSnoozed(a, today)) - Number(isSnoozed(b, today)) ||
+        Number(!!b.star) - Number(!!a.star) ||
+        (effectiveDue(a, now)?.day ?? '9').localeCompare(effectiveDue(b, now)?.day ?? '9') ||
+        b.created.localeCompare(a.created),
+    );
   // Group a task right after the task it links to, one level deep, when both are listed.
   const ids = new Set(rows.map((t) => t.id));
   const out: Task[] = [];

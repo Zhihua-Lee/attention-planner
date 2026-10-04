@@ -459,6 +459,14 @@ export const addProject = (doc: Doc, ctx: Ctx, name: string, areaId?: string): [
     id,
   ];
 };
+/** Put tasks in the order given (a drag in the list sorted by hand). */
+export const reorderTasks = (doc: Doc, ctx: Ctx, ids: string[]) =>
+  edit(doc, ctx, (e) => {
+    ids.forEach((id, i) => {
+      if (e.doc.tasks[id] && !e.doc.tasks[id].deleted && e.doc.tasks[id].rank !== i) e.set(id, 'rank', i);
+    });
+  });
+
 /** Change a project's settings (for now: whether its tasks go one after another). */
 export const updateProject = (doc: Doc, ctx: Ctx, id: string, patch: Partial<Pick<Project, 'sequential'>>) =>
   edit(doc, ctx, (e) => {

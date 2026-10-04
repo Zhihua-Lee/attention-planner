@@ -206,3 +206,51 @@ export const Icon = {
     </svg>
   ),
 };
+
+/**
+ * Text that wraps and grows with its content. Enter saves (leaves the field); Shift+Enter starts a new line.
+ * Saving happens on leaving, only when the text changed.
+ */
+export function AutoText({
+  value,
+  onCommit,
+  className,
+  label,
+  placeholder,
+}: {
+  value: string;
+  onCommit: (text: string) => void;
+  className?: string;
+  label: string;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const fit = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  useLayoutEffect(fit, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      className={`autotext ${className ?? ''}`}
+      defaultValue={value}
+      aria-label={label}
+      placeholder={placeholder}
+      onInput={fit}
+      onBlur={(e) => {
+        const text = e.target.value.trim();
+        if (text && text !== value) onCommit(text);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}

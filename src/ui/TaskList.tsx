@@ -1,7 +1,8 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, Reorder, useDragControls, type DragControls } from 'motion/react';
 import { forwardRef, useState } from 'react';
 import { dayOf } from '../model/dates';
 import { finishedTasks, listTasks, matches, openTasks, type Filter, queuePosition } from '../model/derive';
+import { reorderTasks, setSettings } from '../model/doc';
 import {
   complete,
   isSnoozed,
@@ -29,61 +30,83 @@ export const TaskList = forwardRef<
   const { doc } = useStore();
   const { t } = useT();
   const [filter, setFilter] = useState<Filter>('all');
-  const [group, setGroup] = useState<string>('');
   const [showDone, setShowDone] = useState(false);
-  const groupSel = group.startsWith('p:')
-    ? { projectId: group.slice(2) }
-    : group.startsWith('a:')
-      ? { areaId: group.slice(2) }
-      : undefined;
-  const rows = listTasks(doc, now, filter, groupSel);
+  const [dragging, setDragging] = useState<string[] | null>(null);
+  const manual = doc.settings.listSort === 'manual';
+  const rows = listTasks(doc, now, filter);
   const done = finishedTasks(doc).slice(0, 50);
   const open = openTasks(doc, now);
-  const count = (f: Filter) => open.filter((x) => matches(x, f, now)).length;
-  const filters: [Filter, string][] = [
+  const count = (f: Filter) => open.filter((x) => matches(doc, x, f, now)).length;
+  // Always "all" and "today"; the rest only when they have something (or are selected).
+  const chips: [Filter, string][] = [
     ['all', t('全部', 'All')],
     ['today', t('今天', 'Today')],
-    ['new', t('新加的', 'New')],
-    ['due', t('有截止', 'Due')],
-    ['snoozed', t('暂缓', 'Snoozed')],
+    ...(
+      [
+        ['soon', t('7 天内截止', 'Due this week')],
+        ['new', t('新加的', 'New')],
+        ['snoozed', t('暂缓', 'Snoozed')],
+        ...Object.values(doc.areas)
+          .filter((x) => !x.deleted)
+          .sort((x, y) => x.order - y.order)
+          .map((x) => [`a:${x.id}`, x.name]),
+        ...Object.values(doc.projects)
+          .filter((x) => !x.deleted && !x.done)
+          .sort((x, y) => x.order - y.order)
+          .map((x) => [`p:${x.id}`, x.name]),
+      ] as [Filter, string][]
+    ).filter(([k]) => filter === k || count(k) > 0),
   ];
-  const areas = Object.values(doc.areas).filter((a) => !a.deleted);
-  const projects = Object.values(doc.projects).filter((p) => !p.deleted && !p.done);
   // A task that reopens stays in the list, checked, until its next round opens.
   const resting =
-    filter === 'all' && !groupSel
+    filter === 'all'
       ? liveTasks(doc).filter((x) => !x.done && x.repeat?.mode === 'reopen' && taskRound(x, now)?.done)
       : [];
+  const ids = dragging ?? rows.map((x) => x.id);
+  const byId = new Map(rows.map((x) => [x.id, x]));
+  const move = (id: string, dir: -1 | 1) => {
+    const list = rows.map((x) => x.id);
+    const i = list.indexOf(id);
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    store.commit((d, c) => reorderTasks(d, c, list));
+  };
+  const rowProps = (task: Task) => ({
+    task,
+    now,
+    expanded: expanded === task.id,
+    toggle: () => setExpanded(expanded === task.id ? null : task.id),
+    indent: !!task.linkTo && rows.some((r) => r.id === task.linkTo),
+  });
 
   return (
     <div className="stack">
       <Capture ref={captureRef} />
-      <div className="filters" role="group" aria-label={t('筛选', 'Filter')}>
-        {filters.map(([k, n]) => (
-          <button key={k} className="filter" aria-pressed={filter === k} onClick={() => setFilter(k)}>
-            {n} <span className="count">{count(k)}</span>
-          </button>
-        ))}
-        {(areas.length > 0 || projects.length > 0) && (
-          <select
-            className="filter-select"
-            value={group}
-            aria-label={t('按区域或项目', 'By area or project')}
-            onChange={(e) => setGroup(e.target.value)}
+      <div className="list-bar">
+        <div className="filters" role="group" aria-label={t('筛选', 'Filter')}>
+          {chips.map(([k, n]) => (
+            <button key={k} className="filter" aria-pressed={filter === k} onClick={() => setFilter(k)}>
+              {n} <span className="count">{count(k)}</span>
+            </button>
+          ))}
+        </div>
+        <div className="seg small" role="radiogroup" aria-label={t('排序', 'Order')}>
+          <button
+            role="radio"
+            aria-checked={!manual}
+            onClick={() => store.commit((d, c2) => setSettings(d, c2, { listSort: 'smart' }))}
           >
-            <option value="">{t('全部区域', 'All areas')}</option>
-            {areas.map((a) => (
-              <option key={a.id} value={`a:${a.id}`}>
-                {a.name}
-              </option>
-            ))}
-            {projects.map((p) => (
-              <option key={p.id} value={`p:${p.id}`}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        )}
+            {t('智能', 'Smart')}
+          </button>
+          <button
+            role="radio"
+            aria-checked={manual}
+            onClick={() => store.commit((d, c2) => setSettings(d, c2, { listSort: 'manual' }))}
+          >
+            {t('手动', 'By hand')}
+          </button>
+        </div>
       </div>
       <section className="list" aria-label={t('清单', 'List')}>
         {rows.length === 0 && resting.length === 0 && (
@@ -96,19 +119,32 @@ export const TaskList = forwardRef<
               : t('这里没有任务。', 'Nothing here.')}
           </div>
         )}
-        {/* One keyed list, so a task that finishes its round moves down instead of leaving and reappearing. */}
-        <AnimatePresence initial={false}>
-          {[...rows, ...resting].map((task) => (
-            <Row
-              key={task.id}
-              task={task}
-              now={now}
-              expanded={expanded === task.id}
-              toggle={() => setExpanded(expanded === task.id ? null : task.id)}
-              indent={!!task.linkTo && rows.some((r) => r.id === task.linkTo)}
-            />
-          ))}
-        </AnimatePresence>
+        {manual ? (
+          <Reorder.Group as="div" axis="y" values={ids} onReorder={setDragging}>
+            {ids.map((id) => {
+              const task = byId.get(id);
+              return task ? (
+                <DraggableRow
+                  key={id}
+                  {...rowProps(task)}
+                  onMove={(dir) => move(id, dir)}
+                  onDrop={() => {
+                    if (dragging) store.commit((d, c2) => reorderTasks(d, c2, dragging));
+                    setDragging(null);
+                  }}
+                />
+              ) : null;
+            })}
+          </Reorder.Group>
+        ) : (
+          /* One keyed list, so a task that finishes its round moves down instead of leaving and reappearing. */
+          <AnimatePresence initial={false}>
+            {[...rows, ...resting].map((task) => (
+              <Row key={task.id} {...rowProps(task)} />
+            ))}
+          </AnimatePresence>
+        )}
+        {manual && resting.map((task) => <Row key={task.id} {...rowProps(task)} indent={false} />)}
         {done.length > 0 && (
           <>
             <button className="done-head" aria-expanded={showDone} onClick={() => setShowDone((v) => !v)}>
@@ -138,12 +174,16 @@ function Row({
   expanded,
   toggle,
   indent,
+  handle,
+  onMove,
 }: {
   task: Task;
   now: Date;
   expanded: boolean;
   toggle: () => void;
   indent: boolean;
+  handle?: DragControls;
+  onMove?: (dir: -1 | 1) => void;
 }) {
   const { t, lang } = useT();
   const today = dayOf(now);
@@ -180,7 +220,22 @@ function Row({
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.24, ease }}
     >
-      <div className="row-main">
+      <div className={`row-main${handle ? ' with-handle' : ''}`}>
+        {handle && (
+          <button
+            className="handle"
+            aria-label={`${t('拖动排序（也可用 ↑↓）', 'Drag to reorder (or ↑/↓)')}: ${task.title}`}
+            onPointerDown={(e) => handle.start(e)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                onMove?.(e.key === 'ArrowUp' ? -1 : 1);
+              }
+            }}
+          >
+            ⠿
+          </button>
+        )}
         <button
           className={`check${finished || completing ? ' on' : ''}`}
           role="checkbox"
@@ -274,5 +329,16 @@ function Row({
         )}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+/** A row in the list sorted by hand: dragged by its handle. */
+function DraggableRow(props: Parameters<typeof Row>[0] & { onDrop: () => void; onMove: (dir: -1 | 1) => void }) {
+  const controls = useDragControls();
+  const { onDrop, ...rest } = props;
+  return (
+    <Reorder.Item as="div" value={props.task.id} dragListener={false} dragControls={controls} onDragEnd={onDrop}>
+      <Row {...rest} handle={controls} />
+    </Reorder.Item>
   );
 }
