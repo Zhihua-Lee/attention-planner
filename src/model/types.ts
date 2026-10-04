@@ -92,6 +92,10 @@ export type Task = {
   plan: PlanEntry[];
   steps: Step[];
   rounds: Round[];
+  /** For text fields: the stamp of the version each edit replaced, to tell concurrent edits from later ones. */
+  fb?: Partial<Record<TextField, Stamp>>;
+  /** The other side of a concurrent text edit, kept until you choose; ignored once the field changes again. */
+  conflicts?: Partial<Record<TextField, { value?: string; s: Stamp; against: Stamp }>>;
   /** Fields carried over from an import that this app does not use. */
   legacy?: Record<string, unknown>;
   /** Stamp of each scalar field, so concurrent edits to different fields both survive. */
@@ -107,6 +111,8 @@ export type Project = {
   areaId?: string;
   order: number;
   done?: string;
+  /** Tasks are done one after another, in the order they were added; only the first is suggested. */
+  sequential?: boolean;
   s: Stamp;
   deleted?: boolean;
 };
@@ -133,6 +139,8 @@ export type Settings = {
   workDays: number[];
   /** Capture chips shown up front, in order; the rest sit under "more". */
   chips: ChipKey[];
+  /** Reminder times: on a deadline's day, and minutes before a reserved time. */
+  remind?: { dueAt?: Time; slotLead?: number };
   /** Buttons shown after each step (dragging and deleting are always there). */
   stepTools?: StepTool[];
   theme: 'system' | 'light' | 'dark';
@@ -167,3 +175,6 @@ export const TASK_FIELDS = [
   'repeat',
 ] as const;
 export type TaskField = (typeof TASK_FIELDS)[number];
+/** Free text where two devices' edits can genuinely conflict. */
+export const TEXT_FIELDS = ['title', 'note'] as const;
+export type TextField = (typeof TEXT_FIELDS)[number];

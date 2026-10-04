@@ -6,6 +6,7 @@ import type { Doc } from '../model/types';
 import { brokerStatus, brokerTokens, DriveRemote, readOutlookExport, type TokenSource } from './drive';
 import { addDays, dayOf } from '../model/dates';
 import { outlookEvents } from '../model/outlook';
+import { syncReminders } from './push';
 import { deviceId, load, save } from './storage';
 import { syncOnce, type Remote } from './sync';
 
@@ -58,6 +59,7 @@ export class Store {
   private remote: Remote | null = null;
   private tokens: TokenSource | null = null;
   private calendarAt = 0;
+  private pushTimer: ReturnType<typeof setTimeout> | undefined;
   readonly device = deviceId();
 
   constructor() {
@@ -86,6 +88,7 @@ export class Store {
     const doc = stored?.v === 1 ? stored : this.state.doc;
     this.set({ ready: true, doc });
     this.importPreviousApp();
+    this.schedulePush(1500);
     const broker = local.get('ap:broker');
     if (broker) this.connectBroker(broker);
     else if (!local.get('ap:broker-off')) {
@@ -134,6 +137,13 @@ export class Store {
     this.set({ doc, canUndo: this.undoStack.length > 0 });
     this.scheduleSave();
     this.scheduleSync(2000);
+    this.schedulePush();
+  }
+
+  /** Reminders follow the data: re-send them a few seconds after changes settle (only when push is on). */
+  schedulePush(ms = 4000) {
+    clearTimeout(this.pushTimer);
+    this.pushTimer = setTimeout(() => void syncReminders(this.state.doc).catch(() => undefined), ms);
   }
 
   undo() {
@@ -145,12 +155,17 @@ export class Store {
     return true;
   }
 
+  private dirty = false;
   private scheduleSave() {
+    this.dirty = true;
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => void this.flush(), 250);
   }
+  /** Write pending changes. Nothing is written when nothing changed, so another tab's save is never overwritten. */
   async flush() {
     clearTimeout(this.saveTimer);
+    if (!this.dirty) return;
+    this.dirty = false;
     const ok = await save(KEY, this.state.doc);
     if (ok === (this.state.saveError !== undefined)) this.set({ saveError: ok ? undefined : 'storage' });
   }
@@ -183,6 +198,7 @@ export class Store {
       this.set({ doc, sync: { status: 'idle', lastAt: new Date().toISOString() } });
       this.scheduleSave();
       void this.refreshCalendar();
+      this.schedulePush();
     } catch (e) {
       this.set({ sync: { ...this.state.sync, status: 'error', error: e instanceof Error ? e.message : String(e) } });
     }

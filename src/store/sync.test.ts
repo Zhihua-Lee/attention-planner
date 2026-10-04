@@ -129,3 +129,45 @@ describe('Outlook export in Google Drive', () => {
     expect(await readOutlookExport(async () => 't', fake)).toEqual({ events: [{ subject: 'x' }] });
   });
 });
+
+describe('concurrent text edits', () => {
+  it('keeps the other version when two devices edit the same note without seeing each other', async () => {
+    const { openConflict, resolveConflict } = await import('../model/doc');
+    const remote = new MemoryRemote();
+    let [a, id] = addTask(emptyDoc(ctx('a')), ctx('a'), { title: 'Report', note: 'v1' });
+    a = await syncOnce(a, remote, now);
+    let b = await syncOnce(emptyDoc(ctx('b')), remote, now);
+    a = setField(a, ctx('a'), id, 'note', 'from A');
+    b = setField(b, ctx('b'), id, 'note', 'from B');
+    a = await syncOnce(a, remote, now);
+    b = await syncOnce(b, remote, now);
+    a = await syncOnce(a, remote, now);
+    const shownB = b.tasks[id].note;
+    const other = openConflict(b.tasks[id], 'note')?.value;
+    expect([shownB, other].sort()).toEqual(['from A', 'from B']);
+    expect(openConflict(a.tasks[id], 'note')?.value).toBe(other);
+    b = resolveConflict(b, ctx('b'), id, 'note', 'other');
+    expect(b.tasks[id].note).toBe(other);
+    b = await syncOnce(b, remote, now);
+    a = await syncOnce(a, remote, now);
+    expect(a.tasks[id].note).toBe(other);
+    expect(openConflict(a.tasks[id], 'note')).toBeUndefined();
+  });
+
+  it('does not flag edits made one after another', async () => {
+    const { openConflict } = await import('../model/doc');
+    const remote = new MemoryRemote();
+    let [a, id] = addTask(emptyDoc(ctx('a')), ctx('a'), { title: 'Report', note: 'v1' });
+    a = await syncOnce(a, remote, now);
+    let b = await syncOnce(emptyDoc(ctx('b')), remote, now);
+    a = setField(a, ctx('a'), id, 'note', 'v2 from A');
+    a = await syncOnce(a, remote, now);
+    b = await syncOnce(b, remote, now);
+    b = setField(b, ctx('b'), id, 'note', 'v3 from B');
+    b = await syncOnce(b, remote, now);
+    a = await syncOnce(a, remote, now);
+    expect(a.tasks[id].note).toBe('v3 from B');
+    expect(openConflict(a.tasks[id], 'note')).toBeUndefined();
+    expect(openConflict(b.tasks[id], 'note')).toBeUndefined();
+  });
+});

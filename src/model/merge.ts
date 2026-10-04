@@ -1,5 +1,5 @@
 import { cmpStamp } from './doc';
-import { TASK_FIELDS, type Doc, type Stamp, type Task } from './types';
+import { TASK_FIELDS, TEXT_FIELDS, type Doc, type Stamp, type Task } from './types';
 
 type Stamped = { s: Stamp };
 const newer = <T extends Stamped>(a: T | undefined, b: T | undefined): T | undefined =>
@@ -26,6 +26,31 @@ export function mergeTask(a: Task, b: Task): Task {
     if (v === undefined) delete (out as Record<string, unknown>)[f];
     else (out as Record<string, unknown>)[f] = v;
   }
+  // Text: remember what each version replaced, and keep the losing side of a genuinely concurrent edit.
+  const fb: NonNullable<Task['fb']> = {};
+  const conflicts: NonNullable<Task['conflicts']> = {};
+  for (const f of TEXT_FIELDS) {
+    const win = cmpStamp(a.fs[f], b.fs[f]) >= 0 ? a : b;
+    const lose = win === a ? b : a;
+    if (win.fb?.[f]) fb[f] = win.fb[f];
+    const ws = win.fs[f];
+    const ls = lose.fs[f];
+    const concurrent =
+      ws &&
+      ls &&
+      cmpStamp(ws, ls) !== 0 &&
+      win[f] !== lose[f] &&
+      !!win.fb?.[f] &&
+      cmpStamp(win.fb[f], ls) < 0 &&
+      !(lose.fb?.[f] && cmpStamp(lose.fb[f], ws) >= 0);
+    const known = [a.conflicts?.[f], b.conflicts?.[f]].find((c) => c && ws && cmpStamp(c.against, ws) === 0);
+    if (concurrent) conflicts[f] = { value: lose[f], s: ls!, against: ws! };
+    else if (known) conflicts[f] = known;
+  }
+  if (Object.keys(fb).length) out.fb = fb;
+  else delete out.fb;
+  if (Object.keys(conflicts).length) out.conflicts = conflicts;
+  else delete out.conflicts;
   out.plan = mergeList(a.plan, b.plan, (x) => x.id);
   out.steps = mergeList(a.steps, b.steps, (x) => x.id);
   out.rounds = mergeList(a.rounds, b.rounds, (x) => x.key);

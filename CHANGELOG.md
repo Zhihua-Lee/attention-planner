@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.5 — 2026-10-04
+
+- **Reminders**: push notifications on this device on a deadline's day (an hour before one with a time), on a step's
+  deadline, and before reserved times, even with the app closed. Times are set in Settings. The push service only sees
+  an opaque id and a time; the notification is filled in on the device. Tapping it opens the task.
+- **Concurrent edits**: when two devices change the same title or note without seeing each other's change, the later
+  one is shown and the other is kept. The task offers "keep this one", "use the other" and "compare"; the list marks
+  it "有两个版本". Edits made one after another are not flagged.
+- **Projects done in order**: a project can be marked "按顺序". Its tasks go in the order they were added; later ones
+  are shown as queued and are not suggested in NOW until the earlier ones are done.
+- Closing or reloading the page no longer writes unchanged data, so another tab's save is never overwritten.
+
 ## 0.1.4 — 2026-10-04
 
 Steps can carry more, without getting noisier.

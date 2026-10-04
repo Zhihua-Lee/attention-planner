@@ -35,6 +35,16 @@ export function App() {
     store.clearImported();
   }, [imported, t]);
 
+  // A tapped reminder opens the app at its task (`/?open=<id>`).
+  useEffect(() => {
+    if (!ready) return;
+    const id = new URLSearchParams(location.search).get('open');
+    if (!id) return;
+    history.replaceState(null, '', location.pathname);
+    if (store.get().doc.tasks[id]) open(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
   const open = (id: string) => {
     setTab('list');
     setExpanded(id);

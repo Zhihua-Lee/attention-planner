@@ -284,3 +284,21 @@ describe('steps with their own deadline, estimate and repeat', () => {
     expect(stepDone(d.tasks[id], stepsOf(d.tasks[id])[0], at('2026-09-30'))).toBe(false);
   });
 });
+
+describe('projects done in order', () => {
+  it('only the first unfinished task is suggested; the next one moves up when it is done', async () => {
+    const { addProject, updateProject } = await import('./doc');
+    const { queuePosition } = await import('./derive');
+    let d = emptyDoc(ctx());
+    let p: string, a: string, b: string;
+    [d, p] = addProject(d, ctx(), 'Paper');
+    d = updateProject(d, ctx(), p, { sequential: true });
+    [d, a] = addTask(d, ctx(new Date(2026, 8, 29, 9)), { title: 'Collect data', projectId: p });
+    [d, b] = addTask(d, ctx(new Date(2026, 8, 29, 9, 30)), { title: 'Analyse', projectId: p, star: true });
+    expect(queuePosition(d, d.tasks[b], T0)).toBe(1);
+    expect(nowCandidates(d, T0).map((c) => c.task.title)).toEqual(['Collect data']);
+    d = complete(d, ctx(), a);
+    expect(queuePosition(d, d.tasks[b], T0)).toBe(0);
+    expect(nowCandidates(d, T0)[0].task.title).toBe('Analyse');
+  });
+});

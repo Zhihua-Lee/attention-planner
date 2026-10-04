@@ -87,3 +87,23 @@ test('a linked task is listed right after the task it points to', async ({ page 
   await expect(page.locator('.list > .row .tt')).toHaveText(['别的事', '论文', '重画图 3']);
   await expect(row(page, '重画图 3')).toHaveClass(/linked/);
 });
+
+test('a project done in order queues its later tasks', async ({ page }) => {
+  await start(page);
+  await add(page, '收数据', '分析 !');
+  for (const title of ['收数据', '分析']) {
+    const detail = await openRow(page, title);
+    await detail.getByRole('button', { name: '未分类' }).click();
+    if (title === '收数据') {
+      await page.getByRole('textbox', { name: '新的区域或项目' }).fill('论文');
+      await page.getByRole('dialog').getByRole('button', { name: '项目' }).click();
+    } else await page.getByRole('dialog').getByRole('button', { name: '论文' }).click();
+    await page.getByRole('button', { name: '收起' }).click();
+  }
+  await page.getByRole('button', { name: '设置' }).click();
+  await page.getByRole('dialog', { name: '设置' }).getByRole('checkbox', { name: '按顺序' }).check();
+  await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
+  await expect(row(page, '分析')).toContainText('排队中 · 前面还有 1 个');
+  await page.getByRole('tab', { name: 'NOW' }).click();
+  await expect(page.getByTestId('now-card').getByRole('heading')).toHaveText('收数据');
+});

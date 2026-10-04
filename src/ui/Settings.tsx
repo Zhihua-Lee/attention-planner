@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, dayOf } from '../model/dates';
-import { addArea, addProject, removeGroup, renameGroup, setSettings } from '../model/doc';
+import { addArea, addProject, removeGroup, renameGroup, setSettings, updateProject } from '../model/doc';
 import { parseIcs } from '../model/ics';
 import { importLegacy } from '../model/legacyImport';
 import type { ChipKey } from '../model/types';
 import { brokerStatus, trimSlash } from '../store/drive';
+import { disablePush, enablePush, pushState, testPush, type PushState } from '../store/push';
+import { reminderPrefs } from '../model/reminders';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { DEFAULT_STEP_TOOLS } from './StepList';
@@ -20,6 +22,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
   const [broker, setBroker] = useState(() => localStorage.getItem('ap:broker') ?? '/api');
   const [checking, setChecking] = useState(false);
+  const [push, setPush] = useState<PushState | 'busy'>('off');
+  useEffect(() => {
+    void pushState().then(setPush);
+  }, []);
   const [newGroup, setNewGroup] = useState('');
   useEffect(() => {
     panel.current?.focus();
@@ -234,6 +240,18 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     store.commit((d, c) => renameGroup(d, c, kind, g.id, e.target.value))
                   }
                 />
+                {kind === 'projects' && (
+                  <label className="check-row small">
+                    <input
+                      type="checkbox"
+                      checked={!!(g as { sequential?: boolean }).sequential}
+                      onChange={(e) =>
+                        store.commit((d, c) => updateProject(d, c, g.id, { sequential: e.target.checked }))
+                      }
+                    />
+                    {t('按顺序', 'In order')}
+                  </label>
+                )}
                 <button
                   className="mini"
                   aria-label={`${t('删除', 'Delete')}: ${g.name}`}
@@ -266,6 +284,97 @@ export function Settings({ onClose }: { onClose: () => void }) {
               {t('加项目', 'Add project')}
             </button>
           </div>
+        </section>
+
+        <section>
+          <h3>{t('提醒', 'Reminders')}</h3>
+          <p className="hint">
+            {t(
+              '到了截止当天和预留时段开始前，在这台设备上弹通知；应用没打开也会收到。iPhone 要先把应用添加到主屏幕（iOS 16.4 及以上）。',
+              'Notifications on this device on a deadline’s day and before reserved times, even when the app is closed. On iPhone, add the app to the Home Screen first (iOS 16.4+).',
+            )}
+          </p>
+          <div className="inline">
+            {push === 'on' ? (
+              <>
+                <span>{t('已开启', 'On')}</span>
+                <button
+                  className="btn"
+                  onClick={() =>
+                    void testPush().then(
+                      () => toast(t('测试通知已发送', 'Test sent')),
+                      (e) => toast(String(e.message ?? e)),
+                    )
+                  }
+                >
+                  {t('发送测试通知', 'Send a test')}
+                </button>
+                <button className="btn" onClick={() => void disablePush().then(() => setPush('off'))}>
+                  {t('关闭', 'Turn off')}
+                </button>
+              </>
+            ) : push === 'unsupported' ? (
+              <span className="muted">
+                {t('这个浏览器不支持推送通知。', 'This browser cannot show push notifications.')}
+              </span>
+            ) : push === 'denied' ? (
+              <span className="muted">
+                {t(
+                  '通知被浏览器禁止了，需要在浏览器或系统设置里允许。',
+                  'Notifications are blocked; allow them in the browser or system settings.',
+                )}
+              </span>
+            ) : (
+              <button
+                className="btn primary"
+                disabled={push === 'busy'}
+                onClick={async () => {
+                  setPush('busy');
+                  try {
+                    setPush(await enablePush(store.get().doc));
+                  } catch (e) {
+                    setPush('off');
+                    toast(
+                      e instanceof Error && e.message === 'signed-out'
+                        ? t('请先在下面连接同步（登录 Google）。', 'Connect sync below first (sign in to Google).')
+                        : t('没能开启提醒：', 'Could not turn on reminders: ') +
+                            (e instanceof Error ? e.message : String(e)),
+                    );
+                  }
+                }}
+              >
+                {t('开启提醒', 'Turn on reminders')}
+              </button>
+            )}
+          </div>
+          <div className="inline">
+            <label className="inline">
+              {t('截止当天', 'On a deadline’s day at')}
+              <input
+                type="time"
+                value={reminderPrefs(s).dueAt}
+                aria-label={t('截止当天提醒时间', 'Deadline reminder time')}
+                onChange={(e) => e.target.value && set({ remind: { ...s.remind, dueAt: e.target.value } })}
+              />
+            </label>
+            <label className="inline">
+              {t('预留时段提前', 'Before reserved times')}
+              <select
+                value={reminderPrefs(s).slotLead}
+                aria-label={t('预留时段提前几分钟', 'Minutes before reserved times')}
+                onChange={(e) => set({ remind: { ...s.remind, slotLead: Number(e.target.value) } })}
+              >
+                {[0, 5, 10, 15, 30].map((m) => (
+                  <option key={m} value={m}>
+                    {m ? t(`${m} 分钟`, `${m} min`) : t('准时', 'on time')}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="hint">
+            {t('有具体时刻的截止，会提前 1 小时提醒。', 'A deadline with a time is reminded an hour before.')}
+          </p>
         </section>
 
         <section>

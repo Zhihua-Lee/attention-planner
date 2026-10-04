@@ -24,6 +24,7 @@ import type { Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
 import { EffortPicker, GroupPicker, LinkPicker, PlanPicker, RepeatEditor, WhenPicker } from './pickers';
+import { ConflictNotice } from './Conflict';
 import { StepList } from './StepList';
 import { duration, monthDay, planLabel, ruleLabel, useT } from './text';
 
@@ -65,6 +66,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
 
   return (
     <div className="detail" data-testid="task-detail">
+      <ConflictNotice task={task} field="title" />
       <div className="props">
         <span className="lbl">{t('截止', 'Due')}</span>
         <span className="val">
@@ -244,6 +246,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
         </span>
       </div>
 
+      <ConflictNotice task={task} field="note" />
       {editingNote ? (
         <textarea
           className="note"

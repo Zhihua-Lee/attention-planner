@@ -14,6 +14,7 @@ import {
   type Step,
   type Task,
   type TaskField,
+  type TextField,
 } from './types';
 
 /** Who is editing, and when. Every change is stamped from this. */
@@ -69,6 +70,7 @@ export class Edit {
     const t = this.task(id);
     if (JSON.stringify(t[field]) === JSON.stringify(value)) return;
     const next = { ...t, fs: { ...t.fs, [field]: this.s } } as Task;
+    if ((field === 'title' || field === 'note') && t.fs[field]) next.fb = { ...t.fb, [field]: t.fs[field] };
     if (value === undefined) delete next[field];
     else next[field] = value;
     this.put(next);
@@ -398,6 +400,30 @@ function spawnCopy(e: Edit, t: Task) {
   e.put(copy);
 }
 
+/** Settle a text conflict: keep what is shown, or take the other device's version. Either way it becomes a new edit. */
+export function resolveConflict(doc: Doc, ctx: Ctx, id: string, field: TextField, use: 'current' | 'other'): Doc {
+  return edit(doc, ctx, (e) => {
+    const t = e.task(id);
+    const c = t.conflicts?.[field];
+    if (!c) return;
+    const rest = { ...t.conflicts };
+    delete rest[field];
+    const value = use === 'other' ? c.value : t[field];
+    const next: Task = { ...t, fs: { ...t.fs, [field]: e.s }, fb: { ...t.fb, [field]: t.fs[field] } };
+    if (Object.keys(rest).length) next.conflicts = rest;
+    else delete next.conflicts;
+    if (value === undefined) delete next[field];
+    else next[field] = value;
+    e.put(next);
+  });
+}
+
+/** The conflict on a field that still applies (the field has not changed since). */
+export const openConflict = (t: Task, field: TextField) => {
+  const c = t.conflicts?.[field];
+  return c && t.fs[field] && cmpStamp(c.against, t.fs[field]) === 0 ? c : undefined;
+};
+
 /** Undo completion: reopen a done task, or reopen a finished round. */
 export function uncomplete(doc: Doc, ctx: Ctx, id: string): Doc {
   return edit(doc, ctx, (e) => {
@@ -433,6 +459,16 @@ export const addProject = (doc: Doc, ctx: Ctx, name: string, areaId?: string): [
     id,
   ];
 };
+/** Change a project's settings (for now: whether its tasks go one after another). */
+export const updateProject = (doc: Doc, ctx: Ctx, id: string, patch: Partial<Pick<Project, 'sequential'>>) =>
+  edit(doc, ctx, (e) => {
+    const p = e.doc.projects[id];
+    if (!p) return;
+    const next = { ...p, ...patch, s: e.s };
+    if (!next.sequential) delete next.sequential;
+    e.doc.projects[id] = next;
+  });
+
 export const renameGroup = (doc: Doc, ctx: Ctx, kind: 'areas' | 'projects', id: string, name: string) =>
   edit(doc, ctx, (e) => {
     const g = e.doc[kind][id];
@@ -475,6 +511,7 @@ export function restore(current: Doc, snapshot: Doc, ctx: Ctx): Doc {
         if (same(now[f], was[f])) continue;
         changed = true;
         t = { ...t, fs: { ...t.fs, [f]: e.s } };
+        if ((f === 'title' || f === 'note') && now.fs[f]) t.fb = { ...t.fb, [f]: now.fs[f] };
         if (was[f] === undefined) delete (t as Record<string, unknown>)[f];
         else (t as Record<string, unknown>)[f] = was[f];
       }

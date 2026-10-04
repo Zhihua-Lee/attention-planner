@@ -1,8 +1,18 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { forwardRef, useState } from 'react';
 import { dayOf } from '../model/dates';
-import { finishedTasks, listTasks, matches, openTasks, type Filter } from '../model/derive';
-import { complete, isSnoozed, liveTasks, planOf, setField, taskRound, uncomplete, effectiveDue } from '../model/doc';
+import { finishedTasks, listTasks, matches, openTasks, type Filter, queuePosition } from '../model/derive';
+import {
+  complete,
+  isSnoozed,
+  liveTasks,
+  planOf,
+  setField,
+  taskRound,
+  uncomplete,
+  effectiveDue,
+  openConflict,
+} from '../model/doc';
 import type { Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
@@ -140,6 +150,7 @@ function Row({
   const [completing, setCompleting] = useState(false);
   const round = taskRound(task, now);
   const due = effectiveDue(task, now);
+  const queued = queuePosition(store.get().doc, task, now);
   const finished = !!task.done || !!round?.done;
   const snoozed = isSnoozed(task, today);
   const next = planOf(task).filter((p) => p.day >= today);
@@ -162,7 +173,7 @@ function Row({
   return (
     <motion.div
       layout="position"
-      className={`row${snoozed ? ' snoozed' : ''}${finished ? ' done' : ''}${completing ? ' completing' : ''}${indent ? ' linked' : ''}`}
+      className={`row${snoozed || queued > 0 ? ' snoozed' : ''}${finished ? ' done' : ''}${completing ? ' completing' : ''}${indent ? ' linked' : ''}`}
       data-task={task.id}
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
@@ -215,6 +226,10 @@ function Row({
           </button>
         ) : (
           <span className="meta">
+            {queued > 0 && <span>{t(`排队中 · 前面还有 ${queued} 个`, `Queued · ${queued} before it`)}</span>}
+            {(openConflict(task, 'note') || openConflict(task, 'title')) && (
+              <span className="warn">{t('有两个版本', 'Two versions')}</span>
+            )}
             {snoozed ? (
               <span>
                 {task.snooze?.until

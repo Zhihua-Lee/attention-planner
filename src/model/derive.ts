@@ -13,6 +13,18 @@ export type Reason =
 
 export type Pick = { task: Task; reason: Reason };
 
+/**
+ * In a project done one task after another, how many unfinished tasks come before this one (by when they were added).
+ * 0 means it is the one to do now.
+ */
+export function queuePosition(doc: Doc, t: Task, now: Date): number {
+  const p = t.projectId ? doc.projects[t.projectId] : undefined;
+  if (!p?.sequential || p.deleted || isFinished(t, now)) return 0;
+  return liveTasks(doc).filter(
+    (o) => o.projectId === t.projectId && o.id !== t.id && !isFinished(o, now) && o.created < t.created,
+  ).length;
+}
+
 /** Tasks still to do: not finished (for good or for this round). */
 export const openTasks = (doc: Doc, now: Date) => liveTasks(doc).filter((t) => !isFinished(t, now));
 
@@ -23,7 +35,7 @@ export const openTasks = (doc: Doc, now: Date) => liveTasks(doc).filter((t) => !
 export function nowCandidates(doc: Doc, now: Date): Pick[] {
   const today = dayOf(now);
   const m = nowMinutes(now);
-  const ready = openTasks(doc, now).filter((t) => !isSnoozed(t, today));
+  const ready = openTasks(doc, now).filter((t) => !isSnoozed(t, today) && queuePosition(doc, t, now) === 0);
   const out: Pick[] = [];
   const seen = new Set<string>();
   const push = (task: Task, reason: Reason) => {
