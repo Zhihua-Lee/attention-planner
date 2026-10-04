@@ -5,7 +5,7 @@ import { addArea, addProject, removeGroup, renameGroup, setSettings } from '../m
 import { parseIcs } from '../model/ics';
 import { importLegacy } from '../model/legacyImport';
 import type { ChipKey } from '../model/types';
-import { brokerTokens, DriveRemote } from '../store/drive';
+import { brokerStatus, brokerTokens, DriveRemote, trimSlash } from '../store/drive';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { useT, weekdayShort } from './text';
@@ -17,7 +17,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const { t } = useT();
   const s = doc.settings;
   const panel = useRef<HTMLDivElement>(null);
-  const [broker, setBroker] = useState(() => localStorage.getItem('ap:broker') ?? '');
+  const [broker, setBroker] = useState(() => localStorage.getItem('ap:broker') ?? '/api');
+  const [checking, setChecking] = useState(false);
   const [newGroup, setNewGroup] = useState('');
   useEffect(() => {
     panel.current?.focus();
@@ -338,10 +339,23 @@ export function Settings({ onClose }: { onClose: () => void }) {
             {sync.status === 'off' ? (
               <button
                 className="btn"
-                disabled={!broker.trim()}
-                onClick={() => {
-                  localStorage.setItem('ap:broker', broker.trim());
-                  store.connect(new DriveRemote(brokerTokens(broker.trim())));
+                disabled={!broker.trim() || checking}
+                onClick={async () => {
+                  const base = broker.trim();
+                  setChecking(true);
+                  const status = await brokerStatus(base);
+                  setChecking(false);
+                  if (status === 'signed-out' || status === 'not-connected') {
+                    // The broker's own Google sign-in; it returns here afterwards.
+                    location.href = `${trimSlash(base)}/google/connect?return=${encodeURIComponent(location.pathname)}`;
+                    return;
+                  }
+                  if (status === 'unavailable') {
+                    toast(t('这个地址上没有同步中转。', 'No sync broker answers at that address.'));
+                    return;
+                  }
+                  localStorage.setItem('ap:broker', base);
+                  store.connect(new DriveRemote(brokerTokens(base)));
                 }}
               >
                 {t('连接', 'Connect')}

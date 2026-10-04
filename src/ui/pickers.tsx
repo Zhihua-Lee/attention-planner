@@ -48,6 +48,8 @@ export function WhenPicker({
   excludeEntry,
   onPick,
   onDelete,
+  worked,
+  onWorked,
 }: {
   doc: Doc;
   day: Day;
@@ -57,6 +59,9 @@ export function WhenPicker({
   excludeEntry?: string;
   onPick: (w: When) => void;
   onDelete?: () => void;
+  /** Minutes already worked in this reserved time, when editing one. */
+  worked?: number;
+  onWorked?: (minutes: number | undefined) => void;
 }) {
   const { t, lang } = useT();
   const [start, setStart] = useState<number | null>(null);
@@ -152,6 +157,29 @@ export function WhenPicker({
           );
         })}
       </div>
+      {onWorked && current?.start && (
+        <label className="menu-row worked">
+          <span>{t('这次已做', 'Worked')}</span>
+          <input
+            type="number"
+            min={0}
+            max={1440}
+            step={5}
+            defaultValue={worked}
+            aria-label={t('这次已做（分钟）', 'Minutes worked')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onWorked(Number((e.target as HTMLInputElement).value) || undefined);
+              }
+            }}
+            onBlur={(e) =>
+              Number(e.target.value || 0) !== (worked ?? 0) && onWorked(Number(e.target.value) || undefined)
+            }
+          />
+          <span>{t('分钟', 'min')}</span>
+        </label>
+      )}
       {onDelete && (
         <button className="link-btn danger" onClick={onDelete}>
           {t('删除这次安排', 'Remove this arrangement')}

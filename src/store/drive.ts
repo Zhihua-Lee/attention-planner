@@ -10,17 +10,41 @@ export const DRIVE_FILE = 'attention-planner-v3.json';
 
 export type TokenSource = () => Promise<string>;
 
-/** Access tokens from the sync broker, which keeps the Google refresh token server-side. */
-export function brokerTokens(base: string): TokenSource {
+/**
+ * Access tokens from the sync broker, which keeps the Google refresh token server-side.
+ * The broker lives on the app's own origin (`/api`), accepts same-origin POSTs only, and returns
+ * `{ accessToken, expiresIn }`. Tokens are reused until a minute before they expire.
+ */
+export const trimSlash = (s: string) => (s.endsWith('/') ? s.slice(0, -1) : s);
+
+export function brokerTokens(base: string, fetcher: typeof fetch = fetch.bind(globalThis)): TokenSource {
+  let cached: { token: string; until: number } | null = null;
   return async () => {
-    const res = await fetch(`${base.replace(/\/$/, '')}/google/token`, { credentials: 'include' });
+    if (cached && Date.now() < cached.until) return cached.token;
+    const res = await fetcher(`${trimSlash(base)}/google/token`, { method: 'POST', credentials: 'same-origin' });
     if (res.status === 401 || res.status === 403) throw new Error('Sign in to Google Drive again.');
     if (!res.ok) throw new Error(`The sync broker answered ${res.status}.`);
-    const body = (await res.json()) as { access_token?: string; accessToken?: string };
-    const token = body.access_token ?? body.accessToken;
+    const body = (await res.json()) as { accessToken?: string; access_token?: string; expiresIn?: number };
+    const token = body.accessToken ?? body.access_token;
     if (!token) throw new Error('The sync broker returned no access token.');
+    cached = { token, until: Date.now() + Math.max(60, (body.expiresIn ?? 3600) - 60) * 1000 };
     return token;
   };
+}
+
+/** Whether this browser is signed in to the broker and Google Drive is connected. */
+export async function brokerStatus(
+  base: string,
+): Promise<'connected' | 'signed-out' | 'not-connected' | 'unavailable'> {
+  try {
+    const res = await fetch(`${trimSlash(base)}/google/status`, { credentials: 'same-origin' });
+    if (res.status === 401 || res.status === 403) return 'signed-out';
+    if (!res.ok) return 'unavailable';
+    const body = (await res.json()) as { connected?: boolean };
+    return body.connected ? 'connected' : 'not-connected';
+  } catch {
+    return 'unavailable';
+  }
 }
 
 export class DriveRemote implements Remote {

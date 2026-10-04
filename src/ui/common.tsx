@@ -92,26 +92,32 @@ export function Popover({
       window.removeEventListener('resize', place);
     };
   }, [anchor]);
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     const down = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node) && !anchor.contains(e.target as Node)) onClose();
+      if (!ref.current?.contains(e.target as Node) && !anchor.contains(e.target as Node)) close.current();
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        close.current();
         anchor.focus();
       }
     };
     document.addEventListener('pointerdown', down, true);
     document.addEventListener('keydown', key, true);
-    const first = ref.current?.querySelector<HTMLElement>('[data-autofocus], button, input, select');
-    first?.focus({ preventScroll: true });
     return () => {
       document.removeEventListener('pointerdown', down, true);
       document.removeEventListener('keydown', key, true);
     };
-  }, [anchor, onClose]);
+  }, [anchor]);
+  // Move focus in when it opens, and back in when its content changes (a second step) — never away from a field in use.
+  useEffect(() => {
+    if (ref.current && !ref.current.contains(document.activeElement)) {
+      ref.current.querySelector<HTMLElement>('[data-autofocus], button, input, select')?.focus({ preventScroll: true });
+    }
+  });
   return createPortal(
     <div
       ref={ref}

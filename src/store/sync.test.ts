@@ -95,3 +95,20 @@ describe('Google Drive remote', () => {
     expect(calls.every((c) => (c.init?.headers as Record<string, string>).Authorization === 'Bearer token')).toBe(true);
   });
 });
+
+describe('sync broker tokens', () => {
+  it('posts to the broker once and reuses the token until it nearly expires', async () => {
+    const { brokerTokens } = await import('./drive');
+    let calls = 0;
+    const fake = (async (url: string, init?: RequestInit) => {
+      calls++;
+      expect(url).toBe('/api/google/token');
+      expect(init?.method).toBe('POST');
+      return new Response(JSON.stringify({ accessToken: 'abc', expiresIn: 3600 }));
+    }) as typeof fetch;
+    const tokens = brokerTokens('/api/', fake);
+    expect(await tokens()).toBe('abc');
+    expect(await tokens()).toBe('abc');
+    expect(calls).toBe(1);
+  });
+});

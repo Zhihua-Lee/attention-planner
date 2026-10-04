@@ -48,6 +48,12 @@ test('reserving a time uses a half-hour grid and a duration', async ({ page }) =
   await page.getByRole('textbox', { name: '记下新任务' }).press('Enter');
   await page.getByRole('tab', { name: 'NOW' }).click();
   await expect(page.locator('.blk.slot', { hasText: '准备讲义' })).toContainText('15:00–16:30');
+  await page.locator('.blk.slot', { hasText: '准备讲义' }).click();
+  const detail = page.getByTestId('task-detail');
+  await detail.locator('.pill', { hasText: '15:00–16:30' }).click();
+  await page.getByRole('spinbutton', { name: '这次已做（分钟）' }).fill('40');
+  await page.getByRole('spinbutton', { name: '这次已做（分钟）' }).press('Enter');
+  await expect(detail.locator('.pill', { hasText: '15:00–16:30' })).toContainText('已做 40 分钟');
 });
 
 test('adding can be undone from the toast', async ({ page }) => {

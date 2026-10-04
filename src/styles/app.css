@@ -1386,3 +1386,13 @@ mark {
     transition: none !important;
   }
 }
+
+.menu-row.worked {
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.menu-row.worked input {
+  width: 5em;
+  flex: none;
+}

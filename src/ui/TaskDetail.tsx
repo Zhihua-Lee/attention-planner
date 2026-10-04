@@ -389,6 +389,8 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
                     commit((d, c) => removePlan(d, c, id, p.id));
                     pop.close();
                   }}
+                  worked={p.doneMin}
+                  onWorked={(m) => commit((d, c) => updatePlan(d, c, id, p.id, { doneMin: m }))}
                 />
               ),
           )}
