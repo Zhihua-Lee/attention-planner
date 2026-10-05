@@ -43,7 +43,7 @@ test('settings choose the buttons after each step; a step becomes its own linked
   const sheet = page.getByRole('dialog', { name: '设置' });
   await sheet.getByRole('checkbox', { name: '用时' }).check();
   await sheet.getByRole('checkbox', { name: '独立成任务' }).check();
-  await sheet.getByRole('checkbox', { name: '截止' }).uncheck();
+  await sheet.getByRole('checkbox', { name: '截止', exact: true }).uncheck();
   await sheet.getByRole('button', { name: '完成' }).click();
   detail = page.getByTestId('task-detail');
   await expect(detail.getByRole('button', { name: '截止: 重画图 3' })).toHaveCount(0);
