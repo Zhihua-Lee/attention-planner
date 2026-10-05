@@ -223,7 +223,14 @@ export const removePlan = (doc: Doc, ctx: Ctx, id: string, entryId: string) =>
     e.child(id, 'plan', (plan) => plan.map((p) => (p.id === entryId ? { ...p, deleted: true, s: e.s } : p))),
   );
 
-export const addStep = (doc: Doc, ctx: Ctx, id: string, text: string, after?: string) =>
+export const addStep = (
+  doc: Doc,
+  ctx: Ctx,
+  id: string,
+  text: string,
+  after?: string,
+  extra: Partial<Pick<Step, 'due' | 'effort' | 'repeat'>> = {},
+) =>
   edit(doc, ctx, (e) =>
     e.child(id, 'steps', (steps) => {
       const ordered = stepsOf({ steps } as Task);
@@ -234,7 +241,7 @@ export const addStep = (doc: Doc, ctx: Ctx, id: string, text: string, after?: st
           : i >= ordered.length
             ? (ordered.at(-1)?.order ?? -1) + 1
             : (ordered[i - 1].order + ordered[i].order) / 2;
-      return [...steps, { id: newId(), text, order, s: e.s }];
+      return [...steps, { id: newId(), text, order, ...extra, s: e.s }];
     }),
   );
 

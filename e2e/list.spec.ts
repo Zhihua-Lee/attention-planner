@@ -61,15 +61,14 @@ test('filters follow the tasks: today includes repeating work; empty ones hide; 
   await page.getByRole('tab', { name: '清单' }).click();
   await expect(page.locator('.filters')).not.toContainText('新加的'); // nothing new yet, so no chip
   await add(page, '今天下午 整理', '周五交表格', '随手记的', '每天看邮件');
-  // A task that reopens every day belongs to today.
-  const detail = await openRow(page, '每天看邮件');
-  await detail.getByRole('button', { name: '不重复' }).click();
-  await detail.getByRole('radio', { name: '原地重开' }).click();
+  // "每天" makes it a task that reopens every day, and such a task belongs to today.
+  const detail = await openRow(page, '看邮件');
+  await expect(detail.getByRole('button', { name: /原地重开/ })).toBeVisible();
   await page.getByRole('button', { name: '收起' }).click();
   await page.getByRole('button', { name: /^新加的/ }).click();
   await expect(page.locator('.list .tt')).toHaveText(['随手记的']);
   await page.getByRole('button', { name: /^今天/ }).click();
-  await expect(page.locator('.list .tt')).toHaveText(['每天看邮件', '整理']); // newest first
+  await expect(page.locator('.list .tt')).toHaveText(['看邮件', '整理']); // newest first
   await page.getByRole('button', { name: /^7 天内截止/ }).click();
   await expect(page.locator('.list .tt')).toHaveText(['交表格']);
   await page.getByRole('button', { name: /^全部/ }).click();

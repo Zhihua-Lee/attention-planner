@@ -189,3 +189,19 @@ describe('the browser pages', () => {
     expect(res.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
   });
 });
+
+describe('add_task repeats', () => {
+  it('a repeat in words becomes the task’s repeat, the same way the app reads it', async () => {
+    const remote = new MemoryRemote();
+    remote.doc = seed();
+    const { call } = await connect(remote);
+    await call('add_task', { text: '每周五交周报' });
+    await call('add_task', { text: '每天 看邮件' });
+    const byTitle = (title: string) => liveTasks(remote.doc!).find((x) => x.title === title)!;
+    expect(byTitle('交周报')).toMatchObject({
+      due: '2026-10-02',
+      repeat: { mode: 'copy', rule: { freq: 'weekly', weekdays: [5], start: '2026-10-02' } },
+    });
+    expect(byTitle('看邮件').repeat).toMatchObject({ mode: 'reopen', rule: { freq: 'daily', every: 1 } });
+  });
+});

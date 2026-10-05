@@ -354,7 +354,7 @@ export function createServer(c: ToolContext): McpServer {
     {
       title: 'Add a task',
       description:
-        'Write a new task down; it is saved at once. "text" may carry the app\'s quick words, which are taken out of the title: 今天/明天/后天/周五/下周三 or today/tomorrow/fri (a deadline when next to 截止/交/之前/due/by, otherwise a plan), 上午/下午/晚上 or a time like 15点/3pm, a length like 2小时/30分钟/2h, and " ! " for important. Fields given explicitly win over the quick words.',
+        'Write a new task down; it is saved at once. "text" may carry the app\'s quick words, which are taken out of the title: 今天/明天/后天/周五/下周三 or today/tomorrow/fri (a deadline when next to 截止/交/之前/due/by, otherwise a plan), 上午/下午/晚上 or a time like 15点/3pm, a length like 2小时/30分钟/2h, a repeat like 每天/每周一三/每月15号/工作日 or daily/every mon (with a deadline word each time is a new copy, otherwise the task reopens in place), and " ! " for important. Fields given explicitly win over the quick words.',
       inputSchema: {
         text: z.string().trim().min(1).max(500),
         note: z.string().max(20000).optional().describe('Markdown; references and links go here.'),
@@ -406,11 +406,17 @@ export function createServer(c: ToolContext): McpServer {
           if (a.area) [d, areaId] = resolveGroup(d, ctx, 'areas', a.area);
           if (a.project) [d, projectId] = resolveGroup(d, ctx, 'projects', a.project);
           const title = parsed.title || a.text.trim();
+          const due = a.due ?? parsed.due;
+          // As in the app: a repeat with a deadline makes a new copy each time; without one, the task reopens.
+          const said = typeof parsed.repeat === 'object' ? parsed.repeat : undefined;
           const [next, id] = addTask(d, ctx, {
             title,
             note: a.note?.trim() ? a.note : undefined,
-            due: a.due ?? parsed.due,
+            due,
             dueTime: a.due_time,
+            repeat: said
+              ? { mode: due ? 'copy' : 'reopen', rule: { ...said, start: due ?? plan?.day ?? said.start } }
+              : undefined,
             effort,
             star: a.important ?? parsed.star ?? undefined,
             areaId,

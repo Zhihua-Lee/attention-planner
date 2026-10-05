@@ -6,7 +6,6 @@ import {
   addArea,
   addPlan,
   addProject,
-  addStep,
   complete,
   isSnoozed,
   live,
@@ -25,6 +24,7 @@ import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
 import { EffortPicker, GroupPicker, LinkPicker, PlanPicker, RepeatEditor, WhenPicker } from './pickers';
 import { ConflictNotice } from './Conflict';
+import { NewStep } from './NewStep';
 import { StepList } from './StepList';
 import { duration, monthDay, planLabel, ruleLabel, useT } from './text';
 
@@ -46,7 +46,6 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   const pop = usePopover<PopKey>();
   const [editingNote, setEditingNote] = useState(false);
   const [showRepeat, setShowRepeat] = useState(false);
-  const [newStep, setNewStep] = useState('');
   const id = task.id;
   const set = <K extends Parameters<typeof setField>[3]>(field: K, value: Task[K]) =>
     commit((d, c) => setField(d, c, id, field, value));
@@ -70,19 +69,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
       {/* Steps are what you do, so they come first, at full width; the properties follow. */}
       <div className="val steps" role="group" aria-label={t('步骤', 'Steps')}>
         <StepList task={task} now={now} />
-        <input
-          className="step-new"
-          value={newStep}
-          placeholder={t('+ 添加步骤', '+ Add a step')}
-          aria-label={t('添加步骤', 'Add a step')}
-          onChange={(e) => setNewStep(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing && newStep.trim()) {
-              commit((d, c) => addStep(d, c, id, newStep.trim()));
-              setNewStep('');
-            }
-          }}
-        />
+        <NewStep task={task} now={now} />
       </div>
       <div className="props">
         <span className="lbl">{t('截止', 'Due')}</span>

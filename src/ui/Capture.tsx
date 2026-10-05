@@ -38,7 +38,14 @@ export const Capture = forwardRef<HTMLInputElement>(function Capture(_, inputRef
   const effort = pick('effort', parsed.effort ?? null);
   const star = pick('star', !!parsed.star);
   const group = manual.group ?? {};
-  const repeat = manual.repeat ?? null;
+  // A repeat in words: with a deadline each time is a new copy ("每周五交周报"); without, the task reopens ("每天看邮件").
+  const said = typeof parsed.repeat === 'object' ? parsed.repeat : null;
+  const repeat = pick(
+    'repeat',
+    said
+      ? ({ mode: due ? 'copy' : 'reopen', rule: { ...said, start: due ?? plan?.day ?? said.start } } satisfies Repeat)
+      : null,
+  );
 
   const save = () => {
     const title = parsed.title || text.trim();
@@ -148,13 +155,19 @@ export const Capture = forwardRef<HTMLInputElement>(function Capture(_, inputRef
       />
       <div className="chips">
         {front.map(chip)}
-        {more
-          ? rest.map(chip)
-          : rest.length > 0 && (
+        {more ? (
+          rest.map(chip)
+        ) : (
+          <>
+            {/* Something recognised in the text shows even when its chip is behind "more". */}
+            {rest.filter((k) => values[k]).map(chip)}
+            {rest.some((k) => !values[k]) && (
               <button type="button" className="more-btn" onClick={() => setMore(true)}>
                 ＋{t('更多', 'More')}
               </button>
             )}
+          </>
+        )}
       </div>
       {note !== null && (
         <textarea

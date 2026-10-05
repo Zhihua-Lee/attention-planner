@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { add, row, start, toList } from './helpers';
+import { add, openRow, row, start, toList } from './helpers';
 
 test('capture recognises a deadline, effort and importance, and saves on Enter', async ({ page }) => {
   await start(page);
@@ -72,4 +72,21 @@ test('tasks survive a reload', async ({ page }) => {
   await page.reload();
   await toList(page);
   await expect(row(page, '记得续签')).toBeVisible();
+});
+
+test('a repeat in words: with a deadline a new copy each time, otherwise the task reopens', async ({ page }) => {
+  await start(page);
+  await toList(page);
+  const box = page.getByRole('textbox', { name: '记下新任务' });
+  await box.fill('每天 看邮件');
+  await expect(page.locator('.capture .chips').getByRole('button', { name: /重复：每 1 天|重复：每天/ })).toBeVisible();
+  await box.press('Enter');
+  await box.fill('每周五交周报');
+  await expect(page.locator('.capture .chips').getByRole('button', { name: /截止：周五截止/ })).toBeVisible();
+  await box.press('Enter');
+  const mail = await openRow(page, '看邮件');
+  await expect(mail.getByRole('button', { name: /原地重开/ })).toBeVisible();
+  await page.getByRole('button', { name: '收起' }).click();
+  const report = await openRow(page, '交周报');
+  await expect(report.getByRole('button', { name: /每周五 · 新建一份/ })).toBeVisible();
 });

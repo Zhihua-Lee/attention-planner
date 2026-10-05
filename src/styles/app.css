@@ -1822,3 +1822,10 @@ mark {
     display: none;
   }
 }
+
+.step-new-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}

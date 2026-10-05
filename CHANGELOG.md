@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.5 — 2026-10-05
+
+- **Repeats in words**: the capture box reads 每天 / 每3天 / 每个工作日 / 每周一三五 / 每两周 / 每月15号 / 每月最后一天 /
+  每年 and daily / weekdays / every mon and thu / every 2 weeks / monthly / yearly. With a deadline each time is a new
+  copy (`每周五交周报` is due next Friday and repeats from there); without one the task reopens in place. The repeat
+  chip shows even when it sits behind "更多". Tasks added by an AI read the same words.
+- **Quick words for steps**: the box under a task's steps reads a date as the step's deadline, a length as its
+  estimate, a repeat as its own rule, and 不重复 as "does not reset". What it read shows under the box; tapping a tag
+  undoes it and keeps those words in the step's text.
+
 ## 0.2.4 — 2026-10-05
 
 - **Fix: a repeating task finished its round with steps still open**: only the steps that follow the task were

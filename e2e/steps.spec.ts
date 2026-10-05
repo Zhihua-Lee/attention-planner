@@ -140,3 +140,25 @@ test('steps come first in an opened task, above its properties and note', async 
       '.png',
   });
 });
+
+test('the step box reads a deadline, an estimate and a repeat, and a tag gives the words back', async ({ page }) => {
+  await start(page);
+  await add(page, '写引言');
+  const detail = await openRow(page, '写引言');
+  const box = detail.getByRole('textbox', { name: '添加步骤' });
+  await box.fill('周五 交初稿 30分钟');
+  await expect(detail.locator('.step-new-tags')).toContainText('截止');
+  await expect(detail.locator('.step-new-tags')).toContainText('30 分钟');
+  await box.press('Enter');
+  await expect(detail.locator('.step')).toContainText(['交初稿']);
+  await expect(detail.locator('.step', { hasText: '交初稿' })).toContainText('30 分钟');
+  // A date that is part of the step's text: tap the tag to keep the words.
+  await box.fill('问周五的安排');
+  await detail.locator('.step-new-tags').getByRole('button', { name: /截止/ }).click();
+  await box.press('Enter');
+  await expect(detail.locator('.step', { hasText: '问周五的安排' })).toBeVisible();
+  await box.fill('每天 喝水');
+  await expect(detail.locator('.step-new-tags')).toContainText('↻');
+  await box.press('Enter');
+  await expect(detail.locator('.step', { hasText: '喝水' })).toContainText('↻');
+});
