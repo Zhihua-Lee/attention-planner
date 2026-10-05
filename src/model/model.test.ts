@@ -15,6 +15,7 @@ import {
   stepsOf,
   taskRound,
   toggleStep,
+  updateStep,
   uncomplete,
   type Ctx,
 } from './doc';
@@ -97,6 +98,22 @@ describe('tasks', () => {
     expect(isFinished(d.tasks[id], thursday)).toBe(false);
     expect(stepDone(d.tasks[id], s1, thursday)).toBe(false);
     expect(taskRound(d.tasks[id], thursday)?.key).toBe('2026-10-01');
+  });
+  it('a round is not finished while a one-off or own-rule step is still open', () => {
+    const rule: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2], start: '2026-09-29' };
+    let [d, id] = make('TA list', { repeat: { mode: 'reopen', rule } });
+    d = addStep(d, ctx(), id, 'Grade');
+    d = addStep(d, ctx(), id, 'Order books');
+    d = addStep(d, ctx(), id, 'Weekly email');
+    const [follow, once, own] = stepsOf(d.tasks[id]);
+    d = updateStep(d, ctx(), id, once.id, { repeat: 'none' });
+    d = updateStep(d, ctx(), id, own.id, { repeat: { ...rule } });
+    d = toggleStep(d, ctx(), id, follow.id, true);
+    expect(isFinished(d.tasks[id], T0)).toBe(false);
+    d = toggleStep(d, ctx(), id, once.id, true);
+    expect(isFinished(d.tasks[id], T0)).toBe(false);
+    d = toggleStep(d, ctx(), id, own.id, true);
+    expect(isFinished(d.tasks[id], T0)).toBe(true);
   });
   it('unchecking a step reopens a finished round', () => {
     const rule: RepeatRule = { freq: 'daily', every: 1, fromDone: false, start: '2026-09-28' };

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4 — 2026-10-05
+
+- **Fix: a repeating task finished its round with steps still open**: only the steps that follow the task were
+  counted, so once those were checked the round was done even if a one-off step (common in lists imported from the
+  previous app) or a step on its own rule was still open. Now every open step counts.
+
 ## 0.2.3 — 2026-10-04
 
 - **Fix: calendar events shown twice**: Outlook events saved by 0.1.6 and earlier carried no source, so from 0.1.7 on

@@ -316,8 +316,10 @@ export function toggleStep(doc: Doc, ctx: Ctx, id: string, stepId: string, check
     const after = e.task(id);
     const round = taskRound(after, now);
     if (!round) return;
-    const following = stepsOf(after).filter((s) => !s.repeat);
-    const allDone = following.length > 0 && following.every((s) => s.doneIn === round.key);
+    // The round is done when nothing in the task is left open: the steps that follow it, and also one-off steps and
+    // steps on their own rule. A task with no step that follows it never finishes by itself.
+    const steps = stepsOf(after);
+    const allDone = steps.some((s) => !s.repeat) && steps.every((s) => stepDone(after, s, now));
     if (allDone && !round.done) finishRound(e, id, round.key);
     if (!checked && round.done) reopenRound(e, id, round.key);
   });
