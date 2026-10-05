@@ -1,3 +1,4 @@
+import { inRounds } from '../model/doc';
 import { reminders } from '../model/reminders';
 import type { Doc } from '../model/types';
 
@@ -89,7 +90,8 @@ export async function syncReminders(doc: Doc, given?: PushSubscription | null): 
   if (!pushSupported() || localStorage.getItem('ap:push') !== 'on') return;
   const sub = given ?? (await (await navigator.serviceWorker.getRegistration())?.pushManager.getSubscription());
   if (!sub) return;
-  const list = reminders(doc, new Date());
+  const now = new Date();
+  const list = reminders(inRounds(doc, now), now);
   const signature = JSON.stringify(list);
   if (signature === last && !given) return;
   await post('/sync', { deviceId: pushDevice(), subscription: sub.toJSON(), reminders: list });

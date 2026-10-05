@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { emptyDoc, restore, type Ctx } from '../model/doc';
+import { emptyDoc, inRounds, restore, type Ctx } from '../model/doc';
 import { importLegacy, type ImportReport } from '../model/legacyImport';
 import { mergeDocs } from '../model/merge';
 import type { CalendarEvent, Doc } from '../model/types';
@@ -264,4 +264,19 @@ export class Store {
 
 export const store = new Store();
 
-export const useStore = () => useSyncExternalStore(store.subscribe, store.get);
+/**
+ * What the screen reads: the state with every task as its current round sees it (a task that reopens shows this
+ * round's dates). Recomputed when the state changes or the minute turns; writes still go to the stored document.
+ */
+let snap: { state: State; minute: number; out: State } | null = null;
+function view(): State {
+  const state = store.get();
+  const now = new Date();
+  const minute = Math.floor(now.getTime() / 60e3);
+  if (snap && snap.state === state && snap.minute === minute) return snap.out;
+  const doc = inRounds(state.doc, now);
+  const out = snap && snap.state === state && snap.out.doc === doc ? snap.out : { ...state, doc };
+  snap = { state, minute, out };
+  return out;
+}
+export const useStore = () => useSyncExternalStore(store.subscribe, view);

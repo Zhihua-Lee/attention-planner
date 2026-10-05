@@ -74,9 +74,20 @@ export function App() {
       const typing =
         /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName) ||
         (e.target as HTMLElement).isContentEditable;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+      const k = e.key.toLowerCase();
+      if (mod && (k === 'k' || (k === 'f' && !e.shiftKey))) {
+        // Ctrl+F searches the tasks rather than the page.
         e.preventDefault();
         setSearching(true);
+      } else if (mod && !e.shiftKey && k === 's') {
+        // Everything is saved as it is typed; Ctrl+S syncs instead of saving the web page.
+        e.preventDefault();
+        void store.syncNow();
+        toast(t('已自动保存', 'Saved automatically'));
+      } else if (mod && !e.shiftKey && ['p', 'o', 'u', 'd', 'g'].includes(k)) {
+        // Print, open file, view source, bookmark and find-next belong to web pages, not to this app.
+        e.preventDefault();
       } else if (
         (e.ctrlKey || e.metaKey) &&
         e.key.toLowerCase() === 'z' &&

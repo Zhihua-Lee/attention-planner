@@ -29,11 +29,16 @@ export type Pick = { task: Task; reason: Reason };
  */
 export function queuePosition(doc: Doc, t: Task, now: Date): number {
   const p = t.projectId ? doc.projects[t.projectId] : undefined;
-  if (!p?.sequential || p.deleted || isFinished(t, now)) return 0;
+  // Repeating tasks come round on their own schedule: they neither wait in the queue nor hold it up.
+  if (!p?.sequential || p.deleted || t.repeat || isFinished(t, now)) return 0;
   return liveTasks(doc).filter(
-    (o) => o.projectId === t.projectId && o.id !== t.id && !isFinished(o, now) && o.created < t.created,
+    (o) => o.projectId === t.projectId && o.id !== t.id && !o.repeat && !isFinished(o, now) && o.created < t.created,
   ).length;
 }
+
+/** Snoozed and not yet due: a deadline that arrives (today or earlier) brings a snoozed task back. */
+export const isResting = (t: Task, now: Date) =>
+  isSnoozed(t, dayOf(now)) && !((effectiveDue(t, now)?.day ?? '9') <= dayOf(now));
 
 /** Tasks still to do: not finished (for good or for this round). */
 export const openTasks = (doc: Doc, now: Date) => liveTasks(doc).filter((t) => !isFinished(t, now));
@@ -45,7 +50,7 @@ export const openTasks = (doc: Doc, now: Date) => liveTasks(doc).filter((t) => !
 export function nowCandidates(doc: Doc, now: Date): Pick[] {
   const today = dayOf(now);
   const m = nowMinutes(now);
-  const ready = openTasks(doc, now).filter((t) => !isSnoozed(t, today) && queuePosition(doc, t, now) === 0);
+  const ready = openTasks(doc, now).filter((t) => !isResting(t, now) && queuePosition(doc, t, now) === 0);
   const out: Pick[] = [];
   const seen = new Set<string>();
   const push = (task: Task, reason: Reason) => {
@@ -185,7 +190,7 @@ export const isNew = (t: Task, now: Date) =>
  */
 export function isToday(t: Task, now: Date): boolean {
   const today = dayOf(now);
-  if (isSnoozed(t, today)) return false;
+  if (isResting(t, now)) return false;
   const due = effectiveDue(t, now);
   if (due && due.day <= today) return true;
   if (planOf(t).some((p) => p.day === today)) return true;

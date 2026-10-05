@@ -17,6 +17,7 @@ import {
 import {
   addTask,
   effectiveDue,
+  inRounds,
   isFinished,
   isSnoozed,
   liveTasks,
@@ -139,6 +140,8 @@ export function createServer(c: ToolContext): McpServer {
     },
   );
   const ws = c.workspace;
+  // Tasks as their current round sees them: a task that reopens shows this round's dates.
+  const load = async () => inRounds(await ws.read(), ws.now());
   const guard =
     <A>(fn: (args: A) => Promise<ReturnType<typeof text>>) =>
     async (args: A) => {
@@ -160,7 +163,7 @@ export function createServer(c: ToolContext): McpServer {
       annotations: read,
     },
     guard(async () => {
-      const doc = await ws.read();
+      const doc = await load();
       const now = ws.now();
       const today = dayOf(now);
       const withEvents: Doc = { ...doc, events: await ws.events(doc, today, today) };
@@ -210,7 +213,7 @@ export function createServer(c: ToolContext): McpServer {
         include_finished?: boolean;
         limit?: number;
       }) => {
-        const doc = await ws.read();
+        const doc = await load();
         const now = ws.now();
         const find = (kind: 'areas' | 'projects', ref: string) => {
           const hit = Object.values(doc[kind]).find(
@@ -246,7 +249,7 @@ export function createServer(c: ToolContext): McpServer {
       annotations: read,
     },
     guard(async ({ id }: { id: string }) => {
-      const doc = await ws.read();
+      const doc = await load();
       const t = doc.tasks[id];
       if (!t || t.deleted) throw new Error(`There is no task ${id}.`);
       return text(full(doc, t, ws.now(), c.origin));
@@ -266,7 +269,7 @@ export function createServer(c: ToolContext): McpServer {
       annotations: read,
     },
     guard(async (a: { start?: string; days?: number }) => {
-      const doc = await ws.read();
+      const doc = await load();
       const now = ws.now();
       const first = a.start ?? dayOf(now);
       const last = addDays(first, (a.days ?? 1) - 1);
@@ -317,7 +320,7 @@ export function createServer(c: ToolContext): McpServer {
       annotations: read,
     },
     guard(async () => {
-      const doc = await ws.read();
+      const doc = await load();
       const now = ws.now();
       const open = liveTasks(doc).filter((t) => !isFinished(t, now));
       const live = <G extends { deleted?: boolean; order: number }>(g: Record<string, G>) =>
@@ -456,7 +459,7 @@ export function createServer(c: ToolContext): McpServer {
     },
     guard(async (a: { summary: string; changes: z.infer<typeof changeSchema>[] }) => {
       needsWrite();
-      const doc = await ws.read();
+      const doc = await load();
       for (const ch of a.changes) {
         const t = doc.tasks[ch.task_id];
         if (!t || t.deleted) throw new Error(`There is no task ${ch.task_id}.`);

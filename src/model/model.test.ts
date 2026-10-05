@@ -333,11 +333,13 @@ describe('today and the hand-sorted list', () => {
     });
     add('later', { due: '2026-10-20' });
     add('waiting', { due: '2026-09-29', snooze: { until: '2026-10-05' } });
+    add('resting', { due: '2026-10-20', snooze: { until: '2026-10-05' } });
     const today = liveTasks(d)
       .filter((t) => isToday(t, T0))
       .map((t) => t.title)
       .sort();
-    expect(today).toEqual(['daily', 'late', 'planned']);
+    // A snoozed task whose deadline has come is back; one due later still rests.
+    expect(today).toEqual(['daily', 'late', 'planned', 'waiting']);
     const ids = listTasks(d, T0, 'all').map((t) => t.id);
     d = setSettings(d, ctx(), { listSort: 'manual' });
     d = reorderTasks(d, ctx(), ids.slice().reverse());
@@ -369,5 +371,68 @@ describe('calendar events by source', () => {
     // The same meeting from the Outlook export and a subscription to that calendar is listed once.
     const doc = { ...emptyDoc(ctx()), events: [...next, ev('dup', 'TA Meeting', '09:30', 'sub:y')] };
     expect(eventsOn(doc, '2026-09-28').map((e) => e.title)).toEqual(['Imported', 'Research', 'Seminar', 'TA Meeting']);
+  });
+});
+
+describe('how the parts of a task work together', () => {
+  const weeklyTue: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2], start: '2026-09-29' };
+
+  it('a task that reopens carries its deadline, step deadlines and plans into each round', async () => {
+    const { inRound, inRounds, setField, updateStep, addPlan, addStep: add } = await import('./doc');
+    let [d, id] = make('TA list', {
+      due: '2026-09-30',
+      repeat: { mode: 'reopen', rule: weeklyTue },
+      plan: [{ day: '2026-09-29', start: '14:00', minutes: 60 }],
+    });
+    d = add(d, ctx(), id, 'Grade');
+    d = updateStep(d, ctx(), id, stepsOf(d.tasks[id])[0].id, { due: '2026-09-29' });
+    d = complete(d, ctx(), id);
+    const nextTue = at('2026-10-06');
+    const seen = inRound(d.tasks[id], nextTue);
+    expect(seen.due).toBe('2026-10-07');
+    expect(seen.plan[0].day).toBe('2026-10-06');
+    expect(stepsOf(seen)[0].due).toBe('2026-10-06');
+    // Not "overdue by 7 days": the step is due today in this round.
+    expect(nowCandidates(inRounds(d, nextTue), nextTue)[0].reason).toMatchObject({ kind: 'dueToday' });
+    // Changing a date in a later round is stored relative to the first, so every round sees it.
+    d = setField(d, ctx(nextTue), id, 'due', '2026-10-08');
+    expect(d.tasks[id].due).toBe('2026-10-01');
+    expect(inRound(d.tasks[id], at('2026-10-13')).due).toBe('2026-10-15');
+    d = addPlan(d, ctx(nextTue), id, { day: '2026-10-09', part: 'pm' });
+    expect(d.tasks[id].plan.at(-1)!.day).toBe('2026-10-02');
+  });
+
+  it('a new copy takes its steps’ deadlines (moved) and estimates along', async () => {
+    const { updateStep } = await import('./doc');
+    const rule: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, start: '2026-09-29' };
+    let [d, id] = make('Report', { due: '2026-09-29', steps: ['Draft'], repeat: { mode: 'copy', rule } });
+    d = updateStep(d, ctx(), id, stepsOf(d.tasks[id])[0].id, { due: '2026-09-28', effort: 30 });
+    d = complete(d, ctx(), id);
+    const next = liveTasks(d).find((t) => !t.done)!;
+    expect(next.due).toBe('2026-10-06');
+    expect(stepsOf(next)[0]).toMatchObject({ due: '2026-10-05', effort: 30 });
+  });
+
+  it('a snoozed task comes back to NOW when its deadline arrives', () => {
+    let [d] = make('Snoozed, due today', { due: '2026-09-29', snooze: { until: '2026-10-10' } });
+    [d] = addTask(d, ctx(), { title: 'Snoozed, due later', due: '2026-10-08', snooze: { until: '2026-10-10' } });
+    expect(nowCandidates(d, T0).map((p) => p.task.title)).toEqual(['Snoozed, due today']);
+  });
+
+  it('in a project done in order, repeating tasks neither wait nor hold the queue', async () => {
+    const { addProject, updateProject } = await import('./doc');
+    let d = emptyDoc(ctx());
+    let p: string;
+    [d, p] = addProject(d, ctx(), 'Course');
+    d = updateProject(d, ctx(), p, { sequential: true });
+    const add = (title: string, extra = {}, now = T0) =>
+      ([d] = addTask(d, ctx(now), { title, projectId: p, ...extra }));
+    add('Weekly notes', { repeat: { mode: 'reopen', rule: weeklyTue } }, at('2026-09-28'));
+    add('Experiment', {}, at('2026-09-28', '11:00'));
+    add('Report', {}, at('2026-09-28', '12:00'));
+    const titles = nowCandidates(d, T0).map((x) => x.task.title);
+    expect(titles).toContain('Weekly notes');
+    expect(titles).toContain('Experiment');
+    expect(titles).not.toContain('Report');
   });
 });

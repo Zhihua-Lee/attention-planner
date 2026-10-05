@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.6 — 2026-10-05
+
+- **Dates follow the round in a task that reopens**: its deadline, its steps' deadlines and its plans are kept as
+  written for the first round, and each round sees them moved to that round (a weekly list due the day after it
+  opens is due the day after each time, instead of "overdue by 7 days"; a reserved time comes back every round).
+  Nothing is rewritten when a round opens; a date changed in a later round is stored back relative to the first.
+  The screen, reminders and AI connections all read the round's dates.
+- **A new copy keeps its steps' deadlines and estimates**, the deadlines moved like the task's.
+- **A deadline brings a snoozed task back**: once a deadline (a step's too) is today or past, the task shows in NOW
+  and "今天" even while snoozed.
+- **Repeating tasks stay out of a project's queue**: in a project done in order they neither wait nor hold the
+  other tasks back.
+- **Web-page shortcuts are taken over**: Ctrl+S syncs (instead of saving the page), Ctrl+F searches tasks, and
+  Ctrl+P/O/U/D/G do nothing.
+- docs/interactions.md lists how a task's parts work together.
+
 ## 0.2.5 — 2026-10-05
 
 - **Repeats in words**: the capture box reads 每天 / 每3天 / 每个工作日 / 每周一三五 / 每两周 / 每月15号 / 每月最后一天 /

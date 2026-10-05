@@ -163,3 +163,22 @@ test('a calendar subscribed by address appears in the agenda and can be removed'
   await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
   await expect(page.locator('.blk.event', { hasText: '水文课' })).toHaveCount(0);
 });
+
+test('web-page shortcuts are taken over: Ctrl+S syncs instead of saving the page, Ctrl+F searches tasks', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'keyboard shortcuts are for desktop');
+  await start(page);
+  const prevented = page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) =>
+        window.addEventListener('keydown', (e) => setTimeout(() => resolve(e.defaultPrevented)), { once: true }),
+      ),
+  );
+  await page.keyboard.press('Control+s');
+  expect(await prevented).toBe(true);
+  await expect(page.locator('.toast')).toContainText('已自动保存');
+  await page.keyboard.press('Control+f');
+  await expect(page.getByRole('dialog', { name: /搜索/ })).toBeVisible();
+});

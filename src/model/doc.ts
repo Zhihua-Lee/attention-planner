@@ -1,5 +1,5 @@
 import { addDays, dayOf, diffDays } from './dates';
-import { nextCopyDay, roundOf, type RoundState } from './repeat';
+import { nextCopyDay, nextOccurrence, roundOf, type RoundState } from './repeat';
 import {
   TASK_FIELDS,
   type Area,
@@ -119,6 +119,47 @@ export function stepDone(t: Task, step: Step, now: Date): boolean {
   return round ? step.doneIn === round.key : !!step.done;
 }
 
+/**
+ * A task that reopens keeps its deadline, its steps' deadlines and its plans as written for its first round; each
+ * round sees them moved by the days between that round and the first. This is that number of days (0 for anything
+ * else). Nothing is rewritten when a round opens, so a skipped round or two devices never leave stale dates.
+ */
+export function roundShift(t: Task, now: Date): number {
+  if (t.repeat?.mode !== 'reopen') return 0;
+  const round = taskRound(t, now);
+  if (!round) return 0;
+  const rule = t.repeat.rule;
+  const first = rule.fromDone ? rule.start : (nextOccurrence(rule, rule.start, true) ?? rule.start);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(round.key) ? round.key : dayOf(round.opensAt);
+  return Math.max(0, diffDays(day, first));
+}
+
+/** The task as the current round sees it (see `roundShift`). */
+export function inRound(t: Task, now: Date): Task {
+  const n = roundShift(t, now);
+  if (!n) return t;
+  return {
+    ...t,
+    ...(t.due ? { due: addDays(t.due, n) } : {}),
+    plan: t.plan.map((p) => ({ ...p, day: addDays(p.day, n) })),
+    steps: t.steps.map((s) => (s.due ? { ...s, due: addDays(s.due, n) } : s)),
+  };
+}
+
+/** Every task as its current round sees it: what the screen, reminders and the AI read. Writes use the stored doc. */
+export function inRounds(doc: Doc, now: Date): Doc {
+  let tasks: Doc['tasks'] | undefined;
+  for (const [id, t] of Object.entries(doc.tasks)) {
+    if (t.deleted || t.repeat?.mode !== 'reopen') continue;
+    const r = inRound(t, now);
+    if (r !== t) (tasks ??= { ...doc.tasks })[id] = r;
+  }
+  return tasks ? { ...doc, tasks } : doc;
+}
+
+/** A day shown for the current round, back to how it is stored. */
+const stored = (t: Task, now: Date, day: Day | undefined) => (day ? addDays(day, -roundShift(t, now)) : day);
+
 /** Done for good, or (for a task that reopens) done for the current round. */
 export function isFinished(t: Task, now: Date): boolean {
   if (t.done) return true;
@@ -192,13 +233,20 @@ export function addTask(doc: Doc, ctx: Ctx, input: NewTask): [Doc, string] {
 }
 
 export const setField = <K extends TaskField>(doc: Doc, ctx: Ctx, id: string, field: K, value: Task[K]) =>
-  edit(doc, ctx, (e) => e.set(id, field, value));
+  edit(doc, ctx, (e) =>
+    e.set(id, field, field === 'due' ? (stored(e.task(id), ctx.now, value as Day | undefined) as Task[K]) : value),
+  );
 
 export const removeTask = (doc: Doc, ctx: Ctx, id: string) =>
   edit(doc, ctx, (e) => e.put({ ...e.task(id), deleted: true, fs: { ...e.task(id).fs, deleted: e.s } }));
 
 export const addPlan = (doc: Doc, ctx: Ctx, id: string, entry: Omit<PlanEntry, 'id' | 's'>) =>
-  edit(doc, ctx, (e) => e.child(id, 'plan', (plan) => [...plan, { ...entry, id: newId(), s: e.s }]));
+  edit(doc, ctx, (e) =>
+    e.child(id, 'plan', (plan) => [
+      ...plan,
+      { ...entry, day: stored(e.task(id), ctx.now, entry.day)!, id: newId(), s: e.s },
+    ]),
+  );
 
 export const updatePlan = (
   doc: Doc,
@@ -211,7 +259,8 @@ export const updatePlan = (
     e.child(id, 'plan', (plan) =>
       plan.map((p) => {
         if (p.id !== entryId) return p;
-        const next = { ...p, ...patch, s: e.s };
+        const day = patch.day ? { day: stored(e.task(id), ctx.now, patch.day)! } : {};
+        const next = { ...p, ...patch, ...day, s: e.s };
         for (const k of Object.keys(patch) as (keyof typeof patch)[]) if (patch[k] === undefined) delete next[k];
         return next;
       }),
@@ -241,7 +290,8 @@ export const addStep = (
           : i >= ordered.length
             ? (ordered.at(-1)?.order ?? -1) + 1
             : (ordered[i - 1].order + ordered[i].order) / 2;
-      return [...steps, { id: newId(), text, order, ...extra, s: e.s }];
+      const due = extra.due ? { due: stored(e.task(id), ctx.now, extra.due) } : {};
+      return [...steps, { id: newId(), text, order, ...extra, ...due, s: e.s }];
     }),
   );
 
@@ -256,7 +306,8 @@ export const updateStep = (
     e.child(id, 'steps', (steps) =>
       steps.map((s) => {
         if (s.id !== stepId) return s;
-        const next = { ...s, ...patch, s: e.s };
+        const due = patch.due ? { due: stored(e.task(id), ctx.now, patch.due) } : {};
+        const next = { ...s, ...patch, ...due, s: e.s };
         for (const k of Object.keys(patch) as (keyof typeof patch)[]) if (patch[k] === undefined) delete next[k];
         return next;
       }),
@@ -276,7 +327,9 @@ export const reorderSteps = (doc: Doc, ctx: Ctx, id: string, ids: string[]) =>
 
 /** A step that has grown: it becomes its own task, linked to this one, keeping its deadline and estimate. */
 export function promoteStep(doc: Doc, ctx: Ctx, id: string, stepId: string): [Doc, string] {
-  const step = doc.tasks[id]?.steps.find((s) => s.id === stepId && !s.deleted);
+  const task = doc.tasks[id];
+  // The new task is one-off: give it the step's deadline as this round sees it.
+  const step = task && inRound(task, ctx.now).steps.find((s) => s.id === stepId && !s.deleted);
   if (!step) throw new Error('This step no longer exists.');
   const [withTask, newId] = addTask(doc, ctx, { title: step.text, linkTo: id, due: step.due, effort: step.effort });
   return [removeStep(withTask, ctx, id, stepId), newId];
@@ -388,7 +441,16 @@ function spawnCopy(e: Edit, t: Task) {
       minutes: p.minutes,
       s: e.s,
     })),
-    steps: stepsOf(t).map((s) => ({ id: newId(), text: s.text, order: s.order, repeat: s.repeat, s: e.s })),
+    // Steps start unchecked; their deadlines move with the task's, and their estimates come along.
+    steps: stepsOf(t).map((s) => ({
+      id: newId(),
+      text: s.text,
+      order: s.order,
+      repeat: s.repeat,
+      ...(s.due ? { due: addDays(s.due, shift) } : {}),
+      ...(s.effort ? { effort: s.effort } : {}),
+      s: e.s,
+    })),
     rounds: [],
     fs,
     s: e.s,

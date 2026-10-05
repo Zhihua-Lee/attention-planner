@@ -5,6 +5,7 @@ import OAuthProvider, {
   type OAuthHelpers,
   type OAuthResourceAuth,
 } from '@cloudflare/workers-oauth-provider';
+import { inRounds } from '../../src/model/doc';
 import { DriveRemote } from '../../src/store/drive';
 import { brokerTokens, sessionConnected, sessionOf, type Broker } from './broker';
 import { applyChanges, describeChange } from './changes';
@@ -157,7 +158,7 @@ async function review(request: Request, env: Env, id: string): Promise<Response>
     }
     return redirect(`/api/ai/review/${id}`);
   }
-  const doc = await ws.read();
+  const doc = inRounds(await ws.read(), ws.now());
   const lang = doc.settings.lang === 'en' ? 'en' : 'zh';
   const t = (zh: string, en: string) => (lang === 'zh' ? zh : en);
   const when = new Date(p.createdAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', { timeZone: env.TIME_ZONE });
