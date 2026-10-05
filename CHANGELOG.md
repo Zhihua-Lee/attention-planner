@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-10-04
+
+- **Fix: allowing an AI was refused** ("请求来自别的网站，已拒绝"): the AI pages sent `Referrer-Policy: no-referrer`,
+  which makes browsers post their own forms with `Origin: null`, so the same-origin check rejected them. They now use
+  `same-origin`.
+
 ## 0.2.0 — 2026-10-04
 
 - **AI connections (MCP)** at `/api/mcp`: AI clients connect with OAuth (the consent page names the client and where

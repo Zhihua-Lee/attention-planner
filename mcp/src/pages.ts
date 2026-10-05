@@ -28,7 +28,9 @@ export function page(title: string, body: string, status = 200, headers?: Header
     "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
   );
   h.set('X-Frame-Options', 'DENY');
-  h.set('Referrer-Policy', 'no-referrer');
+  // Not "no-referrer": with it, browsers send `Origin: null` on the page's own form posts, and those are checked to
+  // come from this origin. "same-origin" still sends nothing to other sites (the redirect back to the AI client).
+  h.set('Referrer-Policy', 'same-origin');
   return new Response(
     `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><style>${STYLE}</style></head><body><main><h1>${escape(title)}</h1>${body}</main></body></html>`,
     { status, headers: h },

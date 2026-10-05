@@ -180,3 +180,12 @@ describe('MCP tools', () => {
     expect(liveTasks(remote.doc!).some((t) => t.title === '再试一次')).toBe(true);
   });
 });
+
+describe('the browser pages', () => {
+  it('keep the Origin header on their own form posts (no "no-referrer"), and cannot be framed', async () => {
+    const { page } = await import('../mcp/src/pages');
+    const res = page('连接 AI', '<form method="post"></form>');
+    expect(res.headers.get('Referrer-Policy')).toBe('same-origin');
+    expect(res.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
+  });
+});
