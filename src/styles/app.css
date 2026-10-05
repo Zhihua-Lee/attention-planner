@@ -1440,6 +1440,14 @@ mark {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* a tall enough block wraps its title by words, then shows the time below */
+.lane-area .blk:not(.short) .bt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 16px;
+}
 .lane-area .blk.short {
   flex-direction: row;
   align-items: center;
@@ -1802,4 +1810,18 @@ mark {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* full width: for reading on a large screen */
+.app.wide {
+  max-width: 1400px;
+  padding-inline: clamp(16px, 3vw, 40px);
+}
+.app.wide .day-scroll {
+  max-height: clamp(260px, 64dvh, 760px);
+}
+@media (max-width: 720px) {
+  .wide-btn {
+    display: none;
+  }
 }

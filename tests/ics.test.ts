@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calendarUrl, onRequestGet } from './ics';
+import { calendarUrl, onRequestGet } from '../functions/ics';
 
 describe('calendar subscription fetch', () => {
   it('accepts https and webcal addresses and refuses local or odd ones', () => {

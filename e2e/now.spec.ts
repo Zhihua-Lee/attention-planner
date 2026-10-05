@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { add, openRow, row, start, T0, toList } from './helpers';
 
 test('NOW shows one task with its reason, and "another" cycles', async ({ page }) => {
@@ -55,6 +55,13 @@ test('the agenda moves by day and week, and opens a task', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: '任务名称' })).toHaveValue('复习');
 });
 
+/** Pixels per hour in the day view (it adapts to the shortest item on the day). */
+const hourPx = async (page: Page) =>
+  (await page
+    .getByRole('region', { name: '日程' })
+    .locator('.timeline')
+    .evaluate((el) => el.clientHeight)) / 24;
+
 test('the day scrolls through 24 hours and opens at the current time with a now marker', async ({ page }) => {
   await start(page, new Date('2026-09-29T16:20:00-05:00'));
   await page.getByRole('tab', { name: 'NOW' }).click();
@@ -63,7 +70,7 @@ test('the day scrolls through 24 hours and opens at the current time with a now 
   const scroller = agenda.locator('.day-scroll');
   await expect(agenda.locator('.now-tag')).toHaveText('16:20');
   await expect(agenda.locator('.now-tag')).toBeInViewport();
-  expect(await scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(8 * 32); // as far down as it goes
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(8 * (await hourPx(page))); // as far down as it goes
   expect(await scroller.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
 });
 
@@ -97,9 +104,10 @@ test('overlapping events sit side by side; tapping shows details; an empty time 
   await expect(details).toContainText('Zoom');
   await page.keyboard.press('Escape');
   // An empty spot at 17:00 → reserve it for an existing task, then change its time from the details.
-  await agenda.locator('.day-scroll').evaluate((el) => (el.scrollTop = 16 * 32));
+  const H = await hourPx(page);
+  await agenda.locator('.day-scroll').evaluate((el, h) => (el.scrollTop = 16 * h), H);
   const area = await agenda.locator('.lane-area').boundingBox();
-  await page.mouse.click(area!.x + area!.width - 10, area!.y + 17 * 32 + 8);
+  await page.mouse.click(area!.x + area!.width - 10, area!.y + 17 * H + 8);
   const sheet = page.getByRole('dialog', { name: '预留时段' });
   await expect(sheet.getByLabel('开始')).toHaveValue('17:00');
   await sheet.getByRole('radio', { name: '已有任务' }).click();
@@ -115,15 +123,59 @@ test('overlapping events sit side by side; tapping shows details; an empty time 
   await expect(slot).toContainText('18:00–19:00');
 });
 
+test('short events make the hours taller so every title can be read; height still matches length', async ({ page }) => {
+  await start(page);
+  await page.getByRole('tab', { name: 'NOW' }).click();
+  await page.getByRole('button', { name: '设置' }).click();
+  const ev = (uid: string, s: string, e: string, title: string) =>
+    ['BEGIN:VEVENT', `UID:${uid}`, `SUMMARY:${title}`, `DTSTART:${s}`, `DTEND:${e}`, 'END:VEVENT'].join('\r\n');
+  const ics = [
+    'BEGIN:VCALENDAR',
+    ev('a', '20260929T123000', '20260929T133000', 'Math Lab Hour'),
+    ev('b', '20260929T130000', '20260929T133000', 'Research: Diffusion Model and Scientific Computing'),
+    ev('c', '20260929T133000', '20260929T142000', 'MATH:6850:0001 Advanced Numerical Methods I'),
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: '导入 .ics' }).click();
+  await (await chooser).setFiles({ name: 'cal.ics', mimeType: 'text/calendar', buffer: Buffer.from(ics) });
+  await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
+  const agenda = page.getByRole('region', { name: '日程' });
+  await agenda.getByRole('button', { name: '日', exact: true }).click();
+  expect(await hourPx(page)).toBeGreaterThan(48);
+  const box = async (name: string) => (await agenda.locator('.blk.event', { hasText: name }).boundingBox())!;
+  const [lab, research, math] = [await box('Math Lab'), await box('Research'), await box('MATH:6850')];
+  expect(lab.height).toBeGreaterThan(research.height * 1.8); // an hour is twice half an hour
+  expect(research.y + research.height).toBeLessThanOrEqual(math.y + 1); // no covering
+  // The half-hour block shows its title and its time, each inside the block.
+  for (const sel of ['.bt', '.t']) {
+    const inner = (await agenda.locator('.blk.event', { hasText: 'Research' }).locator(sel).boundingBox())!;
+    expect(inner.y + inner.height).toBeLessThanOrEqual(research.y + research.height + 1);
+  }
+});
+
+test('full width can be switched on for reading on a large screen', async ({ page }, info) => {
+  test.skip(info.project.name === 'phone', 'phones are already full width');
+  await start(page);
+  const app = page.locator('.app');
+  const narrow = (await app.boundingBox())!.width;
+  await page.getByRole('button', { name: '全宽' }).click();
+  await expect(page.getByRole('button', { name: '全宽' })).toHaveAttribute('aria-pressed', 'true');
+  expect((await app.boundingBox())!.width).toBeGreaterThan(narrow + 100);
+  await page.reload();
+  await expect(page.getByRole('button', { name: '全宽' })).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('reserving a new task warns about an overlap but still reserves it', async ({ page }) => {
   await start(page);
   await add(page, '今天 15点 写引言 1小时');
   await page.getByRole('tab', { name: 'NOW' }).click();
   const agenda = page.getByRole('region', { name: '日程' });
   await agenda.getByRole('button', { name: '日', exact: true }).click();
-  await agenda.locator('.day-scroll').evaluate((el) => (el.scrollTop = 14 * 32));
+  const H = await hourPx(page);
+  await agenda.locator('.day-scroll').evaluate((el, h) => (el.scrollTop = 14 * h), H);
   const area = await agenda.locator('.lane-area').boundingBox();
-  await page.mouse.click(area!.x + area!.width - 10, area!.y + 17 * 32 + 8); // empty at 17:00
+  await page.mouse.click(area!.x + area!.width - 10, area!.y + 17 * H + 8); // empty at 17:00
   const sheet = page.getByRole('dialog', { name: '预留时段' });
   await sheet.getByLabel('开始').fill('15:30');
   await expect(sheet.getByRole('note')).toContainText('写引言');

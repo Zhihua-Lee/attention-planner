@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.8 — 2026-10-04
+
+- **Day view heights adapt**: an item's height still matches its length, but the hours grow (48–120 px per hour) until
+  the shortest item on the day has room for its title and time. Titles wrap by words to the lines the block has,
+  instead of being cut to one line.
+- **Full width**: a button in the top bar widens the app for reading on a large screen; remembered on this device.
+- **Calendar subscriptions now work on the live site**: the `/ics` function deployed with 0.1.7 never matched its
+  route, because it was bundled by a Wrangler from another project that resolved a newer `path-to-regexp`. Wrangler
+  is now a dev dependency here (`npm run deploy`).
+
 ## 0.1.7 — 2026-10-04
 
 - **Calendar subscriptions by address**: add any .ics or webcal link (a class timetable, public holidays) in

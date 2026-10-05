@@ -57,4 +57,6 @@ app-data folder; the previous app's file is never touched. Calendar events impor
 1. Update `version` in `package.json`, `CHANGELOG.md`, and add `docs/verification/vX.Y.Z.md` plus a row in
    `VERIFICATION.md`.
 2. Push to `main`; CI runs formatting, types, unit tests, notices, build and the UI tests.
-3. Deploy `dist/` to Cloudflare Pages (`attention-planner-next` while the new app is in testing).
+3. After CI passes, `npm run build` and `npm run deploy` (Cloudflare Pages project `attention-planner-next`, which
+   serves todo.onthat.top). Use the Wrangler installed here: it also bundles `functions/` (the `/ics` calendar
+   function).

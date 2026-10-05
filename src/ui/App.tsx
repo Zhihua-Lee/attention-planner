@@ -18,6 +18,22 @@ export function App() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [settings, setSettings] = useState(false);
+  // Full width for reading on a large screen; remembered on this device only.
+  const [wide, setWide] = useState(() => {
+    try {
+      return localStorage.getItem('ap:wide') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleWide = () => {
+    setWide(!wide);
+    try {
+      localStorage.setItem('ap:wide', wide ? '0' : '1');
+    } catch {
+      /* not remembered */
+    }
+  };
   const capture = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,7 +104,7 @@ export function App() {
   if (!ready) return <div className="app loading" aria-busy="true" />;
   return (
     <MotionConfig reducedMotion="user">
-      <div className="app">
+      <div className={`app${wide ? ' wide' : ''}`}>
         <header className="top">
           <div className="tabs" role="tablist" aria-label={t('主菜单', 'Main')}>
             <button role="tab" className="tab" aria-selected={tab === 'now'} onClick={() => setTab('now')}>
@@ -128,6 +144,15 @@ export function App() {
               onClick={() => setSearching(true)}
             >
               {Icon.search}
+            </button>
+            <button
+              className="icon-btn wide-btn"
+              aria-pressed={wide}
+              aria-label={t('全宽', 'Full width')}
+              title={t('全宽', 'Full width')}
+              onClick={toggleWide}
+            >
+              {wide ? Icon.narrow : Icon.wide}
             </button>
             <button
               className="icon-btn"

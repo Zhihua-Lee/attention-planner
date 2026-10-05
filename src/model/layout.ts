@@ -31,3 +31,12 @@ export function layoutBlocks(blocks: Block[]): Placed[] {
   if (cluster.length) flush();
   return out;
 }
+
+/**
+ * Pixels per hour in the day view. Height always reads as length; the scale grows (up to a limit) until the
+ * shortest item on the day has room for its title and time, the way Outlook makes short meetings readable.
+ */
+export function hourHeight(durations: number[]): number {
+  const shortest = Math.max(15, Math.min(60, ...durations));
+  return Math.round(Math.min(120, Math.max(48, (38 / shortest) * 60)));
+}

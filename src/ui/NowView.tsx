@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { addDays, dayOf, minutesOf, nowMinutes, timeOf, weekStart } from '../model/dates';
 import { agenda, capacity, currentEvent, eventsOn, freeUntilNext, nowCandidates, stepProgress } from '../model/derive';
-import { layoutBlocks, type Block } from '../model/layout';
+import { hourHeight, layoutBlocks, type Block } from '../model/layout';
 import { complete, remainingEffort } from '../model/doc';
 import type { CalendarEvent, Day } from '../model/types';
 import { store, useStore } from '../store/store';
@@ -238,8 +238,7 @@ function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
   );
 }
 
-const HOUR = 32; // px per hour in the day view
-const MIN = HOUR / 60;
+const LINE = 16; // px per line of title in a block
 const GUTTER = 50; // room for the hour labels
 
 /**
@@ -275,6 +274,8 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
           : [],
     ),
   );
+  const HOUR = hourHeight(placed.map((b) => b.e - b.s));
+  const MIN = HOUR / 60;
   const loose = items.filter((x) => x.kind === 'loose' || x.kind === 'due');
   const order = { am: 1, pm: 2, eve: 3 } as const;
   loose.sort(
@@ -287,7 +288,7 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
   const first = Math.min(8 * 60, ...placed.map((b) => b.s));
   useLayoutEffect(() => {
     if (scroller.current) scroller.current.scrollTop = Math.max(0, ((isToday ? n : first) - 45) * MIN);
-  }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [day, HOUR]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const events = new Map(eventsOn(doc, day, true).map((e) => [e.id, e]));
   const togglePeek = (key: string) => (ev: React.MouseEvent<HTMLElement>) => peek.toggle(key, ev.currentTarget);
@@ -336,27 +337,35 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
               setReserve(Math.min(23 * 60 + 30, Math.floor(e.nativeEvent.offsetY / MIN / 30) * 30));
             }}
           >
-            {placed.map((b) => (
-              <button
-                key={b.key}
-                className={`blk ${b.kind}${(b.e - b.s) * MIN < 30 ? ' short' : ''}`}
-                style={{
-                  top: b.s * MIN + 1,
-                  height: Math.max(18, (b.e - b.s) * MIN - 2),
-                  left: `calc(${(b.lane / b.lanes) * 100}% + 1px)`,
-                  width: `calc(${100 / b.lanes}% - 3px)`,
-                }}
-                aria-expanded={peek.is(b.key)}
-                onClick={togglePeek(b.key)}
-                title={b.sub ? `${b.title} · ${b.sub}` : b.title}
-              >
-                <span className="bt">{b.title}</span>
-                <span className="t">
-                  {timeOf(b.s)}–{timeOf(Math.min(b.e, 24 * 60 - 1))}
-                  {b.sub ? ` · ${b.sub}` : ''}
-                </span>
-              </button>
-            ))}
+            {placed.map((b) => {
+              const height = Math.max(18, (b.e - b.s) * MIN - 2);
+              const short = height < 2 * LINE + 4;
+              // Lines the title may wrap to, leaving one line for the time.
+              const lines = short ? 1 : Math.max(1, Math.floor((height - 4) / LINE) - 1);
+              return (
+                <button
+                  key={b.key}
+                  className={`blk ${b.kind}${short ? ' short' : ''}`}
+                  style={{
+                    top: b.s * MIN + 1,
+                    height,
+                    left: `calc(${(b.lane / b.lanes) * 100}% + 1px)`,
+                    width: `calc(${100 / b.lanes}% - 3px)`,
+                  }}
+                  aria-expanded={peek.is(b.key)}
+                  onClick={togglePeek(b.key)}
+                  title={b.sub ? `${b.title} · ${b.sub}` : b.title}
+                >
+                  <span className="bt" style={short ? undefined : { WebkitLineClamp: lines }}>
+                    {b.title}
+                  </span>
+                  <span className="t">
+                    {timeOf(b.s)}–{timeOf(Math.min(b.e, 24 * 60 - 1))}
+                    {b.sub ? ` · ${b.sub}` : ''}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           {isToday && (
             <div className="nowline" style={{ top: n * MIN }} aria-label={`${t('现在', 'Now')} ${timeOf(n)}`}>

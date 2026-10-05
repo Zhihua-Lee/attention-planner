@@ -1,6 +1,6 @@
 {
   "name": "attention-planner",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "type": "module",
   "description": "One list; the app tells you what to do now.",
@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "icons": "node scripts/icons.mjs",
-    "notices": "node scripts/notices.mjs"
+    "notices": "node scripts/notices.mjs",
+    "deploy": "wrangler pages deploy dist --project-name attention-planner-next --branch main"
   },
   "dependencies": {
     "dompurify": "3.4.16",
@@ -33,7 +34,8 @@
     "typescript": "5.9.3",
     "vite": "8.3.2",
     "vite-plugin-pwa": "2.0.0",
-    "vitest": "5.0.3"
+    "vitest": "5.0.3",
+    "wrangler": "^4.127.1"
   },
   "engines": {
     "node": ">=22"
