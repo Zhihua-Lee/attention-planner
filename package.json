@@ -1,6 +1,6 @@
 {
   "name": "attention-planner",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "One list; the app tells you what to do now.",
@@ -8,23 +8,29 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 4173 --strictPort",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p mcp/tsconfig.json",
     "test": "vitest run",
     "test:ui": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "icons": "node scripts/icons.mjs",
     "notices": "node scripts/notices.mjs",
-    "deploy": "wrangler pages deploy dist --project-name attention-planner-next --branch main"
+    "deploy": "wrangler pages deploy dist --project-name attention-planner-next --branch main",
+    "deploy:mcp": "wrangler deploy --config mcp/wrangler.jsonc"
   },
   "dependencies": {
+    "@cfworker/json-schema": "4.1.1",
+    "@cloudflare/workers-oauth-provider": "1.2.1",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "dompurify": "3.4.16",
     "marked": "18.0.14",
     "motion": "14.0.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261004.1",
     "@playwright/test": "1.58.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

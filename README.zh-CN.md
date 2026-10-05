@@ -19,6 +19,7 @@
 - **离线可用**，可以装到 iPhone 主屏幕。数据保存在设备的 IndexedDB 里。
 - **同步**通过 Google Drive，按字段合并，两台设备不会互相覆盖。
 - **导入**旧应用导出的 JSON 和 `.ics` 日历文件。
+- **AI 连接（MCP）**：ChatGPT、Claude 等可以查看清单、问“现在做什么”、直接新建任务；修改已有任务要你在页面上批准。见 [docs/ai-connections.md](docs/ai-connections.md)。
 
 界面有中文和英文，浅色和深色主题，尊重“减少动态效果”设置。
 

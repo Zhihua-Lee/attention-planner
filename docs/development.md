@@ -35,6 +35,9 @@ src/model/        pure logic, no browser APIs
   ics.ts          .ics import with simple repeats
 src/store/        IndexedDB storage, the app store (undo, autosave, autosync), sync engine, Google Drive remote
 src/ui/           React components
+functions/        Pages Functions (`/ics`: calendar subscriptions)
+mcp/              the MCP Worker (`/api/mcp`, `/api/ai/*`): OAuth for AI clients, tools, review pages
+tests/            unit tests outside src (the `/ics` function, the MCP tools)
 e2e/              Playwright specs
 ```
 
@@ -51,6 +54,23 @@ Undo writes the earlier values back as new, stamped edits, so an undo syncs like
 Sync reads the remote copy, merges, and writes back only when the remote is missing something, using the file's ETag
 so a concurrent writer causes a retry instead of a lost update. The Drive file is `attention-planner-v3.json` in the
 app-data folder; the previous app's file is never touched. Calendar events imported from `.ics` stay on the device.
+
+## MCP Worker
+
+`mcp/` is a separate Cloudflare Worker (`attention-planner-mcp`) on the app's domain. It owns only `/api/mcp`,
+`/api/ai/*` and the two `/.well-known/oauth-*` metadata paths; the rest of `/api` stays with the sync broker.
+
+- **OAuth**: `@cloudflare/workers-oauth-provider` (dynamic registration, client metadata documents, PKCE), state in
+  the KV namespace `OAUTH_KV`. The consent page (`/api/ai/authorize`) needs the broker's session cookie; the grant keeps
+  that cookie (encrypted with the token) so the Worker can ask the broker for Google tokens through a service binding.
+  The broker is not changed.
+- **Data**: the same Drive file as the app, read and written with `src/store/drive.ts` and changed with the functions
+  in `src/model/doc.ts`, stamped `by: ai`. Writes are conditional and retried. The Worker runs in UTC, so `mcp/src/clock.ts`
+  runs edits on the owner's wall clock (`TIME_ZONE`) and swaps the real instant into the saved timestamps.
+- **Changes**: new tasks are saved at once; `propose_changes` stores a proposal in KV, and the owner applies or rejects it
+  at `/api/ai/review/<id>` (same-origin POST with a per-proposal nonce).
+- `npm run typecheck` also checks `mcp/` against the Workers types; `tests/mcp.test.ts` runs the tools against an
+  in-memory Drive. Deploy with `npm run deploy:mcp` after CI passes.
 
 ## Releasing
 

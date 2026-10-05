@@ -1,4 +1,4 @@
-// Write THIRD-PARTY-NOTICES.txt from the licenses of the packages shipped in the app bundle (production dependencies).
+// Write THIRD-PARTY-NOTICES.txt from the licenses of the production dependencies (the app bundle and the MCP Worker).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 

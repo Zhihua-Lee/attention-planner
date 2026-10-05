@@ -1,0 +1,24 @@
+// The MCP Worker. It takes only the MCP and AI-connection paths on the app's domain; everything else under /api
+// stays with the sync broker, which it calls through a service binding for Google tokens.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "attention-planner-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "todo.onthat.top/api/mcp", "zone_name": "onthat.top" },
+    { "pattern": "todo.onthat.top/api/mcp/*", "zone_name": "onthat.top" },
+    { "pattern": "todo.onthat.top/api/ai/*", "zone_name": "onthat.top" },
+    { "pattern": "todo.onthat.top/.well-known/oauth-authorization-server*", "zone_name": "onthat.top" },
+    { "pattern": "todo.onthat.top/.well-known/oauth-protected-resource*", "zone_name": "onthat.top" },
+  ],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "a63887e74f1a463fae481d616690ab4d" }],
+  "services": [{ "binding": "BROKER", "service": "attention-planner-broker" }],
+  "vars": {
+    "PUBLIC_ORIGIN": "https://todo.onthat.top",
+    "TIME_ZONE": "America/Chicago",
+  },
+  "observability": { "enabled": false },
+}

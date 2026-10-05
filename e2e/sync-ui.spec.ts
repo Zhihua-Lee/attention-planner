@@ -84,3 +84,11 @@ test('reminder settings are in Settings and keep their times', async ({ page }) 
   await expect(page.getByLabel('截止当天提醒时间')).toHaveValue('08:30');
   await expect(page.getByLabel('预留时段提前几分钟')).toHaveValue('15');
 });
+
+test('Settings shows the MCP address for AI clients and a link to manage connections', async ({ page }) => {
+  await start(page);
+  await page.getByRole('button', { name: '设置' }).click();
+  const dialog = page.getByRole('dialog', { name: '设置' });
+  await expect(dialog.getByRole('textbox', { name: 'MCP 地址' })).toHaveValue(/\/api\/mcp$/);
+  await expect(dialog.getByRole('link', { name: '管理' })).toHaveAttribute('href', '/api/ai/connections');
+});

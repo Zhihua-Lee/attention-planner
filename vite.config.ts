@@ -30,6 +30,8 @@ export default defineConfig({
       workbox: {
         importScripts: ['push-sw.js'],
         navigateFallback: '/index.html',
+        // Pages served by Workers on this domain (sign-in, AI connections) must reach the network.
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/ics/],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
       },
     }),

@@ -21,7 +21,10 @@ export function brokerTokens(base: string, fetcher: typeof fetch = fetch.bind(gl
   let cached: { token: string; until: number } | null = null;
   return async () => {
     if (cached && Date.now() < cached.until) return cached.token;
-    const res = await fetcher(`${trimSlash(base)}/google/token`, { method: 'POST', credentials: 'same-origin' });
+    const res = await fetcher(`${trimSlash(base)}/google/token`, {
+      method: 'POST',
+      credentials: 'same-origin',
+    } as RequestInit);
     if (res.status === 401 || res.status === 403) throw new Error('Sign in to Google Drive again.');
     if (!res.ok) throw new Error(`The sync broker answered ${res.status}.`);
     const body = (await res.json()) as { accessToken?: string; access_token?: string; expiresIn?: number };
@@ -37,7 +40,7 @@ export async function brokerStatus(
   base: string,
 ): Promise<'connected' | 'signed-out' | 'not-connected' | 'unavailable'> {
   try {
-    const res = await fetch(`${trimSlash(base)}/google/status`, { credentials: 'same-origin' });
+    const res = await fetch(`${trimSlash(base)}/google/status`, { credentials: 'same-origin' } as RequestInit);
     if (res.status === 401 || res.status === 403) return 'signed-out';
     if (!res.ok) return 'unavailable';
     const body = (await res.json()) as { connected?: boolean };

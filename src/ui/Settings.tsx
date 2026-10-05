@@ -667,6 +667,27 @@ export function Settings({ onClose }: { onClose: () => void }) {
           </p>
         </section>
 
+        <section>
+          <h3>{t('AI 连接', 'AI connections')}</h3>
+          <p className="hint">
+            {t(
+              '在 ChatGPT、Claude 等 AI 客户端里添加下面的 MCP 地址。AI 可以查看、直接新建任务；修改已有任务要你批准。',
+              'Add this MCP address in an AI client such as ChatGPT or Claude. It can read and add tasks; changes to existing tasks wait for your approval.',
+            )}
+          </p>
+          <div className="inline">
+            <input
+              className="grow"
+              readOnly
+              value={`${location.origin}/api/mcp`}
+              aria-label={t('MCP 地址', 'MCP address')}
+            />
+            <a className="btn" href="/api/ai/connections" target="_blank" rel="noopener">
+              {t('管理', 'Manage')}
+            </a>
+          </div>
+        </section>
+
         <footer className="muted">Attention Planner {__APP_VERSION__}</footer>
       </div>
     </div>,

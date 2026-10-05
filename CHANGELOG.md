@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — 2026-10-04
+
+- **AI connections (MCP)** at `/api/mcp`: AI clients connect with OAuth (the consent page names the client and where
+  access goes). Tools: what to do now, list and get tasks, agenda (Outlook and subscribed calendars), areas and
+  projects, add a task (saved at once, with the capture box's quick words), and propose changes to existing tasks,
+  which wait for approval at a review page. Connections are listed and revoked at `/api/ai/connections`; Settings →
+  AI 连接 shows the address. Runs as its own Worker; the sync broker is unchanged. See docs/ai-connections.md.
+- **Fix: pages under `/api` were caught by the offline app**: the service worker answered navigations to `/api/*`
+  (sign-in, AI pages) with the app shell; they now go to the network.
+
 ## 0.1.10 — 2026-10-04
 
 - **Choose the list filters**: Settings → 清单筛选 turns each filter on or off (today, due this week, with a deadline,

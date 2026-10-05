@@ -6,7 +6,7 @@ Attention Planner is a to-do app for people who would rather not run a system. Y
 orders them and, whenever you look, shows the one thing worth doing next and why. There is no inbox to process, no
 weekly ritual and no status to keep up to date.
 
-[中文说明](README.zh-CN.md) · [User guide (中文)](docs/user-guide.md) · [Design](docs/design.md) · [Development](docs/development.md) · [Sync setup](docs/sync-setup.md) · [Verification](VERIFICATION.md)
+[中文说明](README.zh-CN.md) · [User guide (中文)](docs/user-guide.md) · [Design](docs/design.md) · [Development](docs/development.md) · [Sync setup](docs/sync-setup.md) · [AI connections (中文)](docs/ai-connections.md) · [Verification](VERIFICATION.md)
 
 ## What it does
 
@@ -28,6 +28,8 @@ weekly ritual and no status to keep up to date.
 - **Works offline** as an installable PWA (iPhone home screen included). Data lives on the device in IndexedDB.
 - **Sync** through Google Drive, merging field by field so two devices never overwrite each other.
 - **Import** a JSON export from the previous app and an `.ics` calendar file.
+- **AI connections (MCP)**: ChatGPT, Claude and other remote-MCP clients can read the list, ask what to do now and
+  add tasks; changes to existing tasks wait for your approval on a review page. See [docs/ai-connections.md](docs/ai-connections.md).
 
 Chinese and English interface; light and dark themes; respects reduced motion.
 
