@@ -4,7 +4,7 @@ import { addDays, dayOf } from '../model/dates';
 import { addArea, addProject, removeGroup, renameGroup, setSettings, updateProject } from '../model/doc';
 import { parseIcs } from '../model/ics';
 import { importLegacy } from '../model/legacyImport';
-import type { ChipKey } from '../model/types';
+import { FILTER_CHIPS, type ChipKey } from '../model/types';
 import { brokerStatus, trimSlash } from '../store/drive';
 import { disablePush, enablePush, pushState, testPush, type PushState } from '../store/push';
 import { reminderPrefs } from '../model/reminders';
@@ -218,6 +218,47 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     checked={tools.includes(k)}
                     onChange={(e) =>
                       set({ stepTools: e.target.checked ? [...tools, k] : tools.filter((x) => x !== k) })
+                    }
+                  />
+                  {n}
+                </label>
+              );
+            })}
+          </div>
+        </section>
+
+        <section>
+          <h3>{t('清单筛选', 'List filters')}</h3>
+          <p className="hint">
+            {t(
+              '“全部”一直都在；没有内容的筛选会自动隐藏。',
+              '"All" is always there; a filter with nothing in it hides itself.',
+            )}
+          </p>
+          <div className="checks">
+            {(
+              [
+                ['today', t('今天', 'Today')],
+                ['soon', t('7 天内截止', 'Due this week')],
+                ['due', t('有截止', 'With a deadline')],
+                ['new', t('新加的', 'New')],
+                ['snoozed', t('暂缓', 'Snoozed')],
+                ['areas', t('各区域', 'Each area')],
+                ['projects', t('各项目', 'Each project')],
+              ] as const
+            ).map(([k, n]) => {
+              const on = s.filters ?? FILTER_CHIPS;
+              return (
+                <label key={k} className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={on.includes(k)}
+                    onChange={(e) =>
+                      set({
+                        filters: e.target.checked
+                          ? FILTER_CHIPS.filter((x) => x === k || on.includes(x))
+                          : on.filter((x) => x !== k),
+                      })
                     }
                   />
                   {n}

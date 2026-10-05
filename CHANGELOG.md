@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.10 — 2026-10-04
+
+- **Choose the list filters**: Settings → 清单筛选 turns each filter on or off (today, due this week, with a deadline,
+  new, snoozed, each area, each project); "all" is always there.
+- **"有截止" is back** next to "7 天内截止": it lists every task with a deadline (a step's counts). 0.1.6 had replaced it
+  without being asked.
+
 ## 0.1.9 — 2026-10-04
 
 - **Day view back to an overview**: one fixed scale of 40 px per hour (about 11 hours on a phone screen) replaces the

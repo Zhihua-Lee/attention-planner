@@ -14,7 +14,7 @@ import {
   effectiveDue,
   openConflict,
 } from '../model/doc';
-import type { Task } from '../model/types';
+import { FILTER_CHIPS, type Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { Capture } from './Capture';
@@ -37,23 +37,30 @@ export const TaskList = forwardRef<
   const done = finishedTasks(doc).slice(0, 50);
   const open = openTasks(doc, now);
   const count = (f: Filter) => open.filter((x) => matches(doc, x, f, now)).length;
-  // Always "all" and "today"; the rest only when they have something (or are selected).
+  // "All" always; the rest as chosen in Settings. "Today" stays even when empty; the others show only when they have
+  // something (or are selected).
+  const shown = new Set(doc.settings.filters ?? FILTER_CHIPS);
   const chips: [Filter, string][] = [
     ['all', t('全部', 'All')],
-    ['today', t('今天', 'Today')],
+    ...(shown.has('today') ? ([['today', t('今天', 'Today')]] as [Filter, string][]) : []),
     ...(
       [
-        ['soon', t('7 天内截止', 'Due this week')],
-        ['new', t('新加的', 'New')],
-        ['snoozed', t('暂缓', 'Snoozed')],
-        ...Object.values(doc.areas)
-          .filter((x) => !x.deleted)
-          .sort((x, y) => x.order - y.order)
-          .map((x) => [`a:${x.id}`, x.name]),
-        ...Object.values(doc.projects)
-          .filter((x) => !x.deleted && !x.done)
-          .sort((x, y) => x.order - y.order)
-          .map((x) => [`p:${x.id}`, x.name]),
+        ...(shown.has('soon') ? [['soon', t('7 天内截止', 'Due this week')]] : []),
+        ...(shown.has('due') ? [['due', t('有截止', 'With a deadline')]] : []),
+        ...(shown.has('new') ? [['new', t('新加的', 'New')]] : []),
+        ...(shown.has('snoozed') ? [['snoozed', t('暂缓', 'Snoozed')]] : []),
+        ...(shown.has('areas')
+          ? Object.values(doc.areas)
+              .filter((x) => !x.deleted)
+              .sort((x, y) => x.order - y.order)
+              .map((x) => [`a:${x.id}`, x.name])
+          : []),
+        ...(shown.has('projects')
+          ? Object.values(doc.projects)
+              .filter((x) => !x.deleted && !x.done)
+              .sort((x, y) => x.order - y.order)
+              .map((x) => [`p:${x.id}`, x.name])
+          : []),
       ] as [Filter, string][]
     ).filter(([k]) => filter === k || count(k) > 0),
   ];

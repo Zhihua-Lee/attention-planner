@@ -144,8 +144,8 @@ export function capacity(doc: Doc, now: Date): Shortfall | null {
   return null;
 }
 
-/** All, today, new, due within a week, snoozed, or one area (`a:<id>`) or project (`p:<id>`). */
-export type Filter = 'all' | 'today' | 'new' | 'soon' | 'snoozed' | `a:${string}` | `p:${string}`;
+/** All, today, new, due within a week, any deadline, snoozed, or one area (`a:<id>`) or project (`p:<id>`). */
+export type Filter = 'all' | 'today' | 'new' | 'soon' | 'due' | 'snoozed' | `a:${string}` | `p:${string}`;
 
 /** Recently captured and not yet given a day, deadline, repeat or place: the automatic "unsorted". */
 export const isNew = (t: Task, now: Date) =>
@@ -187,6 +187,8 @@ export function matches(doc: Doc, t: Task, f: Filter, now: Date): boolean {
       const due = effectiveDue(t, now);
       return !!due && due.day <= addDays(today, 7);
     }
+    case 'due':
+      return !!effectiveDue(t, now);
     case 'snoozed':
       return isSnoozed(t, today);
     default:

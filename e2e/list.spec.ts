@@ -83,6 +83,21 @@ test('filters follow the tasks: today includes repeating work; empty ones hide; 
   await expect(page.locator('.list .tt')).toHaveText(['交表格']);
 });
 
+test('the filters shown are chosen in Settings; "with a deadline" lists every task that has one', async ({ page }) => {
+  await start(page);
+  await add(page, '周五交表格', '下周五交论文', '随手记的');
+  await page.getByRole('button', { name: /^有截止/ }).click();
+  await expect(page.locator('.list .tt')).toHaveText(['交表格', '交论文']);
+  await page.getByRole('button', { name: /^7 天内截止/ }).click();
+  await expect(page.locator('.list .tt')).toHaveText(['交表格']);
+  await page.getByRole('button', { name: /^全部/ }).click();
+  await page.getByRole('button', { name: '设置' }).click();
+  await page.getByRole('checkbox', { name: '新加的' }).uncheck();
+  await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
+  await expect(page.locator('.filters')).not.toContainText('新加的');
+  await expect(page.locator('.filters')).toContainText('有截止');
+});
+
 test('the list can be sorted by hand by dragging', async ({ page }) => {
   await start(page);
   await add(page, '一', '二', '三');

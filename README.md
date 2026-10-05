@@ -12,7 +12,7 @@ weekly ritual and no status to keep up to date.
 
 - **NOW**: a single suggestion with its reason ("reserved time now · until 17:00", "due today", "marked important"),
   the facts that matter (deadline, effort, steps), and today's agenda underneath. Switch to the week or move day by day.
-- **One list**: every open task in one place. Filters (today, new, due, snoozed, by area or project) narrow it; nothing
+- **One list**: every open task in one place. Filters (today, due this week, with a deadline, new, snoozed, by area or project; pick which in Settings) narrow it; nothing
   ever moves somewhere else because you changed a field.
 - **Capture in one line**: type `report due fri 3h !` or `周五交报告 3小时 !` and press Enter. Chips under the box show
   what was recognised and offer the next useful detail in order: deadline, when, effort, importance.
