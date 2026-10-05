@@ -55,7 +55,7 @@ test('the agenda moves by day and week, and opens a task', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: '任务名称' })).toHaveValue('复习');
 });
 
-/** Pixels per hour in the day view (it adapts to the shortest item on the day). */
+/** Pixels per hour in the day view. */
 const hourPx = async (page: Page) =>
   (await page
     .getByRole('region', { name: '日程' })
@@ -123,7 +123,7 @@ test('overlapping events sit side by side; tapping shows details; an empty time 
   await expect(slot).toContainText('18:00–19:00');
 });
 
-test('short events make the hours taller so every title can be read; height still matches length', async ({ page }) => {
+test('short events keep a readable title; height matches length; nothing covers the next', async ({ page }) => {
   await start(page);
   await page.getByRole('tab', { name: 'NOW' }).click();
   await page.getByRole('button', { name: '设置' }).click();
@@ -142,7 +142,7 @@ test('short events make the hours taller so every title can be read; height stil
   await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
   const agenda = page.getByRole('region', { name: '日程' });
   await agenda.getByRole('button', { name: '日', exact: true }).click();
-  expect(await hourPx(page)).toBeGreaterThan(48);
+  expect(await hourPx(page)).toBe(40); // a fixed scale keeps the day an overview
   const box = async (name: string) => (await agenda.locator('.blk.event', { hasText: name }).boundingBox())!;
   const [lab, research, math] = [await box('Math Lab'), await box('Research'), await box('MATH:6850')];
   expect(lab.height).toBeGreaterThan(research.height * 1.8); // an hour is twice half an hour

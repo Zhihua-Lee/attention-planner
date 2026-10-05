@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9 — 2026-10-04
+
+- **Day view back to an overview**: one fixed scale of 40 px per hour (about 11 hours on a phone screen) replaces the
+  adaptive heights of 0.1.8, which made a day with short items too long to scroll. A half-hour item is one line (title,
+  then time); an hour or longer shows the time under the title.
+- **Fix: short items covered the next one**: blocks under 45 minutes shared a class name with an unrelated style that
+  forced them to at least 32 px tall, so they spilled over the following item. That was the overlap in the day view.
+
 ## 0.1.8 — 2026-10-04
 
 - **Day view heights adapt**: an item's height still matches its length, but the hours grow (48–120 px per hour) until

@@ -1441,14 +1441,14 @@ mark {
   white-space: nowrap;
 }
 /* a tall enough block wraps its title by words, then shows the time below */
-.lane-area .blk:not(.short) .bt {
+.lane-area .blk:not(.brief) .bt {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   white-space: normal;
   overflow-wrap: anywhere;
   line-height: 16px;
 }
-.lane-area .blk.short {
+.lane-area .blk.brief {
   flex-direction: row;
   align-items: center;
   gap: 6px;

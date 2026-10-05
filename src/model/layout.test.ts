@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hourHeight, layoutBlocks } from './layout';
+import { layoutBlocks } from './layout';
 
 const b = (key: string, s: number, e: number) => ({ key, kind: 'event' as const, title: key, s, e });
 
@@ -13,14 +13,5 @@ describe('calendar layout', () => {
     const placed = layoutBlocks([b('a', 600, 630), b('long', 600, 720), b('c', 640, 700)]);
     const by = Object.fromEntries(placed.map((p) => [p.key, [p.lane, p.lanes]]));
     expect(by).toEqual({ long: [0, 2], a: [1, 2], c: [1, 2] });
-  });
-});
-
-describe('hourHeight', () => {
-  it('grows so the shortest item fits its title and time, within limits', () => {
-    expect(hourHeight([])).toBe(48);
-    expect(hourHeight([60, 120])).toBe(48);
-    expect(hourHeight([30, 60])).toBe(76);
-    expect(hourHeight([5])).toBe(120);
   });
 });

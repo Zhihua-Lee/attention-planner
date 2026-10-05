@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { addDays, dayOf, minutesOf, nowMinutes, timeOf, weekStart } from '../model/dates';
 import { agenda, capacity, currentEvent, eventsOn, freeUntilNext, nowCandidates, stepProgress } from '../model/derive';
-import { hourHeight, layoutBlocks, type Block } from '../model/layout';
+import { layoutBlocks, type Block } from '../model/layout';
 import { complete, remainingEffort } from '../model/doc';
 import type { CalendarEvent, Day } from '../model/types';
 import { store, useStore } from '../store/store';
@@ -238,6 +238,9 @@ function Agenda({ now, open }: { now: Date; open: (id: string) => void }) {
   );
 }
 
+// One fixed scale keeps the day an overview: a half hour is one line, an hour fits a title and its time.
+const HOUR = 40; // px per hour
+const MIN = HOUR / 60;
 const LINE = 16; // px per line of title in a block
 const GUTTER = 50; // room for the hour labels
 
@@ -274,8 +277,6 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
           : [],
     ),
   );
-  const HOUR = hourHeight(placed.map((b) => b.e - b.s));
-  const MIN = HOUR / 60;
   const loose = items.filter((x) => x.kind === 'loose' || x.kind === 'due');
   const order = { am: 1, pm: 2, eve: 3 } as const;
   loose.sort(
@@ -288,7 +289,7 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
   const first = Math.min(8 * 60, ...placed.map((b) => b.s));
   useLayoutEffect(() => {
     if (scroller.current) scroller.current.scrollTop = Math.max(0, ((isToday ? n : first) - 45) * MIN);
-  }, [day, HOUR]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const events = new Map(eventsOn(doc, day, true).map((e) => [e.id, e]));
   const togglePeek = (key: string) => (ev: React.MouseEvent<HTMLElement>) => peek.toggle(key, ev.currentTarget);
@@ -345,7 +346,7 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
               return (
                 <button
                   key={b.key}
-                  className={`blk ${b.kind}${short ? ' short' : ''}`}
+                  className={`blk ${b.kind}${short ? ' brief' : ''}`}
                   style={{
                     top: b.s * MIN + 1,
                     height,
