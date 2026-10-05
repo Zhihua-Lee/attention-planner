@@ -170,14 +170,14 @@ test('web-page shortcuts are taken over: Ctrl+S syncs instead of saving the page
 }) => {
   test.skip(isMobile, 'keyboard shortcuts are for desktop');
   await start(page);
-  const prevented = page.evaluate(
-    () =>
-      new Promise<boolean>((resolve) =>
-        window.addEventListener('keydown', (e) => setTimeout(() => resolve(e.defaultPrevented)), { once: true }),
-      ),
+  // Note, after the app has handled it, whether the browser's own action for Ctrl+S was stopped.
+  await page.evaluate(() =>
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 's') (window as unknown as { saved?: boolean }).saved = e.defaultPrevented;
+    }),
   );
   await page.keyboard.press('Control+s');
-  expect(await prevented).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { saved?: boolean }).saved)).toBe(true);
   await expect(page.locator('.toast')).toContainText('已自动保存');
   await page.keyboard.press('Control+f');
   await expect(page.getByRole('dialog', { name: /搜索/ })).toBeVisible();
