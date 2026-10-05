@@ -67,6 +67,23 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   return (
     <div className="detail" data-testid="task-detail">
       <ConflictNotice task={task} field="title" />
+      {/* Steps are what you do, so they come first, at full width; the properties follow. */}
+      <div className="val steps" role="group" aria-label={t('步骤', 'Steps')}>
+        <StepList task={task} now={now} />
+        <input
+          className="step-new"
+          value={newStep}
+          placeholder={t('+ 添加步骤', '+ Add a step')}
+          aria-label={t('添加步骤', 'Add a step')}
+          onChange={(e) => setNewStep(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing && newStep.trim()) {
+              commit((d, c) => addStep(d, c, id, newStep.trim()));
+              setNewStep('');
+            }
+          }}
+        />
+      </div>
       <div className="props">
         <span className="lbl">{t('截止', 'Due')}</span>
         <span className="val">
@@ -136,24 +153,6 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
                 .join(' · ')}
             </span>
           ) : null}
-        </span>
-
-        <span className="lbl">{t('步骤', 'Steps')}</span>
-        <span className="val steps">
-          <StepList task={task} now={now} />
-          <input
-            className="step-new"
-            value={newStep}
-            placeholder={t('+ 添加步骤', '+ Add a step')}
-            aria-label={t('添加步骤', 'Add a step')}
-            onChange={(e) => setNewStep(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing && newStep.trim()) {
-                commit((d, c) => addStep(d, c, id, newStep.trim()));
-                setNewStep('');
-              }
-            }}
-          />
         </span>
 
         <span className="lbl">{t('重复', 'Repeat')}</span>

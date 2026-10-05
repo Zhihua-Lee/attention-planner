@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 — 2026-10-04
+
+- **Steps first**: an opened task shows its steps at the top, full width, then its properties, then the note. Steps
+  had sat between "用时" and "重复" as if they were a property.
+
 ## 0.2.1 — 2026-10-04
 
 - **Fix: allowing an AI was refused** ("请求来自别的网站，已拒绝"): the AI pages sent `Referrer-Policy: no-referrer`,

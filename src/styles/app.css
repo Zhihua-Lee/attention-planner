@@ -1695,11 +1695,8 @@ mark {
   font-size: 14px;
 }
 
-/* Phone: steps get the full width; a step's buttons appear once that step is tapped. */
+/* Phone: a step's buttons appear once that step is tapped. */
 @media (max-width: 520px) {
-  .props .val.steps {
-    grid-column: 1 / -1;
-  }
   .step-list .step-tools {
     display: none;
   }
