@@ -77,11 +77,34 @@ export function nowCandidates(doc: Doc, now: Date): Pick[] {
   return out;
 }
 
-/** Timed events on a day (all-day ones are left out unless asked for: they are not busy time). */
-export const eventsOn = (doc: Doc, day: Day, withAllDay = false): CalendarEvent[] =>
-  (doc.events ?? [])
+/**
+ * Replace the events from one source (Outlook, an imported file, a subscription); other sources stay.
+ * Events saved before sources were recorded (0.1.6 and earlier) have none; they came from the Outlook export (or a
+ * file), so either replaces them.
+ */
+export function replaceEvents(
+  current: CalendarEvent[] | undefined,
+  source: string,
+  incoming: CalendarEvent[],
+): CalendarEvent[] {
+  const ours = (e: CalendarEvent) => e.source === source || (!e.source && (source === 'outlook' || source === 'file'));
+  return [...(current ?? []).filter((e) => !ours(e)), ...incoming.map((e) => ({ ...e, source }))];
+}
+
+/**
+ * Timed events on a day (all-day ones are left out unless asked for: they are not busy time). The same event from two
+ * sources (say the Outlook export and a subscription to that calendar) is shown once.
+ */
+export const eventsOn = (doc: Doc, day: Day, withAllDay = false): CalendarEvent[] => {
+  const seen = new Set<string>();
+  return (doc.events ?? [])
     .filter((e) => e.day === day && (withAllDay || !e.allDay))
+    .filter((e) => {
+      const key = `${e.title.trim()}|${e.allDay ? 'all' : `${e.start}-${e.end}`}`;
+      return !seen.has(key) && !!seen.add(key);
+    })
     .sort((a, b) => a.start.localeCompare(b.start));
+};
 
 export function currentEvent(doc: Doc, now: Date): CalendarEvent | undefined {
   const m = nowMinutes(now);

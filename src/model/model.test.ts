@@ -327,3 +327,30 @@ describe('today and the hand-sorted list', () => {
     expect(listTasks(d, T0, 'all').map((t) => t.id)).toEqual(ids.slice().reverse());
   });
 });
+
+describe('calendar events by source', () => {
+  it('Outlook replaces events saved before sources were recorded, keeps other sources, and nothing shows twice', async () => {
+    const { replaceEvents, eventsOn } = await import('./derive');
+    const ev = (id: string, title: string, start: string, source?: string) => ({
+      id,
+      title,
+      day: '2026-09-28',
+      start,
+      end: '10:00',
+      ...(source ? { source } : {}),
+    });
+    const old = [ev('a@2026-09-28', 'TA Meeting', '09:30'), ev('b@2026-09-28', 'Research', '08:00')];
+    const kept = [ev('s@2026-09-28', 'Seminar', '09:00', 'sub:x'), ev('f@2026-09-28', 'Imported', '07:00', 'file')];
+    const fresh = [ev('a@2026-09-28', 'TA Meeting', '09:30'), ev('b@2026-09-28', 'Research', '08:00')];
+    const next = replaceEvents([...old, ...kept], 'outlook', fresh);
+    expect(next.map((e) => `${e.title}:${e.source}`).sort()).toEqual([
+      'Imported:file',
+      'Research:outlook',
+      'Seminar:sub:x',
+      'TA Meeting:outlook',
+    ]);
+    // The same meeting from the Outlook export and a subscription to that calendar is listed once.
+    const doc = { ...emptyDoc(ctx()), events: [...next, ev('dup', 'TA Meeting', '09:30', 'sub:y')] };
+    expect(eventsOn(doc, '2026-09-28').map((e) => e.title)).toEqual(['Imported', 'Research', 'Seminar', 'TA Meeting']);
+  });
+});

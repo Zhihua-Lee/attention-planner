@@ -17,6 +17,7 @@ const ALL_CHIPS: ChipKey[] = ['due', 'plan', 'effort', 'star', 'area', 'repeat',
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const { doc, sync, calendar, subs } = useStore();
+  const fileEvents = (doc.events ?? []).filter((e) => e.source === 'file').length;
   const { t } = useT();
   const s = doc.settings;
   const panel = useRef<HTMLDivElement>(null);
@@ -530,14 +531,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
             >
               {t('导入 .ics', 'Import .ics')}
             </button>
-            {doc.events?.length ? (
+            {fileEvents ? (
               <button className="btn" onClick={() => store.setEvents('file', [])}>
-                {t('清除日历', 'Clear calendar')}
+                {t('清除导入的日程', 'Clear imported events')}
               </button>
             ) : null}
-            <span className="muted">
-              {doc.events?.length ? t(`${doc.events.length} 个日程`, `${doc.events.length} events`) : ''}
-            </span>
+            <span className="muted">{fileEvents ? t(`${fileEvents} 个日程`, `${fileEvents} events`) : ''}</span>
           </div>
         </section>
 

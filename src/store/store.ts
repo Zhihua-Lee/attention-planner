@@ -7,6 +7,7 @@ import { brokerStatus, brokerTokens, DriveRemote, readOutlookExport, type TokenS
 import { addDays, dayOf } from '../model/dates';
 import { outlookEvents } from '../model/outlook';
 import { parseIcs } from '../model/ics';
+import { replaceEvents } from '../model/derive';
 import { syncReminders } from './push';
 import { deviceId, load, save } from './storage';
 import { syncOnce, type Remote } from './sync';
@@ -216,16 +217,7 @@ export class Store {
 
   /** Replace the events from one source (Outlook, an imported file, a subscription); other sources stay. */
   setEvents(source: string, events: CalendarEvent[]) {
-    this.commit(
-      (d) => ({
-        ...d,
-        events: [
-          ...(d.events ?? []).filter((e) => (e.source ?? 'file') !== source),
-          ...events.map((e) => ({ ...e, source })),
-        ],
-      }),
-      { undoable: false },
-    );
+    this.commit((d) => ({ ...d, events: replaceEvents(d.events, source, events) }), { undoable: false });
   }
 
   private subsAt = 0;

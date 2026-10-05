@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3 — 2026-10-04
+
+- **Fix: calendar events shown twice**: Outlook events saved by 0.1.6 and earlier carried no source, so from 0.1.7 on
+  they were kept as if imported from a file while fresh Outlook events were added beside them. The next Outlook read
+  now replaces them. The same event from two sources (the Outlook export and a subscription to that calendar) is
+  also shown once.
+- Settings → 日历 counts and clears only the events imported from a file.
+
 ## 0.2.2 — 2026-10-04
 
 - **Steps first**: an opened task shows its steps at the top, full width, then its properties, then the note. Steps
