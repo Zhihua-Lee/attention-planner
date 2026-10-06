@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.17 — 2026-10-06
+
+- **Clearer Shortcuts steps**: Settings → 记录与清单 → 快捷记录 now gives one action per step, with the names iOS 18
+  shows and where they hide: search “URL内容” to find “Get Contents of URL”, keep “Ask for Input” as Text (not URL), and
+  tap › to reach the method and request body.
+
 ## 0.2.16 — 2026-10-06
 
 - **New versions arrive without restarting the app**: an app left open (an iPhone home-screen app is rarely started

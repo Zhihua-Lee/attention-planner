@@ -341,20 +341,30 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     <details className="howto">
                       <summary>{t('iPhone 快捷指令 / Siri 怎么设', 'Set it up in iPhone Shortcuts / Siri')}</summary>
                       <ol>
-                        <li>
-                          {t('快捷指令 → 新建，加“要求输入”（文本）。', 'Shortcuts → new; add “Ask for Input” (text).')}
-                        </li>
+                        <li>{t('快捷指令 App → 右上角 +。', 'Shortcuts app → + at the top right.')}</li>
                         <li>
                           {t(
-                            '加“获取 URL 内容”：网址填上面的专属链接，方法 POST，请求体选“表单”，加一项 text = 提供的输入。',
-                            'Add “Get Contents of URL”: the link above, method POST, request body “Form”, one field text = Provided Input.',
+                            '搜“要求输入”并添加，类型保持“文本”（不是 URL）。',
+                            'Search “Ask for Input” and add it; keep the type “Text” (not URL).',
                           )}
                         </li>
-                        <li>{t('加“显示结果”，命名为“记一下”。', 'Add “Show Result” and name it “Note it”.')}</li>
                         <li>
                           {t(
-                            '之后对 Siri 说“记一下”，或加到主屏幕/锁屏。链接只能新增任务，不能读取；换新链接或停用后旧的立即失效。',
-                            'Then say “Note it” to Siri, or add it to the Home or Lock Screen. The link can only add tasks; a new link, or turning it off, ends the old one.',
+                            '搜“URL内容”，添加“获取 URL 内容”，网址粘贴上面的专属链接。',
+                            'Search “Contents of URL”, add “Get Contents of URL”, paste the link above.',
+                          )}
+                        </li>
+                        <li>
+                          {t(
+                            '点它的 › 展开：方法 POST；请求体“表单”；添加新字段 → 文本，键 text，值选“提供的输入”。',
+                            'Tap its › : Method POST; Request Body “Form”; Add new field → Text, key text, value “Provided Input”.',
+                          )}
+                        </li>
+                        <li>{t('命名为“记一下”，对 Siri 说即可。', 'Name it “Note it” and say it to Siri.')}</li>
+                        <li>
+                          {t(
+                            '链接只能新增任务；换新链接或停用后旧的立即失效。',
+                            'The link can only add tasks; a new link, or turning it off, ends the old one.',
                           )}
                         </li>
                       </ol>
