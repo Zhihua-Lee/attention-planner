@@ -112,5 +112,5 @@ test('Settings make a personal capture link and explain Shortcuts', async ({ pag
   await make.click();
   await expect(dialog.getByRole('textbox', { name: '专属记录链接' })).toHaveValue(/capture\?k=/);
   await dialog.getByText('iPhone 快捷指令 / Siri 怎么设').click();
-  await expect(dialog.locator('.howto')).toContainText('获取 URL 内容');
+  await expect(dialog.locator('.howto[open]')).toContainText('获取 URL 内容');
 });
