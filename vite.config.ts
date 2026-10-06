@@ -38,5 +38,5 @@ export default defineConfig({
       },
     }),
   ],
-  test: { include: ['src/**/*.test.ts', 'tests/**/*.test.ts'], environment: 'node' },
+  test: { include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'broker/**/*.test.ts'], environment: 'node' },
 });

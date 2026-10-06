@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.22 — 2026-10-06
+
+- **The sync broker lives here now**: `broker/` is the Cloudflare Worker behind `/api/*` (Google sign-in, the encrypted
+  Drive refresh token, short-lived access tokens, push notifications), moved from the previous app's repository so
+  this one holds everything the app runs on. Same Worker name and storage, so nothing has to be reconnected. The first
+  MCP server that was switched off there is left out (its storage is removed by a migration), along with its
+  `/.well-known/oauth-*` route, which the MCP Worker already answers. `docs/sync-setup.md` says how to run your own.
+
 ## 0.2.21 — 2026-10-06
 
 - **No blank app after a deploy**: a file under `/assets/` asked for before a new version reached the nearest edge was

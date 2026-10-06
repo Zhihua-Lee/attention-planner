@@ -1,37 +1,30 @@
-# Turning on sync
+# Sync and the broker
 
-The app syncs through the existing sync broker (the `attention-planner-broker` Cloudflare Worker). The broker keeps the
-Google refresh token and hands out short-lived access tokens. It only answers requests from its own origin: it is routed
-at `todo.onthat.top/api/*`, checks that POSTs come from `https://todo.onthat.top`, and its session cookie is scoped to
-`/api` on that host.
+The app syncs one file, `attention-planner-v3.json`, in the hidden app folder of your Google Drive. The browser never
+holds a Google secret: the sync broker in `broker/` (the Cloudflare Worker `attention-planner-broker`) signs you in with
+Google, keeps the refresh token encrypted in a Durable Object, and hands the app short-lived access tokens. It also sends
+the push notifications (reminders, and a new AI proposal). The MCP Worker in `mcp/` gets its Google tokens from it too,
+through a service binding.
 
-So the new app can sync wherever it is served on a host that the broker is routed to. The new app writes its own file,
-`attention-planner-v3.json`; the previous app's `attention-planner-v2.json` is never written.
+The broker only answers its own origin: it is routed at `<host>/api/*`, checks that POSTs come from `PUBLIC_ORIGIN`, and
+its session cookie is scoped to `/api` on that host. Only one Google account, `ALLOWED_EMAIL`, may sign in.
 
-## Option A: when the new app replaces the old one (no broker change) — done on 2026-10-04
+## Setting it up on your own host
 
-1. In Cloudflare Pages, remove the custom domain `todo.onthat.top` from the `attention-planner` project and add it to
-   `attention-planner-next`.
-2. Open https://todo.onthat.top, Settings → Sync → keep `/api` → Connect. If the browser is not signed in to the broker,
-   it goes through the broker's Google sign-in and comes back.
-3. Settings → Data → Import from the previous app, with a JSON export taken from the old app first.
+1. Google Cloud console → an OAuth client of type "Web application", with the authorised redirect URI
+   `https://<host>/api/google/callback`. The broker asks for `openid`, `email`, `drive.appdata` and `drive.file`.
+2. In `broker/wrangler.jsonc`, set the route and `PUBLIC_ORIGIN`, `GOOGLE_REDIRECT_URI` and `VAPID_SUBJECT` to your host.
+3. Set the secrets (`npx wrangler secret put <NAME> --config broker/wrangler.jsonc`):
+   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — from step 1;
+   - `ALLOWED_EMAIL` — the one Google account that may use it;
+   - `TOKEN_ENCRYPTION_KEY` — 32 random bytes, base64url;
+   - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — from `npx web-push generate-vapid-keys`.
+4. `npm run deploy:broker`, then deploy the app on the same host and open Settings → Sync → Connect.
 
-Rollback: move the domain back to `attention-planner`.
+For local work, copy `broker/.dev.vars.example` to `broker/.dev.vars` (never committed).
 
-## Option B: test sync before switching, on `next.onthat.top`
-
-This changes the live broker, which the old app also uses, so do it deliberately.
-
-1. Pages → `attention-planner-next` → Custom domains → add `next.onthat.top`.
-2. Broker (`apps/sync-broker` in the legacy repository):
-   - `wrangler.jsonc` → add a route `{ "pattern": "next.onthat.top/api/*", "zone_name": "onthat.top" }`.
-   - Accept both origins: make `assertSameOrigin` compare against a list (for example a new `PUBLIC_ORIGINS` var,
-     `"https://todo.onthat.top,https://next.onthat.top"`), and build the OAuth redirect URI from the request's host
-     instead of the fixed `GOOGLE_REDIRECT_URI`.
-   - Run its tests, then `wrangler deploy`.
-3. Google Cloud console → the OAuth client → add the authorised redirect URI
-   `https://next.onthat.top/api/google/callback`.
-4. Open https://next.onthat.top → Settings → Sync → Connect.
+The Worker's name and its Durable Object classes (`UserVault`, `NotificationDevice`) must not change once it is in use:
+the refresh token and the push devices live in them.
 
 ## What to check the first time
 

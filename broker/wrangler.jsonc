@@ -1,0 +1,29 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  // The name and the Durable Object classes must stay: the owner's Google refresh token and push devices live in them.
+  "name": "attention-planner-broker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  // /api/mcp and /api/ai/* are the MCP Worker's (more specific routes win).
+  "routes": [{ "pattern": "todo.onthat.top/api/*", "zone_name": "onthat.top" }],
+  "durable_objects": {
+    "bindings": [
+      { "name": "USER_VAULTS", "class_name": "UserVault" },
+      { "name": "NOTIFICATION_DEVICES", "class_name": "NotificationDevice" },
+    ],
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["UserVault", "NotificationDevice"] },
+    { "tag": "v2-mcp", "new_sqlite_classes": ["McpWorkspace"] },
+    // The first MCP server lived here, switched off; the MCP Worker replaced it.
+    { "tag": "v3", "deleted_classes": ["McpWorkspace"] },
+  ],
+  "vars": {
+    "PUBLIC_ORIGIN": "https://todo.onthat.top",
+    "GOOGLE_REDIRECT_URI": "https://todo.onthat.top/api/google/callback",
+    "VAPID_SUBJECT": "https://todo.onthat.top/privacy.html",
+  },
+  "observability": { "enabled": false },
+}

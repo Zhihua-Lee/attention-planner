@@ -3,8 +3,9 @@
 ## Stack
 
 TypeScript, React 19, Vite 8 and `vite-plugin-pwa`. Motion for the few animations that help you keep your place.
-`marked` + DOMPurify render notes. Tests: Vitest for the model, Playwright for the interface. No server code here; sync
-goes to Google Drive through the existing sync broker.
+`marked` + DOMPurify render notes. Tests: Vitest for the model, Playwright for the interface. The server side is two
+small Cloudflare Workers: `broker/` (Google sign-in, Drive tokens and push; see [sync-setup.md](sync-setup.md)) and
+`mcp/` (the AI connection, below).
 
 ```bash
 npm install
@@ -62,8 +63,8 @@ app-data folder; the previous app's file is never touched. Calendar events impor
 
 - **OAuth**: `@cloudflare/workers-oauth-provider` (dynamic registration, client metadata documents, PKCE), state in
   the KV namespace `OAUTH_KV`. The consent page (`/api/ai/authorize`) needs the broker's session cookie; the grant keeps
-  that cookie (encrypted with the token) so the Worker can ask the broker for Google tokens through a service binding.
-  The broker is not changed.
+  that cookie (encrypted with the token) so the Worker can ask the broker for Google tokens through a service binding,
+  and asks it (`POST /api/push/notify`) to notify the owner's devices of a new proposal.
 - **Data**: the same Drive file as the app, read and written with `src/store/drive.ts` and changed with the functions
   in `src/model/doc.ts`, stamped `by: ai`. Writes are conditional and retried. The Worker runs in UTC, so `mcp/src/clock.ts`
   runs edits on the owner's wall clock (`TIME_ZONE`) and swaps the real instant into the saved timestamps.
