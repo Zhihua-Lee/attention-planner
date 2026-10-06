@@ -19,6 +19,7 @@ import {
   uncomplete,
   updatePlan,
 } from '../model/doc';
+import { findTimes, stillToReserve, type Slot } from '../model/derive';
 import type { Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
@@ -36,7 +37,7 @@ const commit = (fn: Parameters<typeof store.commit>[0]) => {
   }
 };
 
-type PopKey = 'plan-add' | `plan-${string}` | 'effort' | 'group' | 'link';
+type PopKey = 'plan-add' | `plan-${string}` | 'effort' | 'find' | 'group' | 'link';
 
 /** Everything about one task, edited where it is shown. */
 export function TaskDetail({ task, now }: { task: Task; now: Date }) {
@@ -52,6 +53,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   const plan = planOf(task);
   const round = taskRound(task, now);
   const done = plannedDone(task);
+  const still = stillToReserve(task);
   const group = task.projectId
     ? doc.projects[task.projectId]?.name
     : task.areaId
@@ -135,11 +137,22 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
               {[
                 done.reserved && `${t('已排', 'reserved')} ${duration(done.reserved, lang)}`,
                 done.worked && `${t('已做', 'done')} ${duration(done.worked, lang)}`,
+                done.reserved && still > 0 && `${t('还差', 'to go')} ${duration(still, lang)}`,
               ]
                 .filter(Boolean)
                 .join(' · ')}
             </span>
           ) : null}
+          {/* The estimate decides how long a suggested time is; reserving never changes the estimate. */}
+          {still > 0 && !round?.done && !task.done && (
+            <button
+              className="link-btn"
+              aria-expanded={pop.is('find')}
+              onClick={(e) => pop.toggle('find', e.currentTarget)}
+            >
+              {t('找时间', 'Find time')}
+            </button>
+          )}
         </span>
 
         <span className="lbl">{t('重复', 'Repeat')}</span>
@@ -321,6 +334,22 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
                 />
               ),
           )}
+          {pop.is('find') && (
+            <FindTime
+              task={task}
+              now={now}
+              onPick={(slot, keepEstimate) => {
+                commit((d, c) => {
+                  const next = addPlan(d, c, id, slot);
+                  return keepEstimate ? setField(next, c, id, 'effort', 60) : next;
+                });
+                toast(t(`已预留 ${planLabel(slot, today, lang)}`, `Reserved ${planLabel(slot, today, lang)}`), () =>
+                  store.undo(),
+                );
+                pop.close();
+              }}
+            />
+          )}
           {pop.is('effort') && (
             <EffortPicker
               value={task.effort}
@@ -372,4 +401,51 @@ function plannedDone(task: Task) {
     worked += p.doneMin ?? 0;
   }
   return { reserved, worked };
+}
+
+/** Free times for a task; one tap reserves one. Without an estimate it looks for an hour and offers to keep that. */
+function FindTime({
+  task,
+  now,
+  onPick,
+}: {
+  task: Task;
+  now: Date;
+  onPick: (slot: Slot, keepEstimate: boolean) => void;
+}) {
+  const { doc } = useStore();
+  const { t, lang } = useT();
+  const [keep, setKeep] = useState(true);
+  const today = dayOf(now);
+  const slots = findTimes(doc, task, now);
+  const noEstimate = !taskEffort(task);
+  return (
+    <div className="menu find-time">
+      <div className="menu-title">
+        {t('找时间', 'Find time')} · {duration(Math.min(120, stillToReserve(task)), lang)}
+      </div>
+      {slots.map((slot) => (
+        <button
+          key={`${slot.day} ${slot.start}`}
+          className="menu-item"
+          onClick={() => onPick(slot, noEstimate && keep)}
+        >
+          <span>{planLabel(slot, today, lang)}</span>
+        </button>
+      ))}
+      {!slots.length && (
+        <p className="hint pad">
+          {task.due
+            ? t('截止前的工作时间里没有空档。', 'No free working time before the deadline.')
+            : t('两周内的工作时间里没有空档。', 'No free working time in the next two weeks.')}
+        </p>
+      )}
+      {noEstimate && (
+        <label className="check-row small pad">
+          <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+          {t('用时记为 1 小时', 'Set the estimate to 1 hour')}
+        </label>
+      )}
+    </div>
+  );
 }

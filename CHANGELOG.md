@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.7 — 2026-10-05
+
+- **Find time**: next to a task's estimate, "找时间" lists free working times before its deadline (or in the next
+  two weeks), around calendar events and other reserved times, each as long as what is still to reserve (the
+  estimate, or an hour, less what is reserved) up to two hours; a shorter gap is offered as a piece. One tap reserves
+  it. Reserving never changes the estimate; without one, the hour can be kept as the estimate. The effort row shows
+  "还差" once something is reserved.
+- **Suggestions for a tapped free time**: the reserve sheet lists the tasks that suit it (soonest deadline, then what
+  fits, then important); tap one to choose it. Settings → 日历 turns this off.
+- AI connections get a `find_time` tool.
+
 ## 0.2.6 — 2026-10-05
 
 - **Dates follow the round in a task that reopens**: its deadline, its steps' deadlines and its plans are kept as

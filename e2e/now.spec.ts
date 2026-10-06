@@ -23,7 +23,7 @@ test('a reserved time happening now comes first', async ({ page }) => {
   await page.locator('.capture').getByRole('button', { name: '哪天做' }).click();
   await page.getByRole('dialog').getByRole('button', { name: /^今天/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: '15:00' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '2 小时' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '2 小时', exact: true }).click();
   await page.getByRole('textbox', { name: '记下新任务' }).press('Enter');
   await page.getByRole('tab', { name: 'NOW' }).click();
   const card = page.getByTestId('now-card');
@@ -112,14 +112,14 @@ test('overlapping events sit side by side; tapping shows details; an empty time 
   await expect(sheet.getByLabel('开始')).toHaveValue('17:00');
   await sheet.getByRole('radio', { name: '已有任务' }).click();
   await sheet.getByRole('option', { name: /复习第 3 章/ }).click();
-  await expect(sheet.getByRole('button', { name: '2 小时' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(sheet.getByRole('button', { name: '2 小时', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await sheet.getByRole('button', { name: '预留' }).click();
   const slot = agenda.locator('.blk.slot', { hasText: '复习第 3 章' });
   await expect(slot).toContainText('17:00–19:00');
   await slot.click();
   await page.getByRole('dialog', { name: '详情' }).getByRole('button', { name: '改时间' }).click();
   await page.getByRole('dialog', { name: '详情' }).getByRole('button', { name: '18:00' }).click();
-  await page.getByRole('dialog', { name: '详情' }).getByRole('button', { name: '1 小时' }).click();
+  await page.getByRole('dialog', { name: '详情' }).getByRole('button', { name: '1 小时', exact: true }).click();
   await expect(slot).toContainText('18:00–19:00');
 });
 
@@ -226,4 +226,47 @@ test('a "new copy" task creates the next one when completed', async ({ page }) =
   await detail.getByRole('spinbutton', { name: '总次数' }).fill('3');
   await detail.getByRole('button', { name: '完成', exact: true }).click();
   await expect(row(page, '洗床单')).toContainText('10/6');
+});
+
+test('find time: free working times before the deadline, one tap reserves; the estimate stays', async ({ page }) => {
+  await start(page);
+  await add(page, '周四交表格 90分钟');
+  const detail = await openRow(page, '交表格');
+  await detail.getByRole('button', { name: '找时间' }).click();
+  const menu = page.locator('.find-time');
+  await expect(menu).toContainText('1.5 小时');
+  await menu.getByRole('button').first().click();
+  await expect(page.locator('.toast')).toContainText('已预留');
+  await expect(detail).toContainText('已排 1.5 小时');
+  await expect(detail.getByRole('button', { name: '找时间' })).toHaveCount(0); // all reserved
+  await expect(detail.getByRole('button', { name: /^1.5 小时$/ })).toBeVisible(); // the estimate is unchanged
+});
+
+test('a tapped free time suggests tasks that suit it, unless turned off in Settings', async ({ page }) => {
+  await start(page);
+  await add(page, '周四交表格 1小时', '随手记的');
+  await page.getByRole('tab', { name: 'NOW' }).click();
+  const agenda = page.getByRole('region', { name: '日程' });
+  await agenda.getByRole('button', { name: '日', exact: true }).click();
+  const H = await hourPx(page);
+  const tapAt17 = async () => {
+    await agenda.locator('.day-scroll').evaluate((el, h) => (el.scrollTop = 16 * h), H);
+    const area = (await agenda.locator('.lane-area').boundingBox())!;
+    await page.mouse.click(area.x + area.width - 10, area.y + 17 * H + 8);
+  };
+  await tapAt17();
+  const sheet = page.getByRole('dialog', { name: '预留时段' });
+  const suggested = sheet.getByRole('group', { name: '推荐' });
+  await expect(suggested.getByRole('button').first()).toContainText('交表格');
+  await suggested.getByRole('button', { name: /交表格/ }).click();
+  await sheet.getByRole('button', { name: '预留' }).click();
+  await expect(agenda.locator('.blk.slot', { hasText: '交表格' })).toContainText('17:00–18:00');
+  await page.getByRole('button', { name: '设置' }).click();
+  await page.getByRole('checkbox', { name: '点空白时间时推荐任务' }).uncheck();
+  await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
+  await agenda.locator('.day-scroll').evaluate((el, h) => (el.scrollTop = 14 * h), H);
+  const area = (await agenda.locator('.lane-area').boundingBox())!;
+  await page.mouse.click(area.x + area.width - 10, area.y + 15 * H + 8);
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('group', { name: '推荐' })).toHaveCount(0);
 });

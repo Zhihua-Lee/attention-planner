@@ -71,6 +71,7 @@ describe('MCP tools', () => {
     expect(names).toEqual([
       'add_task',
       'agenda',
+      'find_time',
       'get_proposal',
       'get_task',
       'list_areas_and_projects',

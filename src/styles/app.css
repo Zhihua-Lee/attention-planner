@@ -1829,3 +1829,10 @@ mark {
   gap: 6px;
   padding-top: 4px;
 }
+
+/* tasks suggested for a free time on the calendar */
+.suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

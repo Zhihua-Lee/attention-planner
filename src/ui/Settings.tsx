@@ -423,6 +423,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
         <section>
           <h3>{t('日历', 'Calendar')}</h3>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={s.slotSuggestions !== false}
+              onChange={(e) => set({ slotSuggestions: e.target.checked })}
+            />
+            {t('点空白时间时推荐任务', 'Suggest tasks for a tapped free time')}
+          </label>
           {calendar.source === 'outlook' && (
             <div className="inline">
               <span>

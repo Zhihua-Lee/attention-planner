@@ -4,6 +4,8 @@ import * as z from 'zod';
 import { addDays, dayOf, isoWeekday, nowMinutes, timeOf } from '../../src/model/dates';
 import {
   capacity,
+  findTimes,
+  stillToReserve,
   agenda as dayAgenda,
   eventsOn,
   finishedTasks,
@@ -308,6 +310,33 @@ export function createServer(c: ToolContext): McpServer {
         );
       }
       return text(out);
+    }),
+  );
+
+  server.registerTool(
+    'find_time',
+    {
+      title: 'Find time for a task',
+      description:
+        'Free times for a task, earliest first: within working hours, around calendar events and other reserved times, before its deadline (or in the next two weeks). Each is as long as what is still to reserve (its estimate, or one hour, less what is already reserved), up to two hours. To reserve one, propose a "plan" change with its day, start and minutes.',
+      inputSchema: { id: z.string().min(1).max(100) },
+      annotations: read,
+    },
+    guard(async ({ id }: { id: string }) => {
+      const doc = await load();
+      const t = doc.tasks[id];
+      if (!t || t.deleted) throw new Error(`There is no task ${id}.`);
+      const now = ws.now();
+      const today = dayOf(now);
+      const withEvents: Doc = { ...doc, events: await ws.events(doc, today, addDays(today, 13)) };
+      return text({
+        still_to_reserve_minutes: stillToReserve(t),
+        times: findTimes(withEvents, t, now).map((s) => ({
+          day: `${s.day} (${WEEK[isoWeekday(s.day) - 1]})`,
+          start: s.start,
+          minutes: s.minutes,
+        })),
+      });
     }),
   );
 

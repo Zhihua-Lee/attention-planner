@@ -8,6 +8,7 @@ import {
   stepDone,
   stepsOf,
   effectiveDue,
+  taskEffort,
   taskRound,
 } from './doc';
 import type { CalendarEvent, Day, Doc, Part, Settings, Task } from './types';
@@ -127,27 +128,100 @@ export function freeUntilNext(doc: Doc, now: Date): number | null {
 }
 
 /** Free minutes inside the working hours of `day`, after `fromMinute`, minus events and other reserved time. */
-export function freeMinutes(doc: Doc, settings: Settings, day: Day, fromMinute = 0, excludeTask?: string): number {
-  if (!settings.workDays.includes(isoWeekday(day))) return 0;
+/**
+ * The free stretches of working time on a day, as [start, end) minutes: working hours on working days, less timed
+ * calendar events and every reserved time (except `excludeTask`'s), from `fromMinute` on.
+ */
+export function freeWindows(
+  doc: Doc,
+  settings: Settings,
+  day: Day,
+  fromMinute = 0,
+  excludeTask?: string,
+): [number, number][] {
+  if (!settings.workDays.includes(isoWeekday(day))) return [];
   const lo = Math.max(minutesOf(settings.workStart), fromMinute);
   const hi = minutesOf(settings.workEnd);
-  if (hi <= lo) return 0;
+  if (hi <= lo) return [];
   const busy: [number, number][] = eventsOn(doc, day).map((e) => [minutesOf(e.start), minutesOf(e.end)]);
   for (const t of liveTasks(doc))
     if (t.id !== excludeTask && !t.done)
       for (const p of planOf(t))
         if (p.day === day && p.start) busy.push([minutesOf(p.start), minutesOf(p.start) + (p.minutes ?? 60)]);
   busy.sort((a, b) => a[0] - b[0]);
-  let free = 0;
+  const out: [number, number][] = [];
   let cur = lo;
   for (const [s, e] of busy) {
     if (e <= cur) continue;
     if (s >= hi) break;
-    if (s > cur) free += s - cur;
+    if (s > cur) out.push([cur, s]);
     cur = Math.max(cur, e);
   }
-  if (cur < hi) free += hi - cur;
-  return free;
+  if (cur < hi) out.push([cur, hi]);
+  return out;
+}
+
+export const freeMinutes = (doc: Doc, settings: Settings, day: Day, fromMinute = 0, excludeTask?: string): number =>
+  freeWindows(doc, settings, day, fromMinute, excludeTask).reduce((sum, [s, e]) => sum + e - s, 0);
+
+/** Minutes already reserved for a task (every reserved time, past ones too). */
+export const reservedFor = (t: Task) => planOf(t).reduce((sum, p) => sum + (p.start ? (p.minutes ?? 60) : 0), 0);
+
+/** One reserved time at most this long is suggested; a longer job is split into several. */
+const LONGEST = 120;
+
+/**
+ * How much of a task still needs a time: its estimate (one hour when it has none) less what is reserved.
+ * Planning follows the estimate; a reservation never changes it.
+ */
+export const stillToReserve = (t: Task) => Math.max(0, (taskEffort(t) ?? 60) - reservedFor(t));
+
+export type Slot = { day: Day; start: string; minutes: number };
+
+/**
+ * Free times for a task, earliest first: within working hours, around calendar events and other reserved times,
+ * before its deadline (or in the next two weeks). Each is as long as what is still to reserve, up to two hours; a
+ * shorter gap (at least half an hour) is offered too, so a long job can be done in pieces. At most two per day.
+ */
+export function findTimes(doc: Doc, t: Task, now: Date, limit = 3): Slot[] {
+  const want = Math.min(LONGEST, stillToReserve(t) || 60);
+  const today = dayOf(now);
+  const last = effectiveDue(t, now)?.day ?? addDays(today, 13);
+  const out: Slot[] = [];
+  const from = Math.ceil((nowMinutes(now) + 5) / 30) * 30; // the next half hour, with a moment to get ready
+  for (let day = today; day <= last && out.length < limit; day = addDays(day, 1)) {
+    let perDay = 0;
+    for (const [s, e] of freeWindows(doc, doc.settings, day, day === today ? from : 0)) {
+      const minutes = Math.floor(Math.min(want, e - s) / 15) * 15;
+      if (minutes < Math.min(30, want)) continue;
+      out.push({ day, start: timeOf(s), minutes });
+      if (++perDay === 2 || out.length === limit) break;
+    }
+  }
+  return out;
+}
+
+/**
+ * Tasks worth doing in a free time just tapped on the calendar, best first: the ones whose deadline comes soonest,
+ * then those whose remaining time fits, then the important ones. Tasks that are done for now, resting or waiting in
+ * a project's queue are left out, and so are tasks already fully reserved.
+ */
+export function tasksForSlot(doc: Doc, now: Date, day: Day, minutes: number, limit = 3): Task[] {
+  const due = (t: Task) => effectiveDue(t, now)?.day ?? '9999';
+  return (
+    openTasks(doc, now)
+      // Snoozed past that day (and not due by then) is left out; a snooze that ends before it is not.
+      .filter((t) => !(isSnoozed(t, day) && !(due(t) <= day)))
+      .filter((t) => queuePosition(doc, t, now) === 0 && stillToReserve(t) > 0)
+      .sort(
+        (a, b) =>
+          due(a).localeCompare(due(b)) ||
+          Number(stillToReserve(b) <= minutes) - Number(stillToReserve(a) <= minutes) ||
+          Number(!!b.star) - Number(!!a.star) ||
+          a.created.localeCompare(b.created),
+      )
+      .slice(0, limit)
+  );
 }
 
 export type Shortfall = { task: Task; missing: number };

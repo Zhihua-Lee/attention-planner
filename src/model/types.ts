@@ -154,6 +154,8 @@ export type Settings = {
   remind?: { dueAt?: Time; slotLead?: number };
   /** Buttons shown after each step (dragging and deleting are always there). */
   stepTools?: StepTool[];
+  /** Tapping a free time on the calendar suggests tasks for it (on unless turned off). */
+  slotSuggestions?: boolean;
   /** Filters shown above the list; all of them when unset. */
   filters?: FilterChip[];
   theme: 'system' | 'light' | 'dark';

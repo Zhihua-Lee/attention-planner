@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { dayOf, isTime, minutesOf, timeOf } from '../model/dates';
-import { eventsOn, nowCandidates } from '../model/derive';
-import { addPlan, addTask, liveTasks, planOf, remainingEffort } from '../model/doc';
+import { eventsOn, freeWindows, nowCandidates, stillToReserve, tasksForSlot } from '../model/derive';
+import { addPlan, addTask, effectiveDue, liveTasks, planOf, remainingEffort } from '../model/doc';
 import type { Day } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { Sheet } from './Sheet';
-import { duration, monthDay, useT, weekdayName } from './text';
+import { dueLabel, duration, monthDay, useT, weekdayName } from './text';
 
 const LENGTHS = [30, 60, 90, 120, 180];
 
@@ -45,9 +45,17 @@ export function ReserveSheet({ day, start, onClose }: { day: Day; start: number;
     .filter((task) => task.title.toLowerCase().includes(q.trim().toLowerCase()))
     .slice(0, 6);
 
+  // How long the tapped time stays free, and the tasks that suit it (when that is turned on in Settings).
+  const room = useMemo(() => {
+    const w = freeWindows(doc, doc.settings, day).find(([a, b]) => a <= start && start < b);
+    return w ? w[1] - start : 60;
+  }, [doc, day, start]);
+  const suggested = doc.settings.slotSuggestions === false ? [] : tasksForSlot(doc, now, day, room);
+
   const pickTask = (id: string) => {
+    setMode('existing');
     setTaskId(id);
-    const left = remainingEffort(doc.tasks[id]);
+    const left = stillToReserve(doc.tasks[id]) || remainingEffort(doc.tasks[id]);
     if (left) setMinutes(Math.min(180, Math.max(30, Math.round(left / 30) * 30)));
   };
   const ready = mode === 'new' ? !!title.trim() : !!taskId;
@@ -99,6 +107,32 @@ export function ReserveSheet({ day, start, onClose }: { day: Day; start: number;
             </button>
           ))}
         </div>
+        {suggested.length > 0 && (
+          <div className="suggest" role="group" aria-label={t('推荐', 'Suggested')}>
+            {suggested.map((task) => {
+              const due = effectiveDue(task, now);
+              return (
+                <button
+                  type="button"
+                  key={task.id}
+                  className={`pick${taskId === task.id ? ' on' : ''}`}
+                  aria-pressed={taskId === task.id}
+                  onClick={() => pickTask(task.id)}
+                >
+                  <span>{task.title}</span>
+                  <span className="muted">
+                    {[
+                      due && dueLabel(due.day, dayOf(now), lang),
+                      `${t('还差', 'to go')} ${duration(stillToReserve(task), lang)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="seg" role="radiogroup" aria-label={t('做什么', 'For')}>
           <button type="button" role="radio" aria-checked={mode === 'new'} onClick={() => setMode('new')}>
             {t('新任务', 'New task')}

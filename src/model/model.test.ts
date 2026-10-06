@@ -436,3 +436,47 @@ describe('how the parts of a task work together', () => {
     expect(titles).not.toContain('Report');
   });
 });
+
+describe('finding time', () => {
+  it('suggests free working time before the deadline, sized by what is still to reserve', async () => {
+    const { findTimes, stillToReserve } = await import('./derive');
+    let [d, id] = make('Write intro', { effort: 90, due: '2026-09-30' });
+    d = { ...d, events: [{ id: 'e', title: 'Seminar', day: '2026-09-29', start: '11:00', end: '12:00' }] };
+    expect(stillToReserve(d.tasks[id])).toBe(90);
+    // Today from 10:30: half an hour before the seminar (a piece), then 12:00 for the full 90; tomorrow at 9:00.
+    expect(findTimes(d, d.tasks[id], T0)).toEqual([
+      { day: '2026-09-29', start: '10:30', minutes: 30 },
+      { day: '2026-09-29', start: '12:00', minutes: 90 },
+      { day: '2026-09-30', start: '09:00', minutes: 90 },
+    ]);
+    // Reserving part of it leaves the rest to find; the estimate itself does not change.
+    d = addPlan(d, ctx(), id, { day: '2026-09-29', start: '12:00', minutes: 60 });
+    expect(stillToReserve(d.tasks[id])).toBe(30);
+    expect(d.tasks[id].effort).toBe(90);
+    expect(findTimes(d, d.tasks[id], T0)[1]).toEqual({ day: '2026-09-29', start: '13:00', minutes: 30 });
+  });
+
+  it('without an estimate it looks for an hour; nothing past the deadline', async () => {
+    const { findTimes } = await import('./derive');
+    const [d, id] = make('Call', { due: '2026-09-29' });
+    const late = at('2026-09-29', '17:40');
+    expect(findTimes(d, d.tasks[id], T0)[0]).toEqual({ day: '2026-09-29', start: '10:30', minutes: 60 });
+    expect(findTimes(d, d.tasks[id], late)).toEqual([]);
+  });
+
+  it('suggests tasks for a tapped free time: soonest deadline first, then what fits', async () => {
+    const { tasksForSlot } = await import('./derive');
+    let d = emptyDoc(ctx());
+    const add = (title: string, extra = {}) => ([d] = addTask(d, ctx(), { title, ...extra }));
+    add('Later, fits', { effort: 30, due: '2026-10-09' });
+    add('Soon, long', { effort: 240, due: '2026-10-01' });
+    add('No deadline', { effort: 30, star: true });
+    add('Reserved already', { effort: 30, plan: [{ day: '2026-09-30', start: '09:00', minutes: 30 }] });
+    add('Snoozed', { effort: 30, snooze: { until: '2026-10-20' } });
+    expect(tasksForSlot(d, T0, '2026-09-29', 60).map((t) => t.title)).toEqual([
+      'Soon, long',
+      'Later, fits',
+      'No deadline',
+    ]);
+  });
+});
