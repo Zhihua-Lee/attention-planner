@@ -136,4 +136,4 @@ TypeScript、React、Vite，PWA；`src/model` 里是作用在一个 JSON 文档�
 
 ## 许可
 
-目前保留所有权利。代码里不包含任何其他应用的代码；打包进来的库及其许可列在 [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)。
+[GNU AGPL v3.0 或更新版本](LICENSE)。代码里不包含任何其他应用的代码；打包进来的库及其许可列在 [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)。

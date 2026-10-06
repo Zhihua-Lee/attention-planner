@@ -178,5 +178,5 @@ motion. See [docs/development.md](docs/development.md) and [VERIFICATION.md](VER
 
 ## License
 
-All rights reserved for now. This repository contains no code from any other application; bundled libraries and their
-licenses are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+[GNU AGPL v3.0 or later](LICENSE). This repository contains no code from any other application; bundled libraries
+and their licenses are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).

@@ -2,6 +2,7 @@
   "name": "attention-planner",
   "version": "0.2.18",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "description": "One list; the app tells you what to do now.",
   "scripts": {
