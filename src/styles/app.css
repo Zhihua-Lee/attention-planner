@@ -2017,3 +2017,84 @@ mark {
   background: var(--bg);
   font-size: 14px;
 }
+
+/* Settings: a fixed title bar, the groups on the left, one scrolling pane (on a phone, the groups in a row on top) */
+.sheet.settings {
+  width: min(820px, 100%);
+  height: min(720px, calc(100dvh - 8vh));
+  max-height: none;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 18px;
+}
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+}
+.settings-nav button {
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.settings-nav button[aria-current='true'] {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.settings-pane {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 18px;
+  overscroll-behavior: contain;
+}
+.settings-group {
+  display: flex;
+  flex-direction: column;
+}
+.settings-group + .settings-group {
+  margin-top: 18px;
+}
+.group-title {
+  font: 600 13px var(--font-body) !important;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  margin: 8px 0 0 !important;
+}
+.settings-pane footer {
+  padding-top: 18px;
+}
+@media (max-width: 720px) {
+  .sheet.settings {
+    height: calc(100dvh - 4vh);
+  }
+  .settings-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 6px;
+  }
+  .settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0 0 4px;
+  }
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .settings-nav button {
+    flex: none;
+    padding: 5px 12px;
+    border-radius: 999px;
+  }
+}

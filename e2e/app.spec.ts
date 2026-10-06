@@ -199,3 +199,21 @@ test('the goal is written in Settings and shows on NOW only when turned on', asy
   await goal.click();
   await expect(goal).toContainText('身体健康地读完博士');
 });
+
+test('Settings are grouped: the navigation jumps to a group and follows the scrolling', async ({ page }) => {
+  await start(page);
+  await page.getByRole('button', { name: '设置' }).click();
+  const dialog = page.getByRole('dialog', { name: '设置' });
+  const nav = dialog.getByRole('navigation', { name: '设置分组' });
+  await expect(nav.locator('[aria-current="true"]')).toHaveText('常用');
+  await nav.getByRole('button', { name: '同步与数据' }).click();
+  await expect(nav.locator('[aria-current="true"]')).toHaveText('同步与数据');
+  await expect(dialog.getByRole('button', { name: '导出备份' })).toBeInViewport();
+  await page.waitForTimeout(900); // a chosen group stays marked while the pane scrolls to it
+  await dialog.locator('.settings-pane').evaluate((el) => (el.scrollTop = 0));
+  await expect(nav.locator('[aria-current="true"]')).toHaveText('常用');
+  // The pane never scrolls sideways.
+  expect(await dialog.locator('.settings-pane').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(
+    1,
+  );
+});

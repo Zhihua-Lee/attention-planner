@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.14 — 2026-10-06
+
+- **Settings in groups**: 常用, 记录与清单, 提醒, 日历, 同步与数据 and AI 连接, with the groups in a column on the left
+  (a row on top on a phone), a fixed title bar and one scrolling pane; a group is marked as you scroll past it, and
+  choosing one jumps to it.
+
 ## 0.2.13 — 2026-10-06
 
 - **Add to today, like My Day**: a ☀ on each row (shown on hover with a mouse, and always when the task is in today),
