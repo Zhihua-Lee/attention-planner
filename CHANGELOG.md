@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.18 — 2026-10-06
+
+- **New tasks from an AI wait for approval too**: `add_task` now makes a proposal, like any change to an existing task,
+  with its quick words already read (a Friday stays that Friday however late it is approved); the list shows
+  “新建「…」” with the deadline, plan, effort, steps and the rest. `propose_changes` can add tasks as well. Settings →
+  AI 连接 → “AI 新建任务无需批准” saves them at once, as before.
+
 ## 0.2.17 — 2026-10-06
 
 - **Clearer Shortcuts steps**: Settings → 记录与清单 → 快捷记录 now gives one action per step, with the names iOS 18

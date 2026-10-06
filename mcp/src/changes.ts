@@ -2,12 +2,14 @@ import * as z from 'zod';
 import type { Change, RepeatInput, RuleInput } from '../../src/model/changes';
 
 export {
+  addNewTask,
   applyChange,
   applyChanges,
   changeTask,
   dayWords,
   describeChange,
   findGroup,
+  fromRule,
   minutesWords,
   reservedMinutes,
   resolveGroup,
@@ -15,6 +17,7 @@ export {
   toRepeat,
   toRule,
   type Change,
+  type NewTaskInput,
 } from '../../src/model/changes';
 
 /** The schemas the AI's input is checked against; they must describe exactly the model's `Change`. */
@@ -47,11 +50,46 @@ export const repeatSchema = z.object({
 
 const groupRef = z.string().min(1).max(100);
 
+/** The details of a new task (add_task's, without the quick words). */
+export const newTaskFields = {
+  note: z.string().max(20000).optional().describe('Markdown; references and links go here.'),
+  due: daySchema.optional(),
+  due_time: timeSchema.optional(),
+  effort_minutes: z.number().int().min(1).max(10000).optional(),
+  area: z.string().max(100).optional().describe('Name or id; a new name creates the area.'),
+  project: z.string().max(100).optional().describe('Name or id; a new name creates the project.'),
+  steps: z.array(z.string().trim().min(1).max(2000)).max(50).optional(),
+  plan: z
+    .object({
+      day: daySchema,
+      part: partSchema.optional(),
+      start: timeSchema.optional(),
+      minutes: z
+        .number()
+        .int()
+        .min(5)
+        .max(24 * 60)
+        .optional(),
+    })
+    .optional()
+    .describe('When to do it: a day, optionally a part of the day or a reserved time.'),
+  link_to: taskId.optional().describe('Id of the task this one belongs with; the list shows it right after that task.'),
+  repeat: repeatSchema.optional(),
+};
+
 /**
- * One change, as the AI proposes it. The owner approves a list of them together. Most change one task; the last
- * two change a project or an area.
+ * One change, as the AI proposes it. The owner approves a list of them together. The first adds a task, the last two
+ * change a project or an area, and the rest change one task.
  */
 export const changeSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('add_task'),
+      title: z.string().trim().min(1).max(500).describe('As it should read; quick words are not read here.'),
+      star: z.boolean().optional().describe('Important.'),
+      ...newTaskFields,
+    })
+    .describe('A new task.'),
   z.object({
     type: z.literal('update'),
     task_id: taskId,

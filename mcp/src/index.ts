@@ -20,7 +20,8 @@ import { Workspace } from './workspace';
  *
  * - OAuth 2.1 for AI clients (dynamic registration, client metadata documents, PKCE) under /api/ai/.
  * - Reads and writes the same Drive file the app syncs, with Google tokens from the existing sync broker.
- * - New tasks are saved at once; changes to existing tasks are proposals kept with the tasks and decided in the app.
+ * - Changes, and new tasks unless the owner chose to have them saved at once, are proposals kept with the tasks and
+ *   decided in the app.
  */
 export interface Env {
   OAUTH_KV: KVNamespace;

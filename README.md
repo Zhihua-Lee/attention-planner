@@ -66,8 +66,8 @@ only ever sees an opaque id and a time.
    ```
 
 2. Allow it in the browser page that opens: reading, and (if you want) adding tasks and proposing changes.
-3. Talk to it — typing, or by voice in an assistant that listens. New tasks are saved at once; changes to existing
-   ones arrive as a proposal: the list shows "AI 提议", the affected task shows before → after, your devices get a
+3. Talk to it — typing, or by voice in an assistant that listens. New tasks and changes arrive as a proposal (new
+   tasks can be saved at once instead, in Settings): the list shows "AI 提议", the affected task shows before → after, your devices get a
    notification, and one tap approves (undoable) or rejects.
 
 The hands-free loop: **record a meeting or talk it through → the AI turns it into tasks and steps over MCP → you
@@ -77,13 +77,13 @@ Things to ask:
 
 ```text
 What should I do now? Plan my afternoon around my calendar.
-Break "submit the SERRA paper" into steps of under an hour, each with an estimate, and find time for the first one.
+Break "submit the Lumen paper" into steps of under an hour, each with an estimate, and find time for the first one.
 From this meeting's notes, add the action items for me, due Friday.
-Link "SERRA submission" to the Research task and make the weekly lab notes reopen every Monday.
+Link "Lumen submission" to the Research task and make the weekly lab notes reopen every Monday.
 ```
 
 The tools: `what_now`, `list_tasks`, `get_task`, `agenda`, `find_time`, `list_areas_and_projects` (read);
-`add_task` (saved at once, with the app's quick words, links and repeats); `propose_changes` (fields, steps, plans,
+`add_task` (approved, or saved at once if you choose; with the app's quick words, links and repeats); `propose_changes` (fields, steps, plans,
 links, repeats, projects — approved in the app); `get_proposal`. Details in
 [docs/ai-connections.md](docs/ai-connections.md).
 

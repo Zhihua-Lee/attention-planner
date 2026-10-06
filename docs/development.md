@@ -67,8 +67,10 @@ app-data folder; the previous app's file is never touched. Calendar events impor
 - **Data**: the same Drive file as the app, read and written with `src/store/drive.ts` and changed with the functions
   in `src/model/doc.ts`, stamped `by: ai`. Writes are conditional and retried. The Worker runs in UTC, so `mcp/src/clock.ts`
   runs edits on the owner's wall clock (`TIME_ZONE`) and swaps the real instant into the saved timestamps.
-- **Changes**: new tasks are saved at once; `propose_changes` stores a proposal in KV, and the owner applies or rejects it
-  at `/api/ai/review/<id>` (same-origin POST with a per-proposal nonce).
+- **Changes**: `propose_changes`, and `add_task` unless the owner turned on “AI 新建任务无需批准” (`aiAddsDirectly`),
+  store a proposal with the tasks (`doc.proposals`); the app applies or rejects it in the list (`/?proposal=<id>`).
+  Proposals from before 0.2.10 are in KV and decided at `/api/ai/review/<id>` (same-origin POST with a per-proposal
+  nonce).
 - `npm run typecheck` also checks `mcp/` against the Workers types; `tests/mcp.test.ts` runs the tools against an
   in-memory Drive. Deploy with `npm run deploy:mcp` after CI passes.
 

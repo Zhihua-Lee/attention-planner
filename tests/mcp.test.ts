@@ -24,6 +24,9 @@ function seed(): Doc {
   return d;
 }
 
+/** The owner chose to have tasks the AI adds saved at once. */
+const direct = (d: Doc) => setSettings(d, wallCtx(), { aiAddsDirectly: true });
+
 async function connect(remote: MemoryRemote, canWrite = true, fetcher?: typeof fetch) {
   const proposals = memoryProposals();
   const workspace = new Workspace(remote, TZ, { clock: () => REAL, fetcher, device: 'ai' });
@@ -94,7 +97,7 @@ describe('MCP tools', () => {
 
   it('adds a task at once, with the app’s quick words, in the owner’s time, stamped with the real instant', async () => {
     const remote = new MemoryRemote();
-    remote.doc = seed();
+    remote.doc = direct(seed());
     const { call } = await connect(remote);
     const res = await call('add_task', { text: '周五交表格 2小时 !', steps: ['填数', '签字'], area: '研究' });
     expect(res.body.saved).toBe(true);
@@ -103,6 +106,45 @@ describe('MCP tools', () => {
     expect(t.steps.map((s) => s.text)).toEqual(['填数', '签字']);
     expect(remote.doc!.areas[t.areaId!].name).toBe('研究');
     expect(t.s.by).toBe('ai');
+  });
+
+  it('by default a new task waits for approval, with its quick words already read', async () => {
+    const { decideProposal, pendingProposals } = await import('../src/model/proposals');
+    const remote = new MemoryRemote();
+    remote.doc = seed();
+    const { call } = await connect(remote);
+    const paper = liveTasks(remote.doc).find((x) => x.title === '交论文')!;
+    const res = await call('add_task', {
+      text: '周五交表格 2小时 !',
+      steps: ['填数', '签字'],
+      area: '研究',
+      link_to: paper.id,
+    });
+    expect(res.body).toMatchObject({
+      saved: false,
+      status: 'pending',
+      review_link: `https://todo.example/?proposal=${res.body.proposal_id}`,
+    });
+    const doc = remote.doc!;
+    expect(liveTasks(doc).some((x) => x.title === '交表格')).toBe(false);
+    const [p] = pendingProposals(doc, REAL);
+    expect(p.summary).toBe('新建任务');
+    expect(describeChange(doc, p.changes[0], (a: string) => a)).toBe(
+      '新建 「交表格」：截止：10/2（周五）；用时：2 小时；重要；区域：研究；关联到「交论文」；步骤：填数、签字',
+    );
+    // Approved days later, it keeps the Friday it was given.
+    const later: Ctx = { now: new Date(2026, 9, 1, 9), device: 'phone' };
+    const t = liveTasks(decideProposal(doc, later, p.id, true)).find((x) => x.title === '交表格')!;
+    expect(t).toMatchObject({ due: '2026-10-02', effort: 120, star: true, linkTo: paper.id });
+    expect(t.steps.map((s) => s.text)).toEqual(['填数', '签字']);
+    // A repeat in words is kept as the app reads it.
+    await call('add_task', { text: '每周五交周报' });
+    const weekly = pendingProposals(remote.doc!, REAL)[1].changes[0];
+    expect(weekly).toMatchObject({
+      due: '2026-10-02',
+      repeat: { mode: 'copy', rule: { freq: 'weekly', weekdays: [5], start: '2026-10-02' } },
+    });
+    expect((await call('add_task', { text: 'x', link_to: 'nope' })).error).toBe(true);
   });
 
   it('proposes changes without making them; the app approves them all, or rejects them', async () => {
@@ -211,7 +253,7 @@ describe('the browser pages', () => {
 describe('add_task repeats', () => {
   it('a repeat in words becomes the task’s repeat, the same way the app reads it', async () => {
     const remote = new MemoryRemote();
-    remote.doc = seed();
+    remote.doc = direct(seed());
     const { call } = await connect(remote);
     await call('add_task', { text: '每周五交周报' });
     await call('add_task', { text: '每天 看邮件' });
@@ -227,7 +269,7 @@ describe('add_task repeats', () => {
 describe('the full set of operations', () => {
   it('reads and makes links; adds a task with an explicit repeat', async () => {
     const remote = new MemoryRemote();
-    remote.doc = seed();
+    remote.doc = direct(seed());
     const { call } = await connect(remote);
     const paper = liveTasks(remote.doc).find((x) => x.title === '交论文')!;
     const res = await call('add_task', {

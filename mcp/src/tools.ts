@@ -17,7 +17,6 @@ import {
   type Reason,
 } from '../../src/model/derive';
 import {
-  addTask,
   effectiveDue,
   inRounds,
   isFinished,
@@ -31,14 +30,15 @@ import {
 import { parseCapture } from '../../src/model/parse';
 import type { CalendarEvent, Doc, Task } from '../../src/model/types';
 import {
+  addNewTask,
   applyChanges,
   changeSchema,
   daySchema,
-  partSchema,
+  fromRule,
+  newTaskFields,
   repeatSchema,
-  resolveGroup,
-  timeSchema,
-  toRepeat,
+  type Change,
+  type NewTaskInput,
 } from './changes';
 import { addProposal, pendingProposals } from '../../src/model/proposals';
 import { isExpired, randomId, type ProposalStore } from './proposals';
@@ -65,8 +65,9 @@ or project, and a link to another task it belongs with. Projects can be done one
 answers what to do at this moment and also returns the owner's long-term goal, when they wrote one: treat it as the
 longest-range context when you prioritise, plan or break tasks down, and say so when a proposal does not serve it.
 "find_time" finds free working time for a task. Days are YYYY-MM-DD and times HH:MM in the owner's
-time zone. New tasks are saved at once. Changes to existing tasks are proposals: the owner approves them in the browser,
-so give them the review link that propose_changes returns, and do not claim a change is made until get_proposal says so.`;
+time zone. Changes are proposals: the owner approves them in the app, so give them the review link that propose_changes
+returns, and do not claim a change is made until get_proposal says so. A new task from add_task is a proposal too,
+unless the owner chose to have new tasks saved at once; its result says which.`;
 
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const clean = <T extends object>(o: T): T =>
@@ -417,106 +418,75 @@ export function createServer(c: ToolContext): McpServer {
       throw new Error('This connection may only read. Reconnect and allow adding tasks and proposing changes.');
   };
 
+  /** Keep changes with the tasks for the owner to approve; the whole list is tried on a copy first. */
+  const propose = async (summary: string, changes: Change[]) => {
+    // A missing task, step, plan or group is reported now, not on approval.
+    applyChanges(await ws.read(), { now: ws.now(), device: 'ai' }, changes);
+    const id = randomId();
+    // The proposal is kept with the tasks: the app shows it in the list, on the tasks it changes, and applies it
+    // there when the owner approves.
+    await ws.change((doc, ctx) => [addProposal(doc, ctx, { id, summary, client: c.client, changes }), null]);
+    await c.notify?.(id);
+    return {
+      proposal_id: id,
+      status: 'pending',
+      review_link: `${c.origin}/?proposal=${id}`,
+    };
+  };
+
   server.registerTool(
     'add_task',
     {
       title: 'Add a task',
       description:
-        'Write a new task down; it is saved at once. "text" may carry the app\'s quick words, which are taken out of the title: 今天/明天/后天/周五/下周三 or today/tomorrow/fri (a deadline when next to 截止/交/之前/due/by, otherwise a plan), 上午/下午/晚上 or a time like 15点/3pm, a length like 2小时/30分钟/2h, a repeat like 每天/每周一三/每月15号/工作日 or daily/every mon (with a deadline word each time is a new copy, otherwise the task reopens in place), and " ! " for important. Fields given explicitly win over the quick words.',
+        'Write a new task down. The owner approves it in the app like any other change, unless they chose to have new tasks saved at once; the result says which (saved, or a proposal with its review link). "text" may carry the app\'s quick words, which are taken out of the title: 今天/明天/后天/周五/下周三 or today/tomorrow/fri (a deadline when next to 截止/交/之前/due/by, otherwise a plan), 上午/下午/晚上 or a time like 15点/3pm, a length like 2小时/30分钟/2h, a repeat like 每天/每周一三/每月15号/工作日 or daily/every mon (with a deadline word each time is a new copy, otherwise the task reopens in place), and " ! " for important. Fields given explicitly win over the quick words.',
       inputSchema: {
         text: z.string().trim().min(1).max(500),
-        note: z.string().max(20000).optional().describe('Markdown; references and links go here.'),
-        due: daySchema.optional(),
-        due_time: timeSchema.optional(),
-        effort_minutes: z.number().int().min(1).max(10000).optional(),
         important: z.boolean().optional(),
-        area: z.string().max(100).optional().describe('Name or id; a new name creates the area.'),
-        project: z.string().max(100).optional().describe('Name or id; a new name creates the project.'),
-        steps: z.array(z.string().trim().min(1).max(2000)).max(50).optional(),
-        plan: z
-          .object({
-            day: daySchema,
-            part: partSchema.optional(),
-            start: timeSchema.optional(),
-            minutes: z
-              .number()
-              .int()
-              .min(5)
-              .max(24 * 60)
-              .optional(),
-          })
-          .optional()
-          .describe('When to do it: a day, optionally a part of the day or a reserved time.'),
-        link_to: z
-          .string()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe('Id of the task this one belongs with; the list shows it right after that task.'),
+        ...newTaskFields,
         repeat: repeatSchema.optional().describe('Wins over repeat words in the text.'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     guard(
-      async (a: {
-        text: string;
-        note?: string;
-        due?: string;
-        due_time?: string;
-        effort_minutes?: number;
-        important?: boolean;
-        area?: string;
-        project?: string;
-        steps?: string[];
-        plan?: { day: string; part?: 'am' | 'pm' | 'eve'; start?: string; minutes?: number };
-        link_to?: string;
-        repeat?: z.infer<typeof repeatSchema>;
-      }) => {
+      async ({
+        text: line,
+        important,
+        ...a
+      }: Omit<NewTaskInput, 'type' | 'title' | 'star'> & { text: string; important?: boolean }) => {
         needsWrite();
-        const result = await ws.change((doc, ctx) => {
-          const parsed = parseCapture(a.text, ctx.now);
-          const effort = a.effort_minutes ?? parsed.effort;
-          const plan = a.plan ?? parsed.plan;
-          let d = doc;
-          let areaId: string | undefined;
-          let projectId: string | undefined;
-          if (a.area) [d, areaId] = resolveGroup(d, ctx, 'areas', a.area);
-          if (a.project) [d, projectId] = resolveGroup(d, ctx, 'projects', a.project);
-          const title = parsed.title || a.text.trim();
-          const due = a.due ?? parsed.due;
-          // As in the app: a repeat with a deadline makes a new copy each time; without one, the task reopens.
-          const said = typeof parsed.repeat === 'object' ? parsed.repeat : undefined;
-          if (a.link_to && (!doc.tasks[a.link_to] || doc.tasks[a.link_to].deleted))
-            throw new Error(`There is no task ${a.link_to} to link to.`);
-          const [next, id] = addTask(d, ctx, {
-            title,
-            note: a.note?.trim() ? a.note : undefined,
-            due,
-            dueTime: a.due_time,
-            linkTo: a.link_to,
-            repeat: a.repeat
-              ? toRepeat(a.repeat, due ?? plan?.day ?? dayOf(ctx.now))
-              : said
-                ? { mode: due ? 'copy' : 'reopen', rule: { ...said, start: due ?? plan?.day ?? said.start } }
-                : undefined,
-            effort,
-            star: a.important ?? parsed.star ?? undefined,
-            areaId,
-            projectId,
-            steps: a.steps,
-            plan: plan
-              ? [
-                  clean({
-                    day: plan.day,
-                    part: plan.start ? undefined : plan.part,
-                    start: plan.start,
-                    minutes: plan.start
-                      ? ('minutes' in plan && plan.minutes) || Math.min(effort ?? 60, 120)
-                      : undefined,
-                  }) as { day: string },
-                ]
-              : [],
+        // The quick words are read now, against today, so the owner approves the days they will get.
+        const parsed = parseCapture(line, ws.now());
+        const due = a.due ?? parsed.due;
+        const plan = a.plan ?? parsed.plan;
+        // As in the app: a repeat with a deadline makes a new copy each time; without one, the task reopens.
+        const said = typeof parsed.repeat === 'object' ? parsed.repeat : undefined;
+        const task: NewTaskInput = clean({
+          type: 'add_task' as const,
+          ...a,
+          title: parsed.title || line.trim(),
+          note: a.note?.trim() ? a.note : undefined,
+          due,
+          plan,
+          effort_minutes: a.effort_minutes ?? parsed.effort,
+          star: important ?? parsed.star,
+          repeat:
+            a.repeat ??
+            (said && {
+              mode: due ? ('copy' as const) : ('reopen' as const),
+              rule: fromRule({ ...said, start: due ?? plan?.day ?? said.start }),
+            }),
+        });
+        const { settings } = await ws.read();
+        if (!settings.aiAddsDirectly) {
+          return text({
+            saved: false,
+            ...(await propose(settings.lang === 'en' ? 'A new task' : '新建任务', [task])),
+            note: 'Not saved yet: the owner adds it by approving it in the app (and can open the link); check with get_proposal.',
           });
+        }
+        const result = await ws.change((doc, ctx) => {
+          const [next, id] = addNewTask(doc, ctx, task);
           return [next, { id, doc: next, now: ctx.now }] as const;
         });
         return text({ saved: true, task: full(result.doc, result.doc.tasks[result.id], result.now, c.origin) });
@@ -529,29 +499,17 @@ export function createServer(c: ToolContext): McpServer {
     {
       title: 'Propose changes',
       description:
-        'Propose changes to existing tasks: edit fields, complete, reopen, snooze, plan / move a plan / unplan, add, check, edit, remove or promote steps, link to another task, set or stop a repeat, delete; and rename or order a project, or rename an area. Nothing changes until the owner approves all of them together at the review link this returns; show them the link. The whole list is checked first, so a wrong id is reported now. Use ids from list_tasks/get_task.',
+        'Propose changes: add a task (add_task: the title as it should read, without quick words); for existing tasks edit fields, complete, reopen, snooze, plan / move a plan / unplan, add, check, edit, remove or promote steps, link to another task, set or stop a repeat, delete; and rename or order a project, or rename an area. Nothing changes until the owner approves all of them together at the review link this returns; show them the link. The whole list is checked first, so a wrong id is reported now. Use ids from list_tasks/get_task.',
       inputSchema: {
         summary: z.string().trim().min(1).max(300).describe('One line for the owner: what and why.'),
         changes: z.array(changeSchema).min(1).max(30),
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     },
-    guard(async (a: { summary: string; changes: z.infer<typeof changeSchema>[] }) => {
+    guard(async (a: { summary: string; changes: Change[] }) => {
       needsWrite();
-      // Try the whole list on a copy first, so a missing task, step, plan or group is reported now, not on approval.
-      applyChanges(await ws.read(), { now: ws.now(), device: 'ai' }, a.changes);
-      const id = randomId();
-      // The proposal is kept with the tasks: the app shows it in the list, on the tasks it changes, and applies it
-      // there when the owner approves.
-      await ws.change((doc, ctx) => [
-        addProposal(doc, ctx, { id, summary: a.summary, client: c.client, changes: a.changes }),
-        null,
-      ]);
-      await c.notify?.(id);
       return text({
-        proposal_id: id,
-        status: 'pending',
-        review_link: `${c.origin}/?proposal=${id}`,
+        ...(await propose(a.summary, a.changes)),
         note: 'Nothing has changed yet. The owner sees it in the app (and can open the link); check with get_proposal.',
       });
     }),

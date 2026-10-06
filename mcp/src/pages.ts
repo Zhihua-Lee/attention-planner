@@ -4,7 +4,7 @@ export const escape = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c
 
 export const SCOPE_WORDS: Record<string, string> = {
   'tasks:read': '查看任务、日程和“现在做什么”',
-  'tasks:write': '直接新建任务；修改已有任务时先发来让你批准',
+  'tasks:write': '新建任务、修改已有任务（都先发来让你批准）',
 };
 
 const STYLE = `

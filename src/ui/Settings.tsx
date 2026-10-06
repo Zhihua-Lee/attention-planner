@@ -867,8 +867,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
               <section>
                 <p className="hint">
                   {t(
-                    '在 ChatGPT、Claude 等 AI 客户端里添加下面的 MCP 地址。AI 可以查看、直接新建任务；修改已有任务要你批准。',
-                    'Add this MCP address in an AI client such as ChatGPT or Claude. It can read and add tasks; changes to existing tasks wait for your approval.',
+                    '在 ChatGPT、Claude 等 AI 客户端里添加下面的 MCP 地址。AI 可以查看任务；它的新建和修改要你批准。',
+                    'Add this MCP address in an AI client such as ChatGPT or Claude. It can read your tasks; what it adds or changes waits for your approval.',
                   )}
                 </p>
                 <div className="inline">
@@ -882,6 +882,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     {t('管理', 'Manage')}
                   </a>
                 </div>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={!!s.aiAddsDirectly}
+                    onChange={(e) => set({ aiAddsDirectly: e.target.checked })}
+                  />
+                  {t('AI 新建任务无需批准', 'Save tasks the AI adds without approval')}
+                </label>
               </section>
             </div>
             <footer className="muted">Attention Planner {__APP_VERSION__}</footer>

@@ -47,7 +47,7 @@
    ```
 
 2. 在打开的浏览器页面里允许：读取，以及（如果需要）新建任务和提议修改。
-3. 直接对它说——打字，或者对能听语音的 AI 直接说。新任务立即保存；修改已有任务会变成提议：清单顶部出现“AI 提议”，被改的任务显示改前 → 改后，你的设备会收到通知，点一下批准（可撤销）或拒绝。
+3. 直接对它说——打字，或者对能听语音的 AI 直接说。新建和修改都会变成提议（新任务可以在设置里改成立即保存）：清单顶部出现“AI 提议”，被改的任务显示改前 → 改后，你的设备会收到通知，点一下批准（可撤销）或拒绝。
 
 全程不用动手：**录下会议或口述一遍 → AI 通过 MCP 拆成任务和步骤 → 你在手机上批准 → NOW 告诉你第一步做什么。**
 
@@ -55,12 +55,12 @@
 
 ```text
 现在该做什么？结合我的日程安排一下下午。
-把“投 SERRA 论文”拆成每步不超过一小时的步骤，填上用时，再给第一步找个时间。
+把“投 Lumen 论文”拆成每步不超过一小时的步骤，填上用时，再给第一步找个时间。
 根据这次会议记录，把我的待办加进去，周五截止。
-把“SERRA 投稿”关联到 Research，并把每周组会笔记设成每周一重开。
+把“Lumen 投稿”关联到 Research，并把每周组会笔记设成每周一重开。
 ```
 
-工具：读取类 `what_now`、`list_tasks`、`get_task`、`agenda`、`find_time`、`list_areas_and_projects`；`add_task`（立即保存，支持快捷写法、关联和重复）；`propose_changes`（字段、步骤、安排、关联、重复、项目，在应用里批准）；`get_proposal`。详见 [docs/ai-connections.md](docs/ai-connections.md)。
+工具：读取类 `what_now`、`list_tasks`、`get_task`、`agenda`、`find_time`、`list_areas_and_projects`；`add_task`（等你批准或立即保存，支持快捷写法、关联和重复）；`propose_changes`（字段、步骤、安排、关联、重复、项目，在应用里批准）；`get_proposal`。详见 [docs/ai-connections.md](docs/ai-connections.md)。
 
 ## 亮点
 

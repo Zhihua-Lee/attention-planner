@@ -4,6 +4,7 @@ import {
   addPlan,
   addProject,
   addStep,
+  addTask,
   complete,
   planOf,
   promoteStep,
@@ -41,7 +42,25 @@ export type RuleInput = {
 };
 export type RepeatInput = { mode: 'reopen' | 'copy'; rule: RuleInput };
 
+/** A new task, its words already read: the title as it will show, with days and times worked out. */
+export type NewTaskInput = {
+  type: 'add_task';
+  title: string;
+  note?: string;
+  due?: Day;
+  due_time?: Time;
+  effort_minutes?: number;
+  star?: boolean;
+  area?: string;
+  project?: string;
+  steps?: string[];
+  plan?: { day: Day; part?: Part; start?: Time; minutes?: number };
+  link_to?: string;
+  repeat?: RepeatInput;
+};
+
 export type Change =
+  | NewTaskInput
   | {
       type: 'update';
       task_id: string;
@@ -103,6 +122,19 @@ export function toRule(r: RuleInput, start: Day): RepeatRule {
     ...(r.count ? { count: r.count } : {}),
   };
 }
+/** A model repeat rule (as the capture parser reads one) in the AI's terms. */
+export function fromRule(r: RepeatRule): RuleInput {
+  return {
+    freq: r.freq,
+    ...(r.every > 1 ? { every: r.every } : {}),
+    ...(r.weekdays?.length ? { weekdays: r.weekdays } : {}),
+    ...(r.monthDay ? { month_day: r.monthDay } : {}),
+    ...(r.fromDone ? { from_done: true } : {}),
+    start: r.start,
+    ...(r.until ? { until: r.until } : {}),
+    ...(r.count ? { count: r.count } : {}),
+  };
+}
 export function toRepeat(r: RepeatInput, start: Day): Repeat {
   if (r.mode === 'copy' && r.rule.freq === 'hourly') throw new Error('A new-copy repeat cannot be hourly.');
   return { mode: r.mode, rule: toRule(r.rule, start) };
@@ -135,8 +167,47 @@ export function findGroup(doc: Doc, kind: 'areas' | 'projects', ref: string) {
   return hit;
 }
 
+/** Write a new task down; a new area or project name creates it. */
+export function addNewTask(doc: Doc, ctx: Ctx, c: NewTaskInput): [Doc, string] {
+  if (c.link_to && (!doc.tasks[c.link_to] || doc.tasks[c.link_to].deleted))
+    throw new Error(`There is no task ${c.link_to} to link to.`);
+  let d = doc;
+  let areaId: string | undefined;
+  let projectId: string | undefined;
+  if (c.area) [d, areaId] = resolveGroup(d, ctx, 'areas', c.area);
+  if (c.project) [d, projectId] = resolveGroup(d, ctx, 'projects', c.project);
+  const p = c.plan;
+  return addTask(d, ctx, {
+    title: c.title,
+    note: c.note?.trim() ? c.note : undefined,
+    due: c.due,
+    dueTime: c.due_time,
+    linkTo: c.link_to,
+    // As in the app: a repeat starts on the task's own day.
+    repeat: c.repeat ? toRepeat(c.repeat, c.due ?? p?.day ?? dayOf(ctx.now)) : undefined,
+    effort: c.effort_minutes,
+    star: c.star || undefined,
+    areaId,
+    projectId,
+    steps: c.steps,
+    plan: p
+      ? [
+          {
+            day: p.day,
+            ...(p.start
+              ? { start: p.start, minutes: p.minutes ?? Math.min(c.effort_minutes ?? 60, 120) }
+              : p.part
+                ? { part: p.part }
+                : {}),
+          },
+        ]
+      : [],
+  });
+}
+
 /** Apply one change. Throws if the task, step, plan or group is gone. */
 export function applyChange(doc: Doc, ctx: Ctx, c: Change): Doc {
+  if (c.type === 'add_task') return addNewTask(doc, ctx, c)[0];
   if (c.type === 'update_project') {
     const p = findGroup(doc, 'projects', c.project);
     let d = doc;
@@ -296,6 +367,35 @@ export function ruleWords(r: RuleInput, t: T): string {
  * A change whose task is gone says so, rather than failing.
  */
 export function describeChange(doc: Doc, c: Change, t: T): string {
+  if (c.type === 'add_task') {
+    const group = (kind: 'areas' | 'projects', ref: string) =>
+      Object.values(doc[kind]).find((g) => !g.deleted && g.id === ref)?.name ?? ref;
+    const link = c.link_to && (doc.tasks[c.link_to]?.title ?? c.link_to);
+    const p = c.plan;
+    const parts = [
+      c.due && t('截止：', 'deadline: ') + dayWords(c.due, t) + (c.due_time ? ' ' + c.due_time : ''),
+      p &&
+        t('安排：', 'plan: ') +
+          dayWords(p.day, t) +
+          (p.start ? ' ' + p.start : p.part ? ' ' + partWords(p.part, t) : ''),
+      c.effort_minutes && t('用时：', 'effort: ') + minutesWords(c.effort_minutes, t),
+      c.star && t('重要', 'important'),
+      c.repeat &&
+        t('重复：', 'repeat: ') +
+          ruleWords(c.repeat.rule, t) +
+          (c.repeat.mode === 'reopen'
+            ? t('，原地重开', ', reopens in place')
+            : t('，新建一份', ', a new copy each time')),
+      c.area && t('区域：', 'area: ') + group('areas', c.area),
+      c.project && t('项目：', 'project: ') + group('projects', c.project),
+      link && t(`关联到「${link}」`, `linked to “${link}”`),
+      c.steps?.length && t('步骤：', 'steps: ') + c.steps.join(t('、', ', ')),
+      c.note && t('备注：', 'note: ') + c.note,
+    ].filter(Boolean);
+    return (
+      t(`新建 「${c.title}」`, `Add “${c.title}”`) + (parts.length ? t('：', ': ') + parts.join(t('；', '; ')) : '')
+    );
+  }
   if (c.type === 'update_project') {
     const p = Object.values(doc.projects).find((g) => !g.deleted && (g.id === c.project || g.name === c.project));
     const label = `「${p?.name ?? c.project}」`;

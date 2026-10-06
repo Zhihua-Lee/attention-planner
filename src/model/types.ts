@@ -172,6 +172,8 @@ export type Settings = {
   goal?: string;
   /** Show the goal's first line at the top of NOW (off unless turned on). */
   showGoal?: boolean;
+  /** A task an AI adds is saved at once; otherwise (the default) it waits for approval like any other change. */
+  aiAddsDirectly?: boolean;
   /** Filters shown above the list; all of them when unset. */
   filters?: FilterChip[];
   theme: 'system' | 'light' | 'dark';
