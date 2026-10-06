@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.21 — 2026-10-06
+
+- **No blank app after a deploy**: a file under `/assets/` asked for before a new version reached the nearest edge was
+  answered with the app's page, and that answer was cached for a year under the file's name, so the app loaded no
+  script. Such a request is now a 404 that is not kept, and the next try gets the real file. (0.2.20 hit this and was
+  briefly rolled back to 0.2.19.)
+
 ## 0.2.20 — 2026-10-06
 
 - **An AI can see and take back its proposals**: `list_proposals` lists what is still waiting for you (from any AI),
