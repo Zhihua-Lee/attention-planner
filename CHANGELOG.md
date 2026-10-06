@@ -6,6 +6,8 @@
   measured. AI connections get it with every "what now" and are asked to keep it in mind when they prioritise, plan
   and break tasks down. NOW can show its first line at the top, quietly (off by default; tap for the whole text).
 - README: the hands-free loop from a recorded meeting, through the AI and MCP, to approved steps.
+- **Changes are written at once**: they used to wait a quarter of a second, so closing or reloading the page right
+  after a change could lose it (it also made two UI tests flaky in CI). The tests now reload only after the write.
 
 ## 0.2.11 — 2026-10-06
 

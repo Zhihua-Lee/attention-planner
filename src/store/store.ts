@@ -170,7 +170,8 @@ export class Store {
   private scheduleSave() {
     this.dirty = true;
     clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => void this.flush(), 250);
+    // Write at once: a page closed right after a change must not lose it. Commits are discrete actions, not keystrokes.
+    this.saveTimer = setTimeout(() => void this.flush(), 0);
   }
   /** Write pending changes. Nothing is written when nothing changed, so another tab's save is never overwritten. */
   async flush() {

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { add, openRow, row, start, T0, toList } from './helpers';
+import { add, openRow, row, start, T0, toList, reloadSaved } from './helpers';
 
 /** On a phone a step's buttons appear once the step is focused, so focus it first. */
 const tool = async (detail: import('@playwright/test').Locator, name: string, step: string) => {
@@ -73,7 +73,7 @@ test('steps reorder by dragging the handle', async ({ page }) => {
   await expect
     .poll(() => detail.locator('.step-text').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value)))
     .toEqual(['三', '一', '二']);
-  await page.reload();
+  await reloadSaved(page);
   await toList(page);
   const again = await openRow(page, '准备');
   await expect
@@ -95,7 +95,7 @@ test('a step in a plain task can repeat on its own rule', async ({ page }) => {
   await detail.getByRole('checkbox', { name: '看邮件' }).check();
   await detail.getByRole('checkbox', { name: '一次性的事' }).check();
   await page.clock.setFixedTime(new Date(T0.getTime() + 864e5));
-  await page.reload();
+  await reloadSaved(page);
   await toList(page);
   const next = await openRow(page, '日常');
   await expect(next.getByRole('checkbox', { name: '看邮件' })).not.toBeChecked();
@@ -118,7 +118,7 @@ test('a long step wraps instead of being cut off, and Shift+Enter adds a line', 
   await page.keyboard.press('Enter');
   await expect(text).toHaveValue(/\n第二行$/);
   await page.waitForTimeout(400);
-  await page.reload();
+  await reloadSaved(page);
   await toList(page);
   const again = await openRow(page, '复习');
   await expect(again.locator('.step-text').first()).toHaveValue(/\n第二行$/);

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { add, openRow, row, start, T0, toList } from './helpers';
+import { add, openRow, row, start, T0, toList, reloadSaved } from './helpers';
 
 test('NOW shows one task with its reason, and "another" cycles', async ({ page }) => {
   await start(page);
@@ -162,7 +162,7 @@ test('full width can be switched on for reading on a large screen', async ({ pag
   await page.getByRole('button', { name: '全宽' }).click();
   await expect(page.getByRole('button', { name: '全宽' })).toHaveAttribute('aria-pressed', 'true');
   expect((await app.boundingBox())!.width).toBeGreaterThan(narrow + 100);
-  await page.reload();
+  await reloadSaved(page);
   await expect(page.getByRole('button', { name: '全宽' })).toHaveAttribute('aria-pressed', 'true');
 });
 
@@ -207,7 +207,7 @@ test('a task that reopens finishes its round and comes back next time', async ({
   await page.getByRole('button', { name: '收起' }).click();
   await expect(row(page, '1560 备课')).toContainText('下一轮 后天');
   await page.clock.setFixedTime(new Date(T0.getTime() + 2 * 864e5)); // Thursday
-  await page.reload();
+  await reloadSaved(page);
   await toList(page);
   await expect(row(page, '1560 备课')).not.toHaveClass(/done/);
   const again = await openRow(page, '1560 备课');

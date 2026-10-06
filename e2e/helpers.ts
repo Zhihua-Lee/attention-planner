@@ -30,3 +30,9 @@ export const openRow = async (page: Page, title: string) => {
   await row(page, title).locator('.title-btn').click();
   return page.getByTestId('task-detail');
 };
+
+/** Reload after the last change has been written (writes start at once but finish asynchronously). */
+export async function reloadSaved(page: Page) {
+  await page.waitForTimeout(300);
+  await page.reload();
+}

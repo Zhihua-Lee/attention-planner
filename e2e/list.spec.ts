@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { add, openRow, row, start } from './helpers';
+import { add, openRow, row, start, reloadSaved } from './helpers';
 
 test('completing a task moves it to Done, with undo', async ({ page }) => {
   await start(page);
@@ -114,7 +114,7 @@ test('the list can be sorted by hand by dragging', async ({ page }) => {
   await page.getByRole('button', { name: /拖动排序.*: 二/ }).press('ArrowUp');
   await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
   await page.waitForTimeout(400);
-  await page.reload();
+  await reloadSaved(page);
   await page.getByRole('tab', { name: '清单' }).click();
   await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
   await page.getByRole('radio', { name: '智能' }).click();

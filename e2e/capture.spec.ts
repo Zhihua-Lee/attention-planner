@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { add, openRow, row, start, toList } from './helpers';
+import { add, openRow, row, start, toList, reloadSaved } from './helpers';
 
 test('capture recognises a deadline, effort and importance, and saves on Enter', async ({ page }) => {
   await start(page);
@@ -69,7 +69,7 @@ test('tasks survive a reload', async ({ page }) => {
   await start(page);
   await add(page, '记得续签');
   await page.waitForTimeout(400); // the debounced save
-  await page.reload();
+  await reloadSaved(page);
   await toList(page);
   await expect(row(page, '记得续签')).toBeVisible();
 });
