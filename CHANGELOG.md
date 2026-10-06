@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.19 — 2026-10-06
+
+- **AI proposals look like the result**: each task a proposal touches is drawn as its row would look after approval,
+  with its steps when they change. A new task has a dashed outline, a new step a dashed box, a deleted task or step is
+  struck through, and what changes is highlighted with the old value struck through beside it. The change list in
+  words is still there under 明细. On a phone the title wraps and the details go to a second line.
+- Licensed under the GNU AGPL v3.0 or later.
+
 ## 0.2.18 — 2026-10-06
 
 - **New tasks from an AI wait for approval too**: `add_task` now makes a proposal, like any change to an existing task,

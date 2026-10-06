@@ -166,6 +166,11 @@ test('an AI proposal shows in the list and on its task; approving applies it, un
   const detail = page.getByTestId('task-detail');
   const card = detail.locator('.proposal');
   await expect(card).toContainText('推迟论文，先写摘要');
+  // Drawn like the task's row: the new deadline highlighted beside the old one struck through, the new step dashed.
+  await expect(card.locator('.pv-task .meta .chg .was')).toBeVisible();
+  await expect(card.locator('.pv-steps li.new')).toHaveText('写摘要');
+  // And in words, under 明细.
+  await card.getByText('明细').click();
   await expect(card).toContainText('截止：9/28（周一） → 10/5（周一）');
   await expect(card).toContainText('给 「交论文」 加步骤：写摘要');
   await card.getByRole('button', { name: '批准全部 2 条' }).click();

@@ -1900,6 +1900,137 @@ mark {
   display: flex;
   gap: 8px;
 }
+.proposal-words summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+}
+/* a proposal's tasks drawn as rows: dashed = new, struck = deleted, highlighted = what changes */
+.pv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pv-task {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.pv-task .row-main {
+  padding: 7px 12px;
+  min-height: 38px;
+}
+/* a preview is read, not scanned: the title wraps instead of being cut */
+.pv-task .title-btn {
+  flex-wrap: wrap;
+}
+.pv-task .title-btn .tt {
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .pv-task .row-main {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 2px;
+  }
+  .pv-task .meta {
+    grid-column: 2;
+    justify-content: flex-start;
+    max-width: none;
+    white-space: normal;
+  }
+}
+.pv-task.new {
+  border: 1.5px dashed var(--accent);
+  background: var(--surface);
+}
+.pv-task.gone {
+  opacity: 0.6;
+}
+.pv-task.gone .tt {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.pv-task .title-btn .pv-field,
+.pv-task .title-btn .rp {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pv-field {
+  display: inline-flex;
+  gap: 4px;
+  align-items: baseline;
+}
+.pv-task .chg {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 600;
+}
+.pv-task .check.chg,
+.pv-steps .box.chg {
+  padding: 0;
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.pv-task .was {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+.pv-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 12px 8px 46px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+.pv-steps li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+.pv-steps li.new {
+  outline: 1.5px dashed var(--accent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+.pv-steps li.done .txt,
+.pv-steps li.gone .txt {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.pv-steps .box {
+  flex: none;
+  align-self: center;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--muted);
+  border-radius: 3px;
+}
+.pv-steps .box.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pv-steps .tag {
+  color: var(--muted);
+  font-size: 12px;
+  display: inline-flex;
+  gap: 4px;
+}
+.pv-note {
+  margin: 0 12px 8px 46px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
 .proposal-notice {
   display: flex;
   flex-direction: column;
