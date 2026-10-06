@@ -503,3 +503,25 @@ describe('AI proposals with the tasks', () => {
     expect(purgeTombstones(proposed, at('2026-11-15')).proposals?.p).toBeDefined();
   });
 });
+
+describe('my day', () => {
+  it('a task is added to a day and taken off again; a reserved time that day stays', async () => {
+    const { toggleDay, plannedOn } = await import('./doc');
+    const { isToday, matches } = await import('./derive');
+    let [d, id] = make('Call the bank');
+    d = toggleDay(d, ctx(), id, '2026-09-29');
+    expect(plannedOn(d.tasks[id], '2026-09-29', T0)).toBe(true);
+    expect(isToday(d.tasks[id], T0)).toBe(true);
+    d = toggleDay(d, ctx(), id, '2026-09-29');
+    expect(plannedOn(d.tasks[id], '2026-09-29', T0)).toBe(false);
+    // The next day it is simply not in today, and nothing is overdue.
+    d = toggleDay(d, ctx(), id, '2026-09-29');
+    expect(isToday(d.tasks[id], at('2026-09-30'))).toBe(false);
+    let [e, reserved] = make('Write', { plan: [{ day: '2026-09-29', start: '14:00', minutes: 60 }] });
+    expect(toggleDay(e, ctx(), reserved, '2026-09-29')).toBe(e);
+    expect(matches(e, e.tasks[reserved], 'unplanned', T0)).toBe(false);
+    [e, reserved] = addTask(e, ctx(), { title: 'Someday maybe', star: true });
+    expect(matches(e, e.tasks[reserved], 'unplanned', T0)).toBe(true);
+    expect(matches(e, e.tasks[reserved], 'star', T0)).toBe(true);
+  });
+});

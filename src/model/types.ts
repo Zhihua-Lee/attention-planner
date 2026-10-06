@@ -136,8 +136,18 @@ export type CalendarEvent = {
 
 export type StepTool = 'due' | 'effort' | 'repeat' | 'promote';
 /** Filters that can be shown above the list ("all" is always there). */
-export type FilterChip = 'today' | 'soon' | 'due' | 'new' | 'snoozed' | 'areas' | 'projects';
-export const FILTER_CHIPS: FilterChip[] = ['today', 'soon', 'due', 'new', 'snoozed', 'areas', 'projects'];
+export type FilterChip = 'today' | 'soon' | 'due' | 'star' | 'new' | 'unplanned' | 'snoozed' | 'areas' | 'projects';
+export const FILTER_CHIPS: FilterChip[] = [
+  'today',
+  'soon',
+  'due',
+  'star',
+  'new',
+  'unplanned',
+  'snoozed',
+  'areas',
+  'projects',
+];
 
 export type ChipKey = 'due' | 'plan' | 'effort' | 'star' | 'area' | 'repeat' | 'note';
 

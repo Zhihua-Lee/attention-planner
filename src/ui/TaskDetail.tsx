@@ -16,6 +16,7 @@ import {
   setField,
   taskEffort,
   taskRound,
+  toggleDay,
   uncomplete,
   updatePlan,
 } from '../model/doc';
@@ -113,6 +114,11 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
               ) : null}
             </button>
           ))}
+          {!plan.some((p) => p.day === today) && (
+            <button className="link-btn" onClick={() => commit((d, c) => toggleDay(d, c, id, today))}>
+              ☀ {t('加到今天', 'Add to today')}
+            </button>
+          )}
           <button
             className="link-btn"
             aria-expanded={pop.is('plan-add')}

@@ -1,8 +1,8 @@
-import { AnimatePresence, motion, Reorder, useDragControls, type DragControls } from 'motion/react';
-import { forwardRef, useState } from 'react';
-import { dayOf } from '../model/dates';
+import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, type PanInfo } from 'motion/react';
+import { forwardRef, useRef, useState } from 'react';
+import { addDays, dayOf } from '../model/dates';
 import { finishedTasks, listTasks, matches, openTasks, type Filter, queuePosition } from '../model/derive';
-import { reorderTasks, setSettings } from '../model/doc';
+import { inRound, plannedOn, reorderTasks, setSettings, toggleDay } from '../model/doc';
 import {
   complete,
   isSnoozed,
@@ -16,7 +16,7 @@ import {
 } from '../model/doc';
 import { FILTER_CHIPS, type Task } from '../model/types';
 import { store, useStore } from '../store/store';
-import { toast } from './common';
+import { Popover, toast, usePopover } from './common';
 import { Capture } from './Capture';
 import { proposalsFor } from '../model/proposals';
 import { ProposalsBar } from './Proposals';
@@ -49,7 +49,9 @@ export const TaskList = forwardRef<
       [
         ...(shown.has('soon') ? [['soon', t('7 天内截止', 'Due this week')]] : []),
         ...(shown.has('due') ? [['due', t('有截止', 'With a deadline')]] : []),
+        ...(shown.has('star') ? [['star', t('重要', 'Important')]] : []),
         ...(shown.has('new') ? [['new', t('新加的', 'New')]] : []),
+        ...(shown.has('unplanned') ? [['unplanned', t('未安排', 'Unplanned')]] : []),
         ...(shown.has('snoozed') ? [['snoozed', t('暂缓', 'Snoozed')]] : []),
         ...(shown.has('areas')
           ? Object.values(doc.areas)
@@ -66,6 +68,17 @@ export const TaskList = forwardRef<
       ] as [Filter, string][]
     ).filter(([k]) => filter === k || count(k) > 0),
   ];
+  const info = usePopover<'today'>();
+  // Planned yesterday, not done, and not already in today: offered to carry over (only offered, never moved by itself).
+  const today = dayOf(now);
+  const yesterday = addDays(today, -1);
+  const carry =
+    filter === 'today'
+      ? open.filter((x) => {
+          const seen = inRound(x, now);
+          return planOf(seen).some((p) => p.day === yesterday) && !planOf(seen).some((p) => p.day === today);
+        })
+      : [];
   // A task that reopens stays in the list, checked, until its next round opens.
   const resting =
     filter === 'all'
@@ -93,12 +106,64 @@ export const TaskList = forwardRef<
     <div className="stack">
       <Capture ref={captureRef} />
       <ProposalsBar now={now} focus={proposal} />
+      {info.open && (
+        <Popover anchor={info.open.el} onClose={info.close} label={t('“今天”包括什么', 'What “Today” includes')}>
+          <div className="info-text">
+            <p>{t('“今天”里是：', '“Today” holds:')}</p>
+            <ul>
+              <li>
+                {t('今天截止或已经逾期的（步骤的截止也算）', 'what is due today or overdue (a step’s deadline counts)')}
+              </li>
+              <li>
+                {t(
+                  '安排在今天的（加到今天、哪天做、预留的时段）',
+                  'what is planned for today (added to today, a day, a reserved time)',
+                )}
+              </li>
+              <li>{t('原地重开的任务还没做完的这一轮', 'the open round of a task that reopens')}</li>
+              <li>{t('按自己的节奏到了这一轮的步骤', 'steps whose own rhythm has come round')}</li>
+            </ul>
+            <p className="muted">
+              {t(
+                '暂缓的不在里面，除非截止已经到了。加到今天：每行的 ☀（手机上左滑，电脑上选中按 T）；第二天它自然离开今天，不算逾期。',
+                'Snoozed tasks are left out unless their deadline has come. Add to today with a row’s ☀ (swipe left on a phone, or T on a selected row); the next day it simply leaves Today, without becoming overdue.',
+              )}
+            </p>
+          </div>
+        </Popover>
+      )}
+      {carry.length > 0 && (
+        <div className="carry" role="note">
+          <span>{t(`昨天计划了 ${carry.length} 件还没做`, `${carry.length} planned for yesterday, not done`)}</span>
+          <button
+            className="link-btn"
+            onClick={() => {
+              store.commit((d, c) => carry.reduce((acc, x) => toggleDay(acc, c, x.id, today), d));
+              toast(t(`已把 ${carry.length} 件加到今天`, `Added ${carry.length} to today`), () => store.undo());
+            }}
+          >
+            {t('都加到今天', 'Add them all to today')}
+          </button>
+        </div>
+      )}
       <div className="list-bar">
         <div className="filters" role="group" aria-label={t('筛选', 'Filter')}>
           {chips.map(([k, n]) => (
-            <button key={k} className="filter" aria-pressed={filter === k} onClick={() => setFilter(k)}>
-              {n} <span className="count">{count(k)}</span>
-            </button>
+            <span key={k} className="filter-wrap">
+              <button className="filter" aria-pressed={filter === k} onClick={() => setFilter(k)}>
+                {n} <span className="count">{count(k)}</span>
+              </button>
+              {k === 'today' && (
+                <button
+                  className="info"
+                  aria-label={t('“今天”包括什么', 'What “Today” includes')}
+                  aria-expanded={info.is('today')}
+                  onClick={(e) => info.toggle('today', e.currentTarget)}
+                >
+                  ⓘ
+                </button>
+              )}
+            </span>
           ))}
         </div>
         <div className="seg small" role="radiogroup" aria-label={t('排序', 'Order')}>
@@ -206,6 +271,27 @@ function Row({
   const proposed = proposalsFor(store.get().doc, task.id, now).length > 0;
   const next = planOf(task).filter((p) => p.day >= today);
   const linkTarget = task.linkTo ? store.get().doc.tasks[task.linkTo] : undefined;
+  // "My Day": an arrangement for today with no set time, toggled from the row.
+  const inToday = plannedOn(task, today, now);
+  const toggleToday = () => {
+    const before = store.get().doc;
+    store.commit((d, c) => toggleDay(d, c, task.id, today));
+    if (store.get().doc === before) toast(t('今天已经有预留的时段', 'It already has a reserved time today'));
+    else
+      toast(
+        inToday
+          ? t(`已移出今天：${task.title}`, `Off today: ${task.title}`)
+          : t(`已加到今天：${task.title}`, `Added to today: ${task.title}`),
+        () => store.undo(),
+      );
+  };
+  const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  // The tap that ends a swipe must not also open or complete the task underneath.
+  const swiped = useRef(0);
+  const onSwipe = (_: unknown, info: PanInfo) => {
+    swiped.current = Date.now();
+    if (info.offset.x < -64 && Math.abs(info.offset.y) < 40) toggleToday();
+  };
 
   const onCheck = () => {
     if (finished) return store.commit((d, c) => uncomplete(d, c, task.id));
@@ -231,7 +317,25 @@ function Row({
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.24, ease }}
     >
-      <div className={`row-main${handle ? ' with-handle' : ''}`}>
+      <div className="swipe-under" aria-hidden="true">
+        ☀ {inToday ? t('移出今天', 'Off today') : t('加到今天', 'To today')}
+      </div>
+      <motion.div
+        className={`row-main${handle ? ' with-handle' : ''}`}
+        drag={touch && !expanded && !finished ? 'x' : false}
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={{ left: 0.5, right: 0 }}
+        dragSnapToOrigin
+        onDragStart={() => (swiped.current = Date.now())}
+        onDragEnd={onSwipe}
+        onClickCapture={(e) => {
+          if (Date.now() - swiped.current < 400) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        }}
+      >
         {handle && (
           <button
             className="handle"
@@ -271,7 +375,17 @@ function Row({
             }}
           />
         ) : (
-          <button className="title-btn" aria-expanded={false} onClick={toggle}>
+          <button
+            className="title-btn"
+            aria-expanded={false}
+            onClick={toggle}
+            onKeyDown={(e) => {
+              if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey && !finished) {
+                e.preventDefault();
+                toggleToday();
+              }
+            }}
+          >
             <span className="tt">{task.title}</span>
             {task.star && (
               <span className="st" aria-label={t('重要', 'Important')}>
@@ -325,7 +439,18 @@ function Row({
             )}
           </span>
         )}
-      </div>
+        {!expanded && !finished && (
+          <button
+            className={`myday-btn${inToday ? ' on' : ''}`}
+            aria-pressed={inToday}
+            aria-label={`${inToday ? t('移出今天', 'Off today') : t('加到今天', 'Add to today')}: ${task.title}`}
+            title={inToday ? t('移出今天（T）', 'Off today (T)') : t('加到今天（T）', 'Add to today (T)')}
+            onClick={toggleToday}
+          >
+            ☀
+          </button>
+        )}
+      </motion.div>
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div

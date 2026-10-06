@@ -132,18 +132,18 @@ intention.
 
 ### Everything else
 
-| Capability              | Details                                                                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Is there time?          | With estimates, every deadline is checked against the free working time before it.                                                   |
-| Snooze                  | Replaces "waiting", "someday" and "not before"; a deadline that arrives brings the task back.                                        |
-| Areas and projects      | Group the list; a project can go one task after another (repeating tasks stay out of the queue).                                     |
-| Filters                 | Today, due this week, with a deadline, new, snoozed, each area and project — you pick which; empty ones hide.                        |
-| Search and keyboard     | `/` or `Ctrl+K` searches titles, notes and steps; `N` captures; `Ctrl+Z` undoes anything; `Ctrl+S` syncs.                            |
-| Reminders               | Push notifications on a deadline's day, a step's deadline, before reserved times and when an AI proposes changes, app closed or not. |
-| Offline and installable | A PWA for iPhone home screens and desktops; data in IndexedDB on the device.                                                         |
-| Sync                    | Google Drive app folder, merged field by field; two versions of the same text are kept until you choose.                             |
-| Goal                    | An optional long-term goal in your own words: the AI keeps it as the longest context; NOW can show it, quietly (off by default).     |
-| Comfort                 | Chinese and English, light and dark, full width on large screens, respects reduced motion.                                           |
+| Capability              | Details                                                                                                                                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Is there time?          | With estimates, every deadline is checked against the free working time before it.                                                                                                                                                       |
+| Snooze                  | Replaces "waiting", "someday" and "not before"; a deadline that arrives brings the task back.                                                                                                                                            |
+| Areas and projects      | Group the list; a project can go one task after another (repeating tasks stay out of the queue).                                                                                                                                         |
+| My Day and filters      | ☀ on a row (or `T`, or a swipe on a phone) adds it to today; yesterday’s leftovers are offered, never moved. Filters: today, due this week, with a deadline, important, new, unplanned, snoozed, each area and project — you pick which. |
+| Search and keyboard     | `/` or `Ctrl+K` searches titles, notes and steps; `N` captures; `Ctrl+Z` undoes anything; `Ctrl+S` syncs.                                                                                                                                |
+| Reminders               | Push notifications on a deadline's day, a step's deadline, before reserved times and when an AI proposes changes, app closed or not.                                                                                                     |
+| Offline and installable | A PWA for iPhone home screens and desktops; data in IndexedDB on the device.                                                                                                                                                             |
+| Sync                    | Google Drive app folder, merged field by field; two versions of the same text are kept until you choose.                                                                                                                                 |
+| Goal                    | An optional long-term goal in your own words: the AI keeps it as the longest context; NOW can show it, quietly (off by default).                                                                                                         |
+| Comfort                 | Chinese and English, light and dark, full width on large screens, respects reduced motion.                                                                                                                                               |
 
 ## Use it
 

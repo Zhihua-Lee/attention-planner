@@ -1935,3 +1935,85 @@ mark {
   color: var(--ink);
   resize: vertical;
 }
+
+/* "My Day": a sun on each row (on hover with a mouse, always when on), a swipe on a phone */
+.row {
+  position: relative;
+  /* clip only sideways, for the swipe; menus that open from a row still show */
+  overflow-x: clip;
+}
+.row-main {
+  position: relative;
+  background: var(--surface);
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  touch-action: pan-y;
+}
+.row-main.with-handle {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+}
+.swipe-under {
+  position: absolute;
+  inset: 0 0 auto auto;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.myday-btn {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.row-main:hover .myday-btn,
+.myday-btn:focus-visible,
+.myday-btn.on {
+  opacity: 1;
+}
+.myday-btn.on {
+  color: var(--star);
+}
+@media (pointer: coarse) {
+  .myday-btn:not(.on) {
+    display: none;
+  }
+}
+.filter-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.filters .info {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 2px 4px;
+}
+.info-text {
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 4px 6px;
+}
+.info-text p {
+  margin: 0 0 4px;
+}
+.info-text ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.carry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 14px;
+}

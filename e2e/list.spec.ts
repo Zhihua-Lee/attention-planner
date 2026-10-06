@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { add, openRow, row, start, reloadSaved } from './helpers';
+import { add, openRow, row, start, reloadSaved, T0 } from './helpers';
 
 test('completing a task moves it to Done, with undo', async ({ page }) => {
   await start(page);
@@ -168,4 +168,49 @@ test('the note keeps its place and height when it switches to editing', async ({
   expect(Math.abs(edit.y - view.y)).toBeLessThanOrEqual(1);
   expect(Math.abs(edit.x - view.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(edit.height - view.height)).toBeLessThanOrEqual(4);
+});
+
+test('add to today from a row (☀ or T); yesterday’s plans are offered; Today explains itself', async ({
+  page,
+  isMobile,
+}) => {
+  await start(page);
+  await add(page, '打电话给银行', '写周报 !', '随手记的');
+  await page.locator('.filters').getByRole('button', { name: /^今天/ }).click();
+  await expect(page.locator('.list .tt')).toHaveCount(0);
+  await page.locator('.filters').getByRole('button', { name: /^全部/ }).click();
+  if (isMobile) {
+    // Swipe left on the row.
+    const box = (await row(page, '打电话给银行').locator('.row-main').boundingBox())!;
+    await page.mouse.move(box.x + box.width - 40, box.y + box.height / 2);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width - 40 - i * 20, box.y + box.height / 2);
+    await page.mouse.up();
+  } else {
+    await row(page, '打电话给银行').hover();
+    await page.getByRole('button', { name: '加到今天: 打电话给银行' }).click();
+    await row(page, '写周报').locator('.title-btn').focus();
+    await page.keyboard.press('t');
+  }
+  await expect(page.locator('.toast')).toContainText('已加到今天');
+  await page.locator('.filters').getByRole('button', { name: /^今天/ }).click();
+  await expect(page.locator('.list .tt')).toContainText(['打电话给银行']);
+  // Filters for important and unplanned.
+  await page.locator('.filters').getByRole('button', { name: /^重要/ }).click();
+  await expect(page.locator('.list .tt')).toHaveText(['写周报']);
+  await page
+    .locator('.filters')
+    .getByRole('button', { name: /^未安排/ })
+    .click();
+  await expect(page.locator('.list .tt')).toContainText(['随手记的']);
+  // The next day: yesterday's plan is offered, not moved.
+  await page.clock.setFixedTime(new Date(T0.getTime() + 864e5));
+  await reloadSaved(page);
+  await page.getByRole('tab', { name: '清单' }).click();
+  await page.locator('.filters').getByRole('button', { name: /^今天/ }).click();
+  await expect(page.locator('.carry')).toContainText('昨天计划了');
+  await page.locator('.carry').getByRole('button', { name: '都加到今天' }).click();
+  await expect(page.locator('.list .tt')).toContainText(['打电话给银行']);
+  await page.getByRole('button', { name: '“今天”包括什么' }).click();
+  await expect(page.getByRole('dialog', { name: '“今天”包括什么' })).toContainText('今天截止或已经逾期的');
 });

@@ -160,6 +160,23 @@ export function inRounds(doc: Doc, now: Date): Doc {
 /** A day shown for the current round, back to how it is stored. */
 const stored = (t: Task, now: Date, day: Day | undefined) => (day ? addDays(day, -roundShift(t, now)) : day);
 
+/** Whether a task has any arrangement on a day (as the current round sees it). */
+export const plannedOn = (t: Task, day: Day, now: Date) => planOf(inRound(t, now)).some((p) => p.day === day);
+
+/**
+ * Add a task to a day, or take it off ("My Day"): an arrangement for that day with no set time. Taking it off removes
+ * only such arrangements; a reserved time that day stays (and so does the task's place in that day).
+ */
+export function toggleDay(doc: Doc, ctx: Ctx, id: string, day: Day): Doc {
+  const t = doc.tasks[id];
+  if (!t || t.deleted) return doc;
+  const seen = planOf(inRound(t, ctx.now)).filter((p) => p.day === day);
+  const loose = seen.filter((p) => !p.start);
+  if (loose.length) return loose.reduce((d, p) => removePlan(d, ctx, id, p.id), doc);
+  if (seen.length) return doc;
+  return addPlan(doc, ctx, id, { day });
+}
+
 /** Done for good, or (for a task that reopens) done for the current round. */
 export function isFinished(t: Task, now: Date): boolean {
   if (t.done) return true;

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.13 — 2026-10-06
+
+- **Add to today, like My Day**: a ☀ on each row (shown on hover with a mouse, and always when the task is in today),
+  `T` on a selected row, a left swipe on a phone, or "☀ 加到今天" in the details. It is an arrangement for today with
+  no time; again takes it off; the next day the task simply leaves Today, never overdue. The tap that ends a swipe
+  does not also open or complete the task.
+- **Yesterday's leftovers are offered**: Today shows "昨天计划了 N 件还没做" with "都加到今天"; nothing moves by itself.
+- **Filters 重要 and 未安排** (no deadline, plan, repeat or snooze); both can be turned off in Settings.
+- **ⓘ beside 今天** explains what it holds.
+
 ## 0.2.12 — 2026-10-06
 
 - **A long-term goal**: Settings → 目标 holds your longest-range direction in your own words (Markdown). Nothing is
