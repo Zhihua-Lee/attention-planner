@@ -34,13 +34,14 @@ import {
   applyChanges,
   changeSchema,
   daySchema,
+  describeChange,
   fromRule,
   newTaskFields,
   repeatSchema,
   type Change,
   type NewTaskInput,
 } from './changes';
-import { addProposal, pendingProposals } from '../../src/model/proposals';
+import { addProposal, pendingProposals, withdrawProposal } from '../../src/model/proposals';
 import { isExpired, randomId, type ProposalStore } from './proposals';
 import type { Workspace } from './workspace';
 
@@ -67,7 +68,8 @@ longest-range context when you prioritise, plan or break tasks down, and say so 
 "find_time" finds free working time for a task. Days are YYYY-MM-DD and times HH:MM in the owner's
 time zone. Changes are proposals: the owner approves them in the app, so give them the review link that propose_changes
 returns, and do not claim a change is made until get_proposal says so. A new task from add_task is a proposal too,
-unless the owner chose to have new tasks saved at once; its result says which.`;
+unless the owner chose to have new tasks saved at once; its result says which. list_proposals shows what is still
+waiting (look before proposing again); withdraw_proposal takes back one of yours.`;
 
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const clean = <T extends object>(o: T): T =>
@@ -519,7 +521,7 @@ export function createServer(c: ToolContext): McpServer {
     'get_proposal',
     {
       title: 'Check a proposal',
-      description: 'Whether a proposal is still waiting, was applied, rejected, failed or lapsed.',
+      description: 'Whether a proposal is still waiting, was applied, rejected, withdrawn, failed or lapsed.',
       inputSchema: { id: z.string().min(1).max(100) },
       annotations: read,
     },
@@ -550,6 +552,69 @@ export function createServer(c: ToolContext): McpServer {
           review_link: old.status === 'pending' ? `${c.origin}/api/ai/review/${old.id}` : undefined,
         }),
       );
+    }),
+  );
+
+  // The owner reads proposals in their own language in the app; an AI reads them in English.
+  const en = (_zh: string, english: string) => english;
+
+  server.registerTool(
+    'list_proposals',
+    {
+      title: 'List proposals',
+      description:
+        'Proposals still waiting for the owner, oldest first, from any AI, each with what it would do and whether it is yours. Look here before proposing again, so the owner is not asked twice. With include_decided, the ones decided in the last month follow, newest first.',
+      inputSchema: { include_decided: z.boolean().optional() },
+      annotations: read,
+    },
+    guard(async (a: { include_decided?: boolean }) => {
+      const doc = await ws.read();
+      const now = ws.now();
+      const pending = pendingProposals(doc, now);
+      const decided = a.include_decided
+        ? Object.values(doc.proposals ?? {})
+            .filter((p) => !pending.includes(p))
+            .sort((x, y) => (y.decided ?? y.created).localeCompare(x.decided ?? x.created))
+        : [];
+      return text(
+        [...pending, ...decided].map((p) => ({
+          ...clean({
+            proposal_id: p.id,
+            summary: p.summary,
+            client: p.client,
+            created: p.created,
+            status: p.status === 'pending' && !pending.includes(p) ? 'lapsed' : p.status,
+            decided_at: p.decided,
+            error: p.error,
+            changes: p.changes.map((x) => describeChange(doc, x, en)),
+            review_link: pending.includes(p) ? `${c.origin}/?proposal=${p.id}` : undefined,
+          }),
+          // Said either way: false matters here.
+          yours: p.client === c.client,
+        })),
+      );
+    }),
+  );
+
+  server.registerTool(
+    'withdraw_proposal',
+    {
+      title: 'Withdraw a proposal',
+      description:
+        "Take back one of your own proposals that is still waiting, for example one made with a mistake: nothing in it is applied and it leaves the owner's list. Proposals from another AI cannot be withdrawn; to replace one of yours, withdraw it and propose again.",
+      inputSchema: { id: z.string().min(1).max(100) },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    guard(async ({ id }: { id: string }) => {
+      needsWrite();
+      await ws.change((doc, ctx) => {
+        const p = doc.proposals?.[id];
+        if (!p) throw new Error(`There is no proposal ${id}.`);
+        if (p.client !== c.client) throw new Error(`Proposal ${id} was made by ${p.client}; only it can withdraw it.`);
+        if (p.status !== 'pending') throw new Error(`Proposal ${id} is already ${p.status}.`);
+        return [withdrawProposal(doc, ctx, id), null];
+      });
+      return text({ proposal_id: id, status: 'withdrawn' });
     }),
   );
 

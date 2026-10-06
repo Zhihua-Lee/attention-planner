@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.20 — 2026-10-06
+
+- **An AI can see and take back its proposals**: `list_proposals` lists what is still waiting for you (from any AI),
+  each in words and marked as its own or not, and with `include_decided` the ones decided in the last month;
+  `withdraw_proposal` takes back one of its own pending proposals, which then leaves your list with nothing applied.
+  Before, an AI in a new conversation could not tell what it had already proposed, and could not undo a mistaken one.
+
 ## 0.2.19 — 2026-10-06
 
 - **AI proposals look like the result**: each task a proposal touches is drawn as its row would look after approval,

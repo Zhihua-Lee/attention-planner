@@ -190,7 +190,8 @@ export type Proposal = {
   client: string;
   created: string;
   changes: Change[];
-  status: 'pending' | 'applied' | 'rejected' | 'failed';
+  /** withdrawn: the AI took it back before the owner decided. */
+  status: 'pending' | 'applied' | 'rejected' | 'failed' | 'withdrawn';
   decided?: string;
   /** Why applying failed (a task or step was gone by then). */
   error?: string;

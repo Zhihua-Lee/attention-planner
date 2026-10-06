@@ -84,7 +84,7 @@ Link "Lumen submission" to the Research task and make the weekly lab notes reope
 
 The tools: `what_now`, `list_tasks`, `get_task`, `agenda`, `find_time`, `list_areas_and_projects` (read);
 `add_task` (approved, or saved at once if you choose; with the app's quick words, links and repeats); `propose_changes` (fields, steps, plans,
-links, repeats, projects — approved in the app); `get_proposal`. Details in
+links, repeats, projects — approved in the app); `get_proposal`, `list_proposals`, `withdraw_proposal` (an AI takes back its own). Details in
 [docs/ai-connections.md](docs/ai-connections.md).
 
 ## Highlights

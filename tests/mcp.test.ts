@@ -8,6 +8,7 @@ import { createServer } from '../mcp/src/tools';
 import { Workspace } from '../mcp/src/workspace';
 import { dayOf } from '../src/model/dates';
 import { addTask, emptyDoc, liveTasks, setSettings, type Ctx } from '../src/model/doc';
+import { addProposal } from '../src/model/proposals';
 import type { Doc } from '../src/model/types';
 import { ConflictError, MemoryRemote } from '../src/store/sync';
 
@@ -78,9 +79,11 @@ describe('MCP tools', () => {
       'get_proposal',
       'get_task',
       'list_areas_and_projects',
+      'list_proposals',
       'list_tasks',
       'propose_changes',
       'what_now',
+      'withdraw_proposal',
     ]);
     const now = await call('what_now');
     expect(now.body.now).toContain('2026-09-29 10:00');
@@ -187,6 +190,55 @@ describe('MCP tools', () => {
     };
     const failed = decideProposal(gone, wallCtx(), 'x', true);
     expect(failed.proposals!.x).toMatchObject({ status: 'failed', error: 'There is no task gone.' });
+  });
+
+  it('lists what is waiting, in words; an AI withdraws only its own pending proposals', async () => {
+    const { decideProposal, pendingProposals } = await import('../src/model/proposals');
+    const remote = new MemoryRemote();
+    remote.doc = seed();
+    const { call } = await connect(remote);
+    const paper = liveTasks(remote.doc).find((x) => x.title === '交论文')!;
+    const first = await call('propose_changes', {
+      summary: '标为重要',
+      changes: [{ type: 'update', task_id: paper.id, star: true }],
+    });
+    const second = await call('propose_changes', {
+      summary: '完成论文',
+      changes: [{ type: 'complete', task_id: paper.id }],
+    });
+    const list = await call('list_proposals');
+    expect(list.body).toEqual([
+      expect.objectContaining({
+        proposal_id: first.body.proposal_id,
+        yours: true,
+        status: 'pending',
+        changes: ['Edit 「交论文」：Mark important'],
+      }),
+      expect.objectContaining({ proposal_id: second.body.proposal_id, changes: ['Complete 「交论文」'] }),
+    ]);
+    // Withdrawn: gone from the owner's list, nothing applied, and it says so.
+    expect((await call('withdraw_proposal', { id: first.body.proposal_id })).body.status).toBe('withdrawn');
+    expect(pendingProposals(remote.doc!, REAL).map((p) => p.summary)).toEqual(['完成论文']);
+    expect(remote.doc!.tasks[paper.id].star).toBeUndefined();
+    expect((await call('get_proposal', { id: first.body.proposal_id })).body.status).toBe('withdrawn');
+    expect((await call('withdraw_proposal', { id: first.body.proposal_id })).raw).toContain('already withdrawn');
+    // A decided one cannot be taken back, and shows up only with include_decided.
+    const anHourLater: Ctx = { now: new Date(REAL.getTime() + 36e5), device: 'phone' };
+    remote.doc = decideProposal(remote.doc!, anHourLater, second.body.proposal_id, false);
+    expect((await call('withdraw_proposal', { id: second.body.proposal_id })).error).toBe(true);
+    expect((await call('list_proposals')).body).toEqual([]);
+    expect(
+      (await call('list_proposals', { include_decided: true })).body.map((p: { status: string }) => p.status),
+    ).toEqual(['rejected', 'withdrawn']);
+    // Another AI's proposal is not this one's to withdraw.
+    remote.doc = addProposal(remote.doc!, wallCtx(), {
+      id: 'other',
+      summary: 'x',
+      client: 'Other AI',
+      changes: [{ type: 'complete', task_id: paper.id }],
+    });
+    expect((await call('withdraw_proposal', { id: 'other' })).raw).toContain('made by Other AI');
+    expect((await call('list_proposals')).body[0]).toMatchObject({ proposal_id: 'other', yours: false });
   });
 
   it('a read-only connection cannot add or propose', async () => {

@@ -45,6 +45,18 @@ export function decideProposal(doc: Doc, ctx: Ctx, id: string, approve: boolean)
   });
 }
 
+/** The AI that made a pending proposal takes it back; nothing in it is applied. */
+export function withdrawProposal(doc: Doc, ctx: Ctx, id: string): Doc {
+  const p = doc.proposals?.[id];
+  if (!p || p.status !== 'pending') return doc;
+  return edit(doc, ctx, (e) => {
+    e.doc.proposals = {
+      ...e.doc.proposals,
+      [id]: { ...p, status: 'withdrawn', decided: ctx.now.toISOString(), s: e.s },
+    };
+  });
+}
+
 /** Proposals waiting for the owner, oldest first (lapsed ones left out). */
 export const pendingProposals = (doc: Doc, now: Date): Proposal[] =>
   Object.values(doc.proposals ?? {})

@@ -60,7 +60,7 @@
 把“Lumen 投稿”关联到 Research，并把每周组会笔记设成每周一重开。
 ```
 
-工具：读取类 `what_now`、`list_tasks`、`get_task`、`agenda`、`find_time`、`list_areas_and_projects`；`add_task`（等你批准或立即保存，支持快捷写法、关联和重复）；`propose_changes`（字段、步骤、安排、关联、重复、项目，在应用里批准）；`get_proposal`。详见 [docs/ai-connections.md](docs/ai-connections.md)。
+工具：读取类 `what_now`、`list_tasks`、`get_task`、`agenda`、`find_time`、`list_areas_and_projects`；`add_task`（等你批准或立即保存，支持快捷写法、关联和重复）；`propose_changes`（字段、步骤、安排、关联、重复、项目，在应用里批准）；`get_proposal`、`list_proposals`、`withdraw_proposal`（AI 撤回自己的提议）。详见 [docs/ai-connections.md](docs/ai-connections.md)。
 
 ## 亮点
 
