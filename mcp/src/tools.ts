@@ -40,6 +40,7 @@ import {
   timeSchema,
   toRepeat,
 } from './changes';
+import { addProposal, pendingProposals } from '../../src/model/proposals';
 import { isExpired, randomId, type ProposalStore } from './proposals';
 import type { Workspace } from './workspace';
 
@@ -535,20 +536,17 @@ export function createServer(c: ToolContext): McpServer {
       // Try the whole list on a copy first, so a missing task, step, plan or group is reported now, not on approval.
       applyChanges(await ws.read(), { now: ws.now(), device: 'ai' }, a.changes);
       const id = randomId();
-      await c.proposals.put({
-        id,
-        summary: a.summary,
-        changes: a.changes,
-        client: c.client,
-        createdAt: new Date().toISOString(),
-        status: 'pending',
-        nonce: randomId(),
-      });
+      // The proposal is kept with the tasks: the app shows it in the list, on the tasks it changes, and applies it
+      // there when the owner approves.
+      await ws.change((doc, ctx) => [
+        addProposal(doc, ctx, { id, summary: a.summary, client: c.client, changes: a.changes }),
+        null,
+      ]);
       return text({
         proposal_id: id,
         status: 'pending',
-        review_link: `${c.origin}/api/ai/review/${id}`,
-        note: 'Nothing has changed yet. Ask the owner to open the review link and approve; check with get_proposal.',
+        review_link: `${c.origin}/?proposal=${id}`,
+        note: 'Nothing has changed yet. The owner sees it in the app (and can open the link); check with get_proposal.',
       });
     }),
   );
@@ -562,15 +560,30 @@ export function createServer(c: ToolContext): McpServer {
       annotations: read,
     },
     guard(async ({ id }: { id: string }) => {
-      const p = await c.proposals.get(id);
-      if (!p) throw new Error(`There is no proposal ${id} (they are kept for two weeks).`);
+      const doc = await ws.read();
+      const p = doc.proposals?.[id];
+      if (p) {
+        const lapsed = p.status === 'pending' && !pendingProposals(doc, ws.now()).some((x) => x.id === id);
+        return text(
+          clean({
+            proposal_id: p.id,
+            status: lapsed ? 'lapsed' : p.status,
+            decided_at: p.decided,
+            error: p.error,
+            review_link: p.status === 'pending' && !lapsed ? `${c.origin}/?proposal=${p.id}` : undefined,
+          }),
+        );
+      }
+      // Proposals made before 0.2.10 were kept on the server.
+      const old = await c.proposals.get(id);
+      if (!old) throw new Error(`There is no proposal ${id} (decided ones are kept for a month).`);
       return text(
         clean({
-          proposal_id: p.id,
-          status: isExpired(p) ? 'lapsed' : p.status,
-          decided_at: p.decidedAt,
-          error: p.error,
-          review_link: p.status === 'pending' ? `${c.origin}/api/ai/review/${p.id}` : undefined,
+          proposal_id: old.id,
+          status: isExpired(old) ? 'lapsed' : old.status,
+          decided_at: old.decidedAt,
+          error: old.error,
+          review_link: old.status === 'pending' ? `${c.origin}/api/ai/review/${old.id}` : undefined,
         }),
       );
     }),

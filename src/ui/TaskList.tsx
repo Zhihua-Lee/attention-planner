@@ -18,6 +18,8 @@ import { FILTER_CHIPS, type Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { Capture } from './Capture';
+import { proposalsFor } from '../model/proposals';
+import { ProposalsBar } from './Proposals';
 import { TaskDetail } from './TaskDetail';
 import { dueLabel, planLabel, useT } from './text';
 
@@ -25,8 +27,8 @@ const ease = [0.2, 0.8, 0.2, 1] as const;
 
 export const TaskList = forwardRef<
   HTMLInputElement,
-  { now: Date; expanded: string | null; setExpanded: (id: string | null) => void }
->(function TaskList({ now, expanded, setExpanded }, captureRef) {
+  { now: Date; expanded: string | null; setExpanded: (id: string | null) => void; proposal?: string | null }
+>(function TaskList({ now, expanded, setExpanded, proposal = null }, captureRef) {
   const { doc } = useStore();
   const { t } = useT();
   const [filter, setFilter] = useState<Filter>('all');
@@ -90,6 +92,7 @@ export const TaskList = forwardRef<
   return (
     <div className="stack">
       <Capture ref={captureRef} />
+      <ProposalsBar now={now} focus={proposal} />
       <div className="list-bar">
         <div className="filters" role="group" aria-label={t('筛选', 'Filter')}>
           {chips.map(([k, n]) => (
@@ -200,6 +203,7 @@ function Row({
   const queued = queuePosition(store.get().doc, task, now);
   const finished = !!task.done || !!round?.done;
   const snoozed = isSnoozed(task, today);
+  const proposed = proposalsFor(store.get().doc, task.id, now).length > 0;
   const next = planOf(task).filter((p) => p.day >= today);
   const linkTarget = task.linkTo ? store.get().doc.tasks[task.linkTo] : undefined;
 
@@ -292,6 +296,7 @@ function Row({
             {(openConflict(task, 'note') || openConflict(task, 'title')) && (
               <span className="warn">{t('有两个版本', 'Two versions')}</span>
             )}
+            {proposed && <span className="ai">{t('AI 提议', 'AI proposal')}</span>}
             {snoozed ? (
               <span>
                 {task.snooze?.until

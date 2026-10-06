@@ -1,3 +1,5 @@
+import type { Change } from './changes';
+
 /** A local calendar day, `YYYY-MM-DD`. */
 export type Day = string;
 /** A local wall-clock time, `HH:MM`. */
@@ -163,6 +165,22 @@ export type Settings = {
   s: Stamp;
 };
 
+/** Changes an AI proposed, kept with the tasks until the owner approves or rejects them in the app. */
+export type Proposal = {
+  id: string;
+  /** One line from the AI: what and why. */
+  summary: string;
+  /** The AI client, as it named itself. */
+  client: string;
+  created: string;
+  changes: Change[];
+  status: 'pending' | 'applied' | 'rejected' | 'failed';
+  decided?: string;
+  /** Why applying failed (a task or step was gone by then). */
+  error?: string;
+  s: Stamp;
+};
+
 export type Doc = {
   v: 1;
   clock: number;
@@ -170,6 +188,8 @@ export type Doc = {
   areas: Record<string, Area>;
   projects: Record<string, Project>;
   settings: Settings;
+  /** Proposals from AI connections, pending and decided (decided ones are dropped after a month). */
+  proposals?: Record<string, Proposal>;
   /** Calendar events imported from a file; device-local, not synced. */
   events?: CalendarEvent[];
 };

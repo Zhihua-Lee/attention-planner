@@ -92,3 +92,100 @@ test('Settings shows the MCP address for AI clients and a link to manage connect
   await expect(dialog.getByRole('textbox', { name: 'MCP 地址' })).toHaveValue(/\/api\/mcp$/);
   await expect(dialog.getByRole('link', { name: '管理' })).toHaveAttribute('href', '/api/ai/connections');
 });
+
+/** A document with one task and an AI's pending proposal for it, put straight into this browser's storage. */
+async function seedProposal(page: import('@playwright/test').Page) {
+  const doc = {
+    v: 1,
+    clock: 5,
+    tasks: {
+      t1: {
+        id: 't1',
+        title: '交论文',
+        due: '2026-09-28',
+        created: '2026-09-27T10:00:00.000Z',
+        plan: [],
+        steps: [],
+        rounds: [],
+        fs: { title: S(1, 'a'), due: S(1, 'a') },
+        s: S(1, 'a'),
+      },
+    },
+    areas: {},
+    projects: {},
+    proposals: {
+      p1: {
+        id: 'p1',
+        summary: '推迟论文，先写摘要',
+        client: 'Claude Code',
+        created: '2026-09-29T14:00:00.000Z',
+        status: 'pending',
+        changes: [
+          { type: 'update', task_id: 't1', due: '2026-10-05' },
+          { type: 'add_step', task_id: 't1', text: '写摘要' },
+        ],
+        s: S(5, 'ai'),
+      },
+    },
+    settings: {
+      workStart: '09:00',
+      workEnd: '18:00',
+      workDays: [1, 2, 3, 4, 5],
+      chips: ['due', 'plan', 'effort', 'star'],
+      theme: 'system',
+      lang: 'zh',
+      s: S(0, 'a'),
+    },
+  };
+  await page.evaluate(
+    (d) =>
+      new Promise<void>((resolve) => {
+        const req = indexedDB.open('attention-planner', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('kv');
+        req.onsuccess = () => {
+          const tx = req.result.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(d, 'doc');
+          tx.oncomplete = () => resolve();
+        };
+      }),
+    doc,
+  );
+}
+
+test('an AI proposal shows in the list and on its task; approving applies it, undo brings it back', async ({
+  page,
+}) => {
+  await start(page);
+  await seedProposal(page);
+  await page.reload();
+  await toList(page);
+  const bar = page.getByRole('region', { name: 'AI 提议' });
+  await expect(bar.getByRole('button', { name: /AI 提议 · 1/ })).toBeVisible();
+  await expect(row(page, '交论文')).toContainText('AI 提议');
+  await row(page, '交论文').locator('.title-btn').click();
+  const detail = page.getByTestId('task-detail');
+  const card = detail.locator('.proposal');
+  await expect(card).toContainText('推迟论文，先写摘要');
+  await expect(card).toContainText('截止：9/28（周一） → 10/5（周一）');
+  await expect(card).toContainText('给 「交论文」 加步骤：写摘要');
+  await card.getByRole('button', { name: '批准全部 2 条' }).click();
+  await expect(page.locator('.toast')).toContainText('已批准并套用');
+  await expect(detail.getByLabel('截止日期')).toHaveValue('2026-10-05');
+  await expect(detail.locator('.step')).toContainText(['写摘要']);
+  await expect(bar).toHaveCount(0);
+  await page.locator('.toast').getByRole('button', { name: '撤销' }).click();
+  await expect(page.getByRole('region', { name: 'AI 提议' })).toBeVisible();
+  await expect(detail.getByLabel('截止日期')).toHaveValue('2026-09-28');
+});
+
+test('an AI’s link opens the list at its proposal; rejecting changes nothing', async ({ page }) => {
+  await start(page);
+  await seedProposal(page);
+  await page.goto('/?proposal=p1');
+  const card = page.locator('.proposals .proposal.focus');
+  await expect(card).toBeVisible();
+  await card.getByRole('button', { name: '拒绝' }).click();
+  await expect(page.locator('.toast')).toContainText('已拒绝');
+  await expect(page.getByRole('region', { name: 'AI 提议' })).toHaveCount(0);
+  await expect(row(page, '交论文')).not.toContainText('AI 提议');
+});

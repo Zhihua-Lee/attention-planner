@@ -623,6 +623,13 @@ export function restore(current: Doc, snapshot: Doc, ctx: Ctx): Doc {
     }
     if (!same({ ...current.settings, s: 0 }, { ...snapshot.settings, s: 0 }))
       e.doc.settings = { ...snapshot.settings, s: e.s };
+    // Undoing an approval puts the proposal back to waiting.
+    for (const id of Object.keys(current.proposals ?? {})) {
+      const now = current.proposals![id];
+      const was = snapshot.proposals?.[id];
+      if (was && !same({ ...now, s: 0 }, { ...was, s: 0 }))
+        e.doc.proposals = { ...e.doc.proposals, [id]: { ...was, s: e.s } };
+    }
   });
 }
 

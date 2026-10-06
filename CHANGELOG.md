@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.10 — 2026-10-06
+
+- **Approve AI proposals in the app**: proposals are kept with the tasks and sync like them. The list shows "AI 提议 ·
+  N" at the top (open it to see what each would change, before → after), a row marks a task that a proposal would
+  change, and the task's details show those changes first. Approving applies them all as one edit, which can be
+  undone (the proposal waits again); rejecting changes nothing. The AI's link (`/?proposal=<id>`) opens the list at
+  the proposal; the old review pages still serve proposals made before this version.
+- **The note no longer jumps when you start editing it**: reading and editing use the same box, font and padding,
+  and the editor starts at the height the note had and grows with it.
+- The apply-and-describe logic for changes moved from the Worker into the app's model, with a type check that the
+  Worker's schemas describe exactly the same changes.
+
 ## 0.2.9 — 2026-10-06
 
 - **AI connections can do what the app does**: tasks show what they are linked to and what links to them; a new task

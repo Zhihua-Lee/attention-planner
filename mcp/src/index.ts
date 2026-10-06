@@ -19,7 +19,7 @@ import { Workspace } from './workspace';
  *
  * - OAuth 2.1 for AI clients (dynamic registration, client metadata documents, PKCE) under /api/ai/.
  * - Reads and writes the same Drive file the app syncs, with Google tokens from the existing sync broker.
- * - New tasks are saved at once; changes to existing tasks wait for the owner's approval at /api/ai/review/<id>.
+ * - New tasks are saved at once; changes to existing tasks are proposals kept with the tasks and decided in the app.
  */
 export interface Env {
   OAUTH_KV: KVNamespace;
@@ -131,6 +131,8 @@ async function authorize(request: Request, env: Env, url: URL): Promise<Response
 }
 
 async function review(request: Request, env: Env, id: string): Promise<Response> {
+  // Since 0.2.10 proposals live with the tasks and are decided in the app; this page is only for older ones.
+  if (request.method === 'GET' && !(await kvProposals(env.OAUTH_KV).get(id))) return redirect(`/?proposal=${id}`);
   const session = sessionOf(request);
   if (!(await sessionConnected(env.BROKER, env.PUBLIC_ORIGIN, session)))
     return request.method === 'GET'

@@ -480,3 +480,26 @@ describe('finding time', () => {
     ]);
   });
 });
+
+describe('AI proposals with the tasks', () => {
+  it('sync keeps them, the newer decision wins, undo puts an approval back, and old decided ones go', async () => {
+    const { addProposal, decideProposal } = await import('./proposals');
+    const [d, id] = make('Report', { due: '2026-09-30' });
+    const proposed = addProposal(d, ctx(T0, 'ai'), {
+      id: 'p',
+      summary: 'Push it back',
+      client: 'AI',
+      changes: [{ type: 'update', task_id: id, due: '2026-10-07' }],
+    });
+    // A device that has not seen it yet keeps it when it syncs.
+    expect(mergeDocs(d, proposed).proposals?.p.status).toBe('pending');
+    const approved = decideProposal(proposed, ctx(at('2026-09-29', '11:00')), 'p', true);
+    expect(mergeDocs(proposed, approved).proposals?.p.status).toBe('applied');
+    expect(mergeDocs(approved, proposed).tasks[id].due).toBe('2026-10-07');
+    const undone = restore(approved, proposed, ctx(at('2026-09-29', '11:05')));
+    expect(undone.proposals?.p.status).toBe('pending');
+    expect(undone.tasks[id].due).toBe('2026-09-30');
+    expect(purgeTombstones(approved, at('2026-11-15')).proposals).toEqual({});
+    expect(purgeTombstones(proposed, at('2026-11-15')).proposals?.p).toBeDefined();
+  });
+});

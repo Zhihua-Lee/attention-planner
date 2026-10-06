@@ -1049,22 +1049,37 @@ main {
   width: 12em;
   font-size: 13px;
 }
-.note {
-  border: 1px solid var(--line);
+/* The note reads and edits in the same box: same border width, padding, font and line height. */
+.note,
+.note-view {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--bg);
-  padding: 8px 10px;
-  min-height: 90px;
-  resize: vertical;
+  padding: 6px 8px;
+  margin: 0;
   font: 14px/1.6 var(--font-body);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.note {
+  border-color: var(--line);
+  background: var(--surface);
+  resize: none;
+  overflow: hidden;
+  min-height: 0;
+}
+.note:focus {
+  outline: 0;
+  border-color: var(--accent);
 }
 .note-view {
-  font-size: 14px;
-  line-height: 1.6;
   cursor: text;
-  border-radius: 8px;
-  padding: 2px 0;
-  overflow-wrap: anywhere;
+  transition: background-color 0.15s;
+}
+.note-view:hover {
+  background: var(--bg);
 }
 .note-view.empty {
   color: var(--muted);
@@ -1835,4 +1850,62 @@ mark {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* AI proposals: a line at the top of the list, cards when opened, and the same card in a task's details */
+.proposals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.proposals-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 14px;
+}
+.proposal {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.proposal.focus {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.proposal-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.proposal-lines {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.proposal-actions {
+  display: flex;
+  gap: 8px;
+}
+.proposal-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meta .ai {
+  color: var(--accent);
+  font-weight: 600;
 }

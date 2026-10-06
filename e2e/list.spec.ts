@@ -152,3 +152,20 @@ test('a project done in order queues its later tasks', async ({ page }) => {
   await page.getByRole('tab', { name: 'NOW' }).click();
   await expect(page.getByTestId('now-card').getByRole('heading')).toHaveText('收数据');
 });
+
+test('the note keeps its place and height when it switches to editing', async ({ page }) => {
+  await start(page);
+  await add(page, '写引言');
+  const detail = await openRow(page, '写引言');
+  await detail.getByRole('button', { name: '编辑正文' }).click();
+  await detail.getByRole('textbox', { name: '正文' }).fill('第一行\n第二行\n第三行');
+  await detail.getByRole('textbox', { name: '正文' }).blur();
+  await page.waitForTimeout(500); // let the detail's height animation after saving settle
+  await detail.locator('.note-view').scrollIntoViewIfNeeded();
+  const view = (await detail.locator('.note-view').boundingBox())!;
+  await detail.locator('.note-view').click();
+  const edit = (await detail.getByRole('textbox', { name: '正文' }).boundingBox())!;
+  expect(Math.abs(edit.y - view.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(edit.x - view.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(edit.height - view.height)).toBeLessThanOrEqual(4);
+});

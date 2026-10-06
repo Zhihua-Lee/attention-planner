@@ -1,6 +1,6 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { dayOf, isTime } from '../model/dates';
 import {
   addArea,
@@ -26,6 +26,7 @@ import { Popover, toast, usePopover } from './common';
 import { EffortPicker, GroupPicker, LinkPicker, PlanPicker, RepeatEditor, WhenPicker } from './pickers';
 import { ConflictNotice } from './Conflict';
 import { NewStep } from './NewStep';
+import { ProposalNotice } from './Proposals';
 import { StepList } from './StepList';
 import { duration, monthDay, planLabel, ruleLabel, useT } from './text';
 
@@ -46,6 +47,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   const today = dayOf(now);
   const pop = usePopover<PopKey>();
   const [editingNote, setEditingNote] = useState(false);
+  const [noteHeight, setNoteHeight] = useState(0);
   const [showRepeat, setShowRepeat] = useState(false);
   const id = task.id;
   const set = <K extends Parameters<typeof setField>[3]>(field: K, value: Task[K]) =>
@@ -68,6 +70,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   return (
     <div className="detail" data-testid="task-detail">
       <ConflictNotice task={task} field="title" />
+      <ProposalNotice task={task} now={now} />
       {/* Steps are what you do, so they come first, at full width; the properties follow. */}
       <div className="val steps" role="group" aria-label={t('步骤', 'Steps')}>
         <StepList task={task} now={now} />
@@ -247,15 +250,14 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
 
       <ConflictNotice task={task} field="note" />
       {editingNote ? (
-        <textarea
-          className="note"
-          autoFocus
-          defaultValue={task.note ?? ''}
-          aria-label={t('正文', 'Note')}
+        <NoteEditor
+          value={task.note ?? ''}
+          startHeight={noteHeight}
+          label={t('正文', 'Note')}
           placeholder={t('怎么做、链接、上次的经验……', 'How to do it, links, what you learned last time…')}
-          onBlur={(e) => {
+          onDone={(value) => {
             setEditingNote(false);
-            if (e.target.value !== (task.note ?? '')) set('note', e.target.value.trim() ? e.target.value : undefined);
+            if (value !== (task.note ?? '')) set('note', value.trim() ? value : undefined);
           }}
         />
       ) : (
@@ -264,8 +266,16 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
           role="button"
           tabIndex={0}
           aria-label={t('编辑正文', 'Edit note')}
-          onClick={(e) => (e.target as HTMLElement).closest('a') || setEditingNote(true)}
-          onKeyDown={(e) => e.key === 'Enter' && setEditingNote(true)}
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest('a')) return;
+            setNoteHeight(e.currentTarget.offsetHeight);
+            setEditingNote(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return;
+            setNoteHeight(e.currentTarget.offsetHeight);
+            setEditingNote(true);
+          }}
           dangerouslySetInnerHTML={{
             __html: task.note
               ? DOMPurify.sanitize(marked.parse(task.note, { async: false, breaks: true }) as string, {
@@ -447,5 +457,54 @@ function FindTime({
         </label>
       )}
     </div>
+  );
+}
+
+/**
+ * The note while it is being written: the same box, font and padding as the note when it is read, starting at the
+ * height it had there and growing with the text, so switching between the two does not jump.
+ */
+function NoteEditor({
+  value,
+  startHeight,
+  label,
+  placeholder,
+  onDone,
+}: {
+  value: string;
+  startHeight: number;
+  label: string;
+  placeholder: string;
+  onDone: (value: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const fit = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.max(startHeight, el.scrollHeight + 2)}px`;
+  };
+  useLayoutEffect(() => {
+    fit();
+    const el = ref.current;
+    if (el) {
+      el.focus({ preventScroll: true });
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <textarea
+      ref={ref}
+      className="note"
+      defaultValue={value}
+      aria-label={label}
+      placeholder={placeholder}
+      onInput={fit}
+      onBlur={(e) => onDone(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') e.currentTarget.blur();
+      }}
+    />
   );
 }

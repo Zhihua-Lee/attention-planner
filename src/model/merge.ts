@@ -77,6 +77,11 @@ export function mergeDocs(a: Doc, b: Doc): Doc {
     projects,
     settings: newer(a.settings, b.settings)!,
   };
+  if (a.proposals || b.proposals) {
+    const proposals = { ...a.proposals };
+    for (const [id, x] of Object.entries(b.proposals ?? {})) proposals[id] = newer(proposals[id], x)!;
+    out.proposals = proposals;
+  }
   if (a.events) out.events = a.events;
   return out;
 }
@@ -97,7 +102,15 @@ export function purgeTombstones(doc: Doc, now: Date, days = 90): Doc {
   }
   const keep = <T extends { deleted?: boolean; s: Stamp }>(r: Record<string, T>) =>
     Object.fromEntries(Object.entries(r).filter(([, x]) => !old(x)));
-  return { ...doc, tasks, areas: keep(doc.areas), projects: keep(doc.projects) };
+  const out: Doc = { ...doc, tasks, areas: keep(doc.areas), projects: keep(doc.projects) };
+  // Decided proposals are kept for a month, for the record; pending ones until decided.
+  if (doc.proposals) {
+    const month = new Date(now.getTime() - 30 * 864e5).toISOString();
+    out.proposals = Object.fromEntries(
+      Object.entries(doc.proposals).filter(([, p]) => p.status === 'pending' || p.s.at >= month),
+    );
+  }
+  return out;
 }
 
 /** JSON with object keys sorted, so equal data compares equal whatever order it was built in. */

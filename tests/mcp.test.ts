@@ -105,29 +105,46 @@ describe('MCP tools', () => {
     expect(t.s.by).toBe('ai');
   });
 
-  it('proposes changes without making them; approving applies them all', async () => {
+  it('proposes changes without making them; the app approves them all, or rejects them', async () => {
+    const { decideProposal, pendingProposals, proposalsFor } = await import('../src/model/proposals');
     const remote = new MemoryRemote();
     remote.doc = seed();
-    const { call, proposals } = await connect(remote);
+    const { call } = await connect(remote);
     const paper = liveTasks(remote.doc).find((x) => x.title === '交论文')!;
     const changes: Change[] = [
       { type: 'update', task_id: paper.id, due: '2026-10-05', star: true },
       { type: 'plan', task_id: paper.id, day: '2026-09-30', start: '14:00' },
     ];
     const res = await call('propose_changes', { summary: '推迟论文并安排时间', changes });
-    expect(res.body).toMatchObject({ status: 'pending', review_link: expect.stringMatching(/\/api\/ai\/review\//) });
-    expect(remote.writes).toBe(0);
-    const p = (await proposals.get(res.body.proposal_id))!;
+    expect(res.body).toMatchObject({
+      status: 'pending',
+      review_link: `https://todo.example/?proposal=${res.body.proposal_id}`,
+    });
+    // Kept with the tasks; the task itself is unchanged until approved.
+    const doc = remote.doc!;
+    expect(doc.tasks[paper.id]).toMatchObject({ due: '2026-09-28' });
+    expect(pendingProposals(doc, REAL).map((x) => x.summary)).toEqual(['推迟论文并安排时间']);
+    expect(proposalsFor(doc, paper.id, REAL)).toHaveLength(1);
+    const p = doc.proposals![res.body.proposal_id];
+    expect(p).toMatchObject({ client: 'Test AI', status: 'pending', created: REAL.toISOString() });
     const zh = (a: string) => a;
-    expect(describeChange(remote.doc!, p.changes[0], zh)).toBe(
-      '修改 「交论文」：截止：9/28（周一） → 10/5（周一）；标为重要',
-    );
-    expect(describeChange(remote.doc!, p.changes[1], zh)).toBe('安排 「交论文」 在 9/30（周三） 14:00，1 小时 30 分钟');
-    const after = applyChanges(remote.doc!, wallCtx(), p.changes);
-    expect(after.tasks[paper.id]).toMatchObject({ due: '2026-10-05', star: true });
-    expect(after.tasks[paper.id].plan[0]).toMatchObject({ day: '2026-09-30', start: '14:00', minutes: 90 });
+    expect(describeChange(doc, p.changes[0], zh)).toBe('修改 「交论文」：截止：9/28（周一） → 10/5（周一）；标为重要');
+    expect(describeChange(doc, p.changes[1], zh)).toBe('安排 「交论文」 在 9/30（周三） 14:00，1 小时 30 分钟');
+    const approved = decideProposal(doc, wallCtx(), p.id, true);
+    expect(approved.tasks[paper.id]).toMatchObject({ due: '2026-10-05', star: true });
+    expect(approved.tasks[paper.id].plan[0]).toMatchObject({ day: '2026-09-30', start: '14:00', minutes: 90 });
+    expect(approved.proposals![p.id].status).toBe('applied');
+    const rejected = decideProposal(doc, wallCtx(), p.id, false);
+    expect(rejected.tasks[paper.id].due).toBe('2026-09-28');
+    expect(rejected.proposals![p.id].status).toBe('rejected');
     expect((await call('get_proposal', { id: p.id })).body.status).toBe('pending');
-    expect(() => applyChanges(remote.doc!, wallCtx(), [{ type: 'complete', task_id: 'gone' }])).toThrow();
+    // A change that can no longer be applied leaves everything as it was and says why.
+    const gone = {
+      ...doc,
+      proposals: { x: { ...p, id: 'x', changes: [{ type: 'complete' as const, task_id: 'gone' }] } },
+    };
+    const failed = decideProposal(gone, wallCtx(), 'x', true);
+    expect(failed.proposals!.x).toMatchObject({ status: 'failed', error: 'There is no task gone.' });
   });
 
   it('a read-only connection cannot add or propose', async () => {

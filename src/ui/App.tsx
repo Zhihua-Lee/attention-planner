@@ -18,6 +18,7 @@ export function App() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [proposal, setProposal] = useState<string | null>(null);
   // Full width for reading on a large screen; remembered on this device only.
   const [wide, setWide] = useState(() => {
     try {
@@ -51,13 +52,19 @@ export function App() {
     store.clearImported();
   }, [imported, t]);
 
-  // A tapped reminder opens the app at its task (`/?open=<id>`).
+  // A tapped reminder opens the app at its task (`/?open=<id>`); an AI's link, at its proposal (`/?proposal=<id>`).
   useEffect(() => {
     if (!ready) return;
-    const id = new URLSearchParams(location.search).get('open');
-    if (!id) return;
+    const params = new URLSearchParams(location.search);
+    const id = params.get('open');
+    const proposal = params.get('proposal');
+    if (!id && !proposal) return;
     history.replaceState(null, '', location.pathname);
-    if (store.get().doc.tasks[id]) open(id);
+    if (proposal) {
+      setTab('list');
+      setProposal(proposal);
+    }
+    if (id && store.get().doc.tasks[id]) open(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
@@ -187,7 +194,7 @@ export function App() {
           {tab === 'now' ? (
             <NowView now={now} open={open} />
           ) : (
-            <TaskList ref={capture} now={now} expanded={expanded} setExpanded={setExpanded} />
+            <TaskList ref={capture} now={now} expanded={expanded} setExpanded={setExpanded} proposal={proposal} />
           )}
         </main>
         <ToastHost undoLabel={t('撤销', 'Undo')} />
