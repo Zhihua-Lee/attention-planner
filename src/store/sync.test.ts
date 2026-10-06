@@ -126,7 +126,7 @@ describe('Outlook export in Google Drive', () => {
     }) as typeof fetch;
     expect(await readOutlookExport(async () => 't', fake)).toBeNull();
     files = [{ id: 'f' }];
-    expect(await readOutlookExport(async () => 't', fake)).toEqual({ events: [{ subject: 'x' }] });
+    expect(await readOutlookExport(async () => 't', fake)).toEqual({ data: { events: [{ subject: 'x' }] } });
   });
 
   it('creates the marked, empty file once, only when there is none', async () => {

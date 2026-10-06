@@ -1,5 +1,3 @@
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { dayOf, isTime } from '../model/dates';
 import {
@@ -30,6 +28,7 @@ import { NewStep } from './NewStep';
 import { ProposalNotice } from './Proposals';
 import { StepList } from './StepList';
 import { duration, monthDay, planLabel, ruleLabel, useT } from './text';
+import { noteHtml } from './markdown';
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
   try {
@@ -284,9 +283,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
           }}
           dangerouslySetInnerHTML={{
             __html: task.note
-              ? DOMPurify.sanitize(marked.parse(task.note, { async: false, breaks: true }) as string, {
-                  ADD_ATTR: ['target'],
-                })
+              ? noteHtml(task.note)
               : t('点这里写正文（支持 Markdown）', 'Click to write a note (Markdown)'),
           }}
         />

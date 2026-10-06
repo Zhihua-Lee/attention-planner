@@ -338,6 +338,16 @@ export const minutesWords = (m: number, t: T) =>
 const partWords = (p: Part, t: T) =>
   ({ am: t('上午', 'morning'), pm: t('下午', 'afternoon'), eve: t('晚上', 'evening') })[p];
 
+/** A note in one short line: its first line without Markdown marks, cut at 60 characters. */
+export function noteGist(note: string): string {
+  const line = note.split(/\r?\n/).find((l) => l.trim()) ?? '';
+  const plain = line
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`#>]+/g, '')
+    .trim();
+  return plain.length > 60 || note.trim() !== line.trim() ? `${plain.slice(0, 60)}…` : plain;
+}
+
 /** A repeat rule in a few words: 每周一、三 / 每 2 天 / 每月 15 日 / 完成后 3 天. */
 export function ruleWords(r: RuleInput, t: T): string {
   const n = r.every ?? 1;
@@ -390,7 +400,7 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
       c.project && t('项目：', 'project: ') + group('projects', c.project),
       link && t(`关联到「${link}」`, `linked to “${link}”`),
       c.steps?.length && t('步骤：', 'steps: ') + c.steps.join(t('、', ', ')),
-      c.note && t('备注：', 'note: ') + c.note,
+      c.note && t(`备注（${c.note.length} 字）：`, `note (${c.note.length} chars): `) + noteGist(c.note),
     ].filter(Boolean);
     return (
       t(`新建 「${c.title}」`, `Add “${c.title}”`) + (parts.length ? t('：', ': ') + parts.join(t('；', '; ')) : '')
@@ -423,7 +433,7 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
       if (c.note !== undefined)
         parts.push(
           c.note
-            ? t(`备注改为（${c.note.length} 字）：`, `Note becomes (${c.note.length} chars): `) + c.note
+            ? t(`备注改为（${c.note.length} 字）：`, `Note becomes (${c.note.length} chars): `) + noteGist(c.note)
             : t('清空备注', 'Clear the note'),
         );
       if (c.due !== undefined)

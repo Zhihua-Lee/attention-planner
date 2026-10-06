@@ -525,3 +525,12 @@ describe('my day', () => {
     expect(matches(e, e.tasks[reserved], 'star', T0)).toBe(true);
   });
 });
+
+describe('a note in a few words', () => {
+  it('keeps the first line, drops Markdown marks and link addresses, and says when there is more', async () => {
+    const { noteGist } = await import('./changes');
+    expect(noteGist('**工作流**：AI 生成补丁')).toBe('工作流：AI 生成补丁');
+    expect(noteGist('\n见 [指南](https://example.com/g) 第 2 节\n第二行')).toBe('见 指南 第 2 节…');
+    expect(noteGist('x'.repeat(80))).toBe(`${'x'.repeat(60)}…`);
+  });
+});

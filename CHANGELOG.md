@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.25 — 2026-10-06
+
+- **Proposal previews read properly**: a changed note is rendered as Markdown, as in the task's details, and a long one
+  starts folded with 展开全文; a reworded step keeps its new words by its box, with the old wording struck through
+  underneath. Under 明细 a note is summed up by its first line and length instead of being printed in full.
+- **Is the Outlook export fresh?** Settings → 日历 → Outlook 日历 now shows when Power Automate last wrote the file (not
+  just when this device read it), and warns when that was over two hours ago.
+- The AI tools describe repeat rules in full (every how many, which weekdays, counted from completion or from which day),
+  for tasks and for steps with a rhythm of their own.
+
 ## 0.2.24 — 2026-10-06
 
 - **Outlook setup is in the app again**: Settings → 日历 → Outlook 日历 → “怎么设置 Outlook” lists the Power Automate

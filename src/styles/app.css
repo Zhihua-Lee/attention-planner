@@ -1990,8 +1990,7 @@ mark {
 }
 .pv-steps li {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 8px;
   align-items: baseline;
 }
 .pv-steps li.new {
@@ -2006,7 +2005,8 @@ mark {
 }
 .pv-steps .box {
   flex: none;
-  align-self: center;
+  align-self: flex-start;
+  margin-top: 4px;
   width: 12px;
   height: 12px;
   border: 1.5px solid var(--muted);
@@ -2022,14 +2022,45 @@ mark {
   display: inline-flex;
   gap: 4px;
 }
+/* the note as it will read; a long one shows its first lines until opened */
 .pv-note {
   margin: 0 12px 8px 46px;
+  border-radius: 6px;
+}
+.pv-note .note-view {
+  cursor: auto;
   font-size: 13px;
-  white-space: pre-wrap;
+  padding: 4px 6px;
+  max-height: 7.5em;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  -webkit-mask-image: linear-gradient(#000 70%, transparent);
+  mask-image: linear-gradient(#000 70%, transparent);
+}
+.pv-note .note-view:hover {
+  background: none;
+}
+.pv-note .note-view :is(h1, h2, h3, h4) {
+  font-size: 14px;
+  margin: 6px 0 2px;
+}
+.pv-note.open .note-view {
+  max-height: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.pv-note.chg {
+  background: var(--accent-soft);
+}
+/* a step: the box, then its words (new ones by the box, an old wording struck through underneath) */
+.pv-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+.pv-step .old-text {
+  flex-basis: 100%;
 }
 .proposal-notice {
   display: flex;
@@ -2266,4 +2297,9 @@ mark {
 }
 .howto a {
   color: var(--accent);
+}
+.warn-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--late);
 }

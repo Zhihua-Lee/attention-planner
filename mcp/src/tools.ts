@@ -38,6 +38,7 @@ import {
   fromRule,
   newTaskFields,
   repeatSchema,
+  ruleWords,
   type Change,
   type NewTaskInput,
 } from './changes';
@@ -71,6 +72,8 @@ returns, and do not claim a change is made until get_proposal says so. A new tas
 unless the owner chose to have new tasks saved at once; its result says which. list_proposals shows what is still
 waiting (look before proposing again); withdraw_proposal takes back one of yours.`;
 
+/** Words for the AI are in English (the owner reads the same things in their language in the app). */
+const en = (_zh: string, english: string) => english;
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const clean = <T extends object>(o: T): T =>
   Object.fromEntries(
@@ -130,7 +133,7 @@ export function brief(doc: Doc, t: Task, now: Date) {
     steps: steps.total ? `${steps.done}/${steps.total} done` : undefined,
     next_step: steps.next?.text,
     repeat: t.repeat
-      ? `${t.repeat.rule.freq}${t.repeat.rule.every > 1 ? ` (every ${t.repeat.rule.every})` : ''}, ${t.repeat.mode === 'reopen' ? 'reopens in place' : 'a new copy each time'}${t.repeat.paused ? ', paused' : ''}`
+      ? `${ruleWords(fromRule(t.repeat.rule), en)}, ${t.repeat.mode === 'reopen' ? 'reopens in place' : 'a new copy each time'}${t.repeat.paused ? ', paused' : ''}`
       : undefined,
     finished: isFinished(t, now) ? (t.done ?? 'this round') : undefined,
   });
@@ -153,7 +156,7 @@ export function full(doc: Doc, t: Task, now: Date, origin: string) {
           s.repeat === 'none'
             ? 'does not repeat'
             : typeof s.repeat === 'object'
-              ? `own rule: ${s.repeat.freq}`
+              ? `own rule: ${ruleWords(fromRule(s.repeat), en)}${s.repeat.fromDone ? '' : `, rounds counted from ${s.repeat.start}`}`
               : undefined,
       }),
     ),
@@ -554,9 +557,6 @@ export function createServer(c: ToolContext): McpServer {
       );
     }),
   );
-
-  // The owner reads proposals in their own language in the app; an AI reads them in English.
-  const en = (_zh: string, english: string) => english;
 
   server.registerTool(
     'list_proposals',

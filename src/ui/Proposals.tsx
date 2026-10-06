@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { applyChanges, changeTask, describeChange } from '../model/changes';
 import { dayOf } from '../model/dates';
 import { effectiveDue, isFinished, isSnoozed, planOf, stepDone, stepsOf, taskEffort } from '../model/doc';
@@ -6,6 +6,7 @@ import { decideProposal, pendingProposals, proposalsFor } from '../model/proposa
 import type { Doc, Proposal, Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
+import { noteHtml } from './markdown';
 import { dueLabel, duration, planLabel, ruleLabel, useT } from './text';
 
 /** Approve or reject a whole proposal; both are ordinary edits, so they sync and can be undone. */
@@ -148,33 +149,65 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
             return (
               <li key={s.id} className={`${done ? 'done' : ''}${mark}`}>
                 <span className={`box${done ? ' on' : ''}${chg(!!o && stepDone(before!, o, now) !== done)}`} />
-                {was(!!o && o.text !== s.text, o?.text ?? '')}
-                <span className={`txt${chg(!!o && o.text !== s.text)}`}>{s.text}</span>
-                {(s.due || o?.due) && (
-                  <span className={`tag${chg(!!o && o.due !== s.due)}`}>
-                    {was(!!o && !!o.due && o.due !== s.due, o?.due ? dueLabel(o.due, today, lang) : '')}
-                    {s.due && dueLabel(s.due, today, lang)}
-                  </span>
-                )}
-                {(s.effort || o?.effort) && (
-                  <span className={`tag${chg(!!o && o.effort !== s.effort)}`}>
-                    {was(!!o && !!o.effort && o.effort !== s.effort, o?.effort ? duration(o.effort, lang) : '')}
-                    {s.effort && duration(s.effort, lang)}
-                  </span>
-                )}
+                <span className="pv-step">
+                  <span className={`txt${chg(!!o && o.text !== s.text)}`}>{s.text}</span>
+                  {(s.due || o?.due) && (
+                    <span className={`tag${chg(!!o && o.due !== s.due)}`}>
+                      {was(!!o && !!o.due && o.due !== s.due, o?.due ? dueLabel(o.due, today, lang) : '')}
+                      {s.due && dueLabel(s.due, today, lang)}
+                    </span>
+                  )}
+                  {(s.effort || o?.effort) && (
+                    <span className={`tag${chg(!!o && o.effort !== s.effort)}`}>
+                      {was(!!o && !!o.effort && o.effort !== s.effort, o?.effort ? duration(o.effort, lang) : '')}
+                      {s.effort && duration(s.effort, lang)}
+                    </span>
+                  )}
+                  {/* The old wording under the new, so the new one keeps its place by the box. */}
+                  {!!o && o.text !== s.text && <s className="was old-text">{o.text}</s>}
+                </span>
               </li>
             );
           })}
           {removed.map((s) => (
             <li key={s.id} className="gone">
               <span className="box" />
-              <span className="txt">{s.text}</span>
+              <span className="pv-step">
+                <span className="txt">{s.text}</span>
+              </span>
             </li>
           ))}
         </ul>
       )}
-      {(noteChanged || (!before && after.note)) && (
-        <p className={`pv-note${chg(noteChanged)}`}>{after.note || t('（清空备注）', '(note cleared)')}</p>
+      {(noteChanged || (!before && after.note)) &&
+        (after.note ? (
+          <PreviewNote html={noteHtml(after.note)} changed={noteChanged} />
+        ) : (
+          <p className="pv-note chg">{t('（清空备注）', '(note cleared)')}</p>
+        ))}
+    </div>
+  );
+}
+
+/** The note a proposal would leave, rendered as in the task's details; a long one is folded until opened. */
+function PreviewNote({ html, changed }: { html: string; changed: boolean }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  // Measured while folded: null until then, so a long note starts folded.
+  const [long, setLong] = useState<boolean | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => setLong(null), [html]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && long === null) setLong(el.scrollHeight > el.clientHeight + 1);
+  }, [long]);
+  return (
+    <div className={`pv-note${changed ? ' chg' : ''}${open || long === false ? ' open' : ''}`}>
+      <div ref={ref} className="note-view" dangerouslySetInnerHTML={{ __html: html }} />
+      {long && (
+        <button type="button" className="link-btn" onClick={() => setOpen((v) => !v)}>
+          {open ? t('收起', 'Less') : t('展开全文', 'Show all')}
+        </button>
       )}
     </div>
   );

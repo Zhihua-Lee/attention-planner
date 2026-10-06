@@ -57,6 +57,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
       toast(t('没能生成：', 'Could not make it: ') + (e instanceof Error ? e.message : String(e)));
     }
   };
+  // A time the way the reader says it: 10/6 15:30.
+  const when = (iso: string) =>
+    new Date(iso).toLocaleString(s.lang === 'zh' ? 'zh-CN' : 'en-US', { dateStyle: 'short', timeStyle: 'short' });
   const copy = (text: string) =>
     void navigator.clipboard?.writeText(text).then(
       () => toast(t('已复制', 'Copied')),
@@ -751,17 +754,29 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   </Info>
                 </div>
                 {calendar.source === 'outlook' ? (
-                  <div className="inline">
-                    <span>
-                      {t(
-                        `更新于 ${new Date(calendar.at!).toLocaleTimeString()}`,
-                        `Updated ${new Date(calendar.at!).toLocaleTimeString()}`,
-                      )}
-                    </span>
-                    <button className="btn" onClick={() => void store.refreshCalendar(true)}>
-                      {t('刷新', 'Refresh')}
-                    </button>
-                  </div>
+                  <>
+                    <div className="inline">
+                      <span>
+                        {calendar.fileAt
+                          ? t(
+                              `Power Automate 最近写入：${when(calendar.fileAt)}`,
+                              `Power Automate last wrote it: ${when(calendar.fileAt)}`,
+                            )
+                          : t(`读取于 ${when(calendar.at!)}`, `Read ${when(calendar.at!)}`)}
+                      </span>
+                      <button className="btn" onClick={() => void store.refreshCalendar(true)}>
+                        {t('刷新', 'Refresh')}
+                      </button>
+                    </div>
+                    {calendar.fileAt && Date.now() - Date.parse(calendar.fileAt) > 2 * 36e5 && (
+                      <p className="warn-text">
+                        {t(
+                          '超过 2 小时没有更新了（流程每 30 分钟写一次）。去 Power Automate 看看这个流是否开着、最近一次运行是否成功。',
+                          'Not updated for over 2 hours (the flow writes every 30 minutes). Check in Power Automate that the flow is on and its last run succeeded.',
+                        )}
+                      </p>
+                    )}
+                  </>
                 ) : sync.status === 'off' ? (
                   <p className="muted">{t('连接同步后自动读取。', 'Read once sync is connected.')}</p>
                 ) : (

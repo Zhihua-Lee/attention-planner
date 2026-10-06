@@ -21,7 +21,8 @@ import { syncOnce, type Remote } from './sync';
 
 export type SyncState = { status: 'off' | 'idle' | 'syncing' | 'error'; lastAt?: string; error?: string };
 /** Where calendar events come from: the Outlook export in Google Drive, an imported .ics file, or nowhere yet. */
-export type CalendarState = { source: 'outlook' | 'none'; at?: string; error?: string };
+/** `at`: when this device read the Outlook export; `fileAt`: when the flow last wrote it. */
+export type CalendarState = { source: 'outlook' | 'none'; at?: string; fileAt?: string; error?: string };
 /** Each subscription's last read: when, how many events, or what went wrong. */
 export type SubState = Record<string, { at?: string; count?: number; error?: string }>;
 export type State = {
@@ -263,12 +264,12 @@ export class Store {
     if (!this.tokens || (!force && Date.now() - this.calendarAt < 10 * 60e3)) return;
     this.calendarAt = Date.now();
     try {
-      const payload = await readOutlookExport(this.tokens);
-      if (payload === null) return this.set({ calendar: { source: 'none' } });
+      const file = await readOutlookExport(this.tokens);
+      if (file === null) return this.set({ calendar: { source: 'none' } });
       const today = dayOf(new Date());
-      const events = outlookEvents(payload, addDays(today, -14), addDays(today, 120));
+      const events = outlookEvents(file.data, addDays(today, -14), addDays(today, 120));
       this.setEvents('outlook', events);
-      this.set({ calendar: { source: 'outlook', at: new Date().toISOString() } });
+      this.set({ calendar: { source: 'outlook', at: new Date().toISOString(), fileAt: file.modified } });
     } catch (e) {
       this.set({ calendar: { ...this.state.calendar, error: e instanceof Error ? e.message : String(e) } });
     }

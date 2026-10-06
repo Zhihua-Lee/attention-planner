@@ -67,8 +67,8 @@ export class Workspace {
     const fetcher = this.options.fetcher ?? fetch.bind(globalThis);
     if (this.options.token) {
       try {
-        const payload = await readOutlookExport(this.options.token, fetcher);
-        if (payload) out.push(...outlookEvents(payload, ...wide).map((e) => ({ ...e, source: 'outlook' })));
+        const file = await readOutlookExport(this.options.token, fetcher);
+        if (file) out.push(...outlookEvents(file.data, ...wide).map((e) => ({ ...e, source: 'outlook' })));
       } catch {
         /* skipped */
       }
