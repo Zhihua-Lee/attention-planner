@@ -106,7 +106,8 @@ export function taskRound(t: Task, now: Date): RoundState | null {
   return roundOf(t.repeat.rule, lastRound(t), now, t.repeat.paused);
 }
 
-function stepRound(step: Step, now: Date): RoundState | null {
+/** The current round of a step with a rhythm of its own, or null. */
+export function stepRound(step: Step, now: Date): RoundState | null {
   if (!step.repeat || step.repeat === 'none') return null;
   const last = step.doneIn && step.doneAt ? { key: step.doneIn, doneAt: step.doneAt } : undefined;
   return roundOf(step.repeat, last, now);

@@ -24,6 +24,7 @@ import {
   liveTasks,
   planOf,
   stepDone,
+  stepRound,
   stepsOf,
   taskEffort,
 } from '../../src/model/doc';
@@ -158,6 +159,10 @@ export function full(doc: Doc, t: Task, now: Date, origin: string) {
             : typeof s.repeat === 'object'
               ? `own rule: ${ruleWords(fromRule(s.repeat), en)}${s.repeat.fromDone ? '' : `, rounds counted from ${s.repeat.start}`}`
               : undefined,
+        // A step with its own rhythm: when it was last done and when it opens again.
+        last_done: typeof s.repeat === 'object' ? s.doneAt : undefined,
+        opens_again: typeof s.repeat === 'object' ? stepRound(s, now)?.nextAt?.toISOString() : undefined,
+        last_changed: `${s.s.at} by ${s.s.by}`,
       }),
     ),
     linked_here: liveTasks(doc)

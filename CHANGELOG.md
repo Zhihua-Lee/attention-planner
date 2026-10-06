@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.26 — 2026-10-06
+
+- The AI tools show, for a step with a rhythm of its own, when it was last done and when it opens again, and for every
+  step when and by which device it was last changed — to tell a rule from a lost check.
+
 ## 0.2.25 — 2026-10-06
 
 - **Proposal previews read properly**: a changed note is rendered as Markdown, as in the task's details, and a long one
