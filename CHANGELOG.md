@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.11 — 2026-10-06
+
+- **A notification when an AI proposes changes**: every device with reminders on gets one ("AI 提议了修改"); tapping
+  it opens the list at the proposal. Only an opaque id passes through the push service. Needs the sync broker's new
+  `/api/push/notify` (attention-planner-legacy 537639f1).
+- **Fix: notifications could stop on iPhone**: a push whose task had been finished or changed, and the "test"
+  push, showed nothing; iOS withdraws push from a web app that receives pushes silently. Every push now shows a
+  notification (a generic one when its task is gone).
+
 ## 0.2.10 — 2026-10-06
 
 - **Approve AI proposals in the app**: proposals are kept with the tasks and sync like them. The list shows "AI 提议 ·

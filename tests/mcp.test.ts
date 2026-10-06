@@ -294,3 +294,30 @@ describe('the full set of operations', () => {
     expect(bad).toMatchObject({ error: true, raw: 'There is no step nope.' });
   });
 });
+
+describe('notifying the owner', () => {
+  it('a new proposal asks for a notification with only its id', async () => {
+    const remote = new MemoryRemote();
+    remote.doc = seed();
+    const sent: string[] = [];
+    const workspace = new Workspace(remote, TZ, { clock: () => REAL });
+    const server = createServer({
+      workspace,
+      proposals: memoryProposals(),
+      origin: 'https://todo.example',
+      client: 'Test AI',
+      canWrite: true,
+      notify: async (id) => void sent.push(id),
+    });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await server.connect(a);
+    const client = new Client({ name: 'test', version: '1' });
+    await client.connect(b);
+    const paper = liveTasks(remote.doc).find((x) => x.title === '交论文')!;
+    const res = (await client.callTool({
+      name: 'propose_changes',
+      arguments: { summary: 's', changes: [{ type: 'complete', task_id: paper.id }] },
+    })) as { content: { text: string }[] };
+    expect(sent).toEqual([JSON.parse(res.content[0].text).proposal_id]);
+  });
+});

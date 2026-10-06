@@ -53,6 +53,8 @@ export type ToolContext = {
   client: string;
   /** Whether this connection may add tasks and propose changes. */
   canWrite: boolean;
+  /** Tell the owner's devices that a proposal is waiting (best effort). */
+  notify?: (proposalId: string) => Promise<void>;
 };
 
 const INSTRUCTIONS = `Attention Planner is one person's to-do list that plans itself: they write things down and do them; it
@@ -542,6 +544,7 @@ export function createServer(c: ToolContext): McpServer {
         addProposal(doc, ctx, { id, summary: a.summary, client: c.client, changes: a.changes }),
         null,
       ]);
+      await c.notify?.(id);
       return text({
         proposal_id: id,
         status: 'pending',

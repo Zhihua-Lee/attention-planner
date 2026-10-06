@@ -52,17 +52,43 @@ self.addEventListener('push', (event) => {
   } catch {
     /* plain text or empty: fall back to a generic notice */
   }
+  // Every push must show a notification: iOS withdraws push from a web app that receives pushes silently.
   event.waitUntil(
     readDoc().then((doc) => {
-      const found = describe(doc, payload.tag);
-      if (!found && payload.tag) return; // the task was finished or removed since the reminder was set
-      const title = found ? found.task.title : payload.title || 'Attention Planner';
+      const tag = String(payload.tag || '');
+      const zh = !doc || (doc.settings && doc.settings.lang) !== 'en';
+      let title = 'Attention Planner';
+      let body = '';
+      let url = '/';
+      const found = describe(doc, tag);
+      if (found) {
+        title = found.task.title;
+        body = found.body;
+        url = `/?open=${encodeURIComponent(found.task.id)}`;
+      } else if (tag.startsWith('ai_')) {
+        // An AI proposed changes; this device may not have synced them yet, so say only that.
+        const id = tag.slice(3);
+        const p = doc && doc.proposals && doc.proposals[id];
+        body = p
+          ? zh
+            ? `AI 提议：${p.summary}`
+            : `AI proposal: ${p.summary}`
+          : zh
+            ? 'AI 提议了修改，点开查看'
+            : 'An AI proposed changes';
+        url = `/?proposal=${encodeURIComponent(id)}`;
+      } else if (tag.startsWith('test_')) {
+        body = zh ? '测试通知：提醒能送到这台设备。' : 'Test: reminders reach this device.';
+      } else {
+        // The task was finished or changed since the reminder was set.
+        body = zh ? '有一个提醒，点开看看现在做什么。' : 'A reminder: open to see what to do now.';
+      }
       return self.registration.showNotification(title, {
-        body: found ? found.body : payload.body || '',
-        tag: payload.tag || 'attention-planner',
+        body,
+        tag: tag || 'attention-planner',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
-        data: { url: found ? `/?open=${encodeURIComponent(found.task.id)}` : '/' },
+        data: { url },
       });
     }),
   );

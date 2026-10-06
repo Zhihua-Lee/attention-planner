@@ -7,7 +7,7 @@ import OAuthProvider, {
 } from '@cloudflare/workers-oauth-provider';
 import { inRounds } from '../../src/model/doc';
 import { DriveRemote } from '../../src/store/drive';
-import { brokerTokens, sessionConnected, sessionOf, type Broker } from './broker';
+import { brokerTokens, notifyDevices, sessionConnected, sessionOf, type Broker } from './broker';
 import { applyChanges, describeChange } from './changes';
 import { connectionsBody, consentBody, message, page, reviewBody } from './pages';
 import { isExpired, kvProposals } from './proposals';
@@ -55,6 +55,7 @@ const mcpApi = {
       origin: env.PUBLIC_ORIGIN,
       client: ctx.props.client,
       canWrite: ctx.auth.scope.includes('tasks:write'),
+      notify: (id) => notifyDevices(env.BROKER, env.PUBLIC_ORIGIN, ctx.props.session, id),
     });
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,

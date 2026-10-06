@@ -17,13 +17,36 @@ export function sessionOf(request: Request): string | null {
   return null;
 }
 
-const call = (broker: Broker, origin: string, session: string, path: string, method: 'GET' | 'POST') =>
+const call = (broker: Broker, origin: string, session: string, path: string, method: 'GET' | 'POST', body?: unknown) =>
   broker.fetch(
     new Request(`${origin}/api${path}`, {
       method,
-      headers: { Cookie: `${SESSION_COOKIE}=${session}`, Origin: origin, Accept: 'application/json' },
+      headers: {
+        Cookie: `${SESSION_COOKIE}=${session}`,
+        Origin: origin,
+        Accept: 'application/json',
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
     }),
   );
+
+/**
+ * Ask the broker to notify every device of the owner that has reminders on. Only an opaque id travels (`ai_<id>`);
+ * each device words the notification itself. Best effort: a failure never stops the proposal.
+ */
+export async function notifyDevices(
+  broker: Broker,
+  origin: string,
+  session: string,
+  proposalId: string,
+): Promise<void> {
+  try {
+    await call(broker, origin, session, '/push/notify', 'POST', { id: `ai_${proposalId}` });
+  } catch {
+    /* the proposal is kept anyway; the app shows it on its next sync */
+  }
+}
 
 /** Whether this session belongs to the owner and Google Drive is connected. */
 export async function sessionConnected(broker: Broker, origin: string, session: string | null): Promise<boolean> {
