@@ -89,8 +89,9 @@ async function authorize(request: Request, env: Env, url: URL): Promise<Response
         return signIn(env, `${url.pathname}${url.search}`);
       const auth = await oauth.parseAuthRequest(request);
       const details = await oauth.describeConsent(auth);
-      const asked = details.scope.filter((s) => SCOPES.includes(s));
-      const scopes = asked.includes('tasks:read') ? asked : ['tasks:read', ...(asked.length ? asked : ['tasks:write'])];
+      // Offer every permission, whatever the client asked for: clients ask only for what the resource requires
+      // (reading), and the owner decides about writing here. The grant may hold more than was requested.
+      const scopes = SCOPES;
       const consent = await oauth.beginConsent(auth);
       return page('连接 AI', consentBody(details, scopes, consent.handle), 200, consent.headers);
     }
@@ -227,7 +228,8 @@ export default new OAuthProvider<Env>({
   tokenEndpoint: '/api/ai/token',
   clientRegistrationEndpoint: '/api/ai/register',
   scopesSupported: SCOPES,
-  requiredScopes: ['tasks:read'],
+  // Clients ask for what is listed here, so list writing too; the owner can still untick it on the consent page.
+  requiredScopes: SCOPES,
   resourceMetadata: {
     resource: 'https://todo.onthat.top/api/mcp',
     authorization_servers: ['https://todo.onthat.top'],

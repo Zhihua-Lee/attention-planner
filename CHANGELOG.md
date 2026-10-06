@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8 — 2026-10-06
+
+- **Fix: Claude Code could only read**: it asks for the permissions the server lists as required, which were reading
+  only, and the consent page offered only what was asked. Both permissions are now listed and always offered; the
+  owner can still untick writing. Reconnect (Re-authenticate) to get writing.
+
 ## 0.2.7 — 2026-10-05
 
 - **Find time**: next to a task's estimate, "找时间" lists free working times before its deadline (or in the next
