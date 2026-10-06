@@ -72,6 +72,12 @@ app-data folder; the previous app's file is never touched. Calendar events impor
 - `npm run typecheck` also checks `mcp/` against the Workers types; `tests/mcp.test.ts` runs the tools against an
   in-memory Drive. Deploy with `npm run deploy:mcp` after CI passes.
 
+## README screenshots
+
+`docs/images/{en,zh}/*.png` come from `scripts/readme-shots.cjs`: a demo document at a fixed time, in both
+languages. Build, run `npm run preview` (port 4173), then `node scripts/readme-shots.cjs` with `PW_CHROMIUM` set if
+your Chromium is not the one Playwright downloads.
+
 ## Releasing
 
 1. Update `version` in `package.json`, `CHANGELOG.md`, and add `docs/verification/vX.Y.Z.md` plus a row in
