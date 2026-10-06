@@ -30,13 +30,13 @@ function demo(lang) {
       serra: task(
         'serra',
         {
-          title: t('投 SERRA 论文', 'Submit the SERRA paper'),
+          title: t('投 Lumen 论文', 'Submit the Lumen paper'),
           due: '2026-10-09',
           star: true,
           projectId: 'paper',
           note: t(
-            '投稿说明：[SERRA author guide](https://example.com/serra)。上次的经验：图先定稿，再改引言。',
-            'Submission notes: [SERRA author guide](https://example.com/serra). Last time: fix the figures first, then the introduction.',
+            '投稿说明：[Lumen author guide](https://example.com/lumen)。上次的经验：图先定稿，再改引言。',
+            'Submission notes: [Lumen author guide](https://example.com/lumen). Last time: fix the figures first, then the introduction.',
           ),
         },
         {
@@ -75,7 +75,7 @@ function demo(lang) {
       expense: task('expense', { title: t('交报销', 'Submit expenses'), due: '2026-10-06', effort: 20 }),
       research: task(
         'research',
-        { title: t('扩散模型 + 数据同化', 'Diffusion models & data assimilation'), areaId: 'research' },
+        { title: t('稀疏传感的新想法', 'Ideas on sparse sensing'), areaId: 'research' },
         {
           plan: [{ id: 'pl2', day: '2026-10-07', part: 'am', s: S(1) }],
         },
@@ -101,7 +101,7 @@ function demo(lang) {
     proposals: {
       prop1: {
         id: 'prop1',
-        summary: t('把 SERRA 拆细一点，并留出审稿回复', 'Split SERRA further and leave room for the reply'),
+        summary: t('把 Lumen 拆细一点，并留出审稿回复', 'Split Lumen further and leave room for the reply'),
         client: 'Claude Code',
         created: '2026-10-06T15:05:00.000Z',
         status: 'pending',
@@ -118,15 +118,29 @@ function demo(lang) {
       },
     },
     events: [
-      { id: 'e1', title: 'MATH1560 TA Meeting', day: '2026-10-06', start: '09:30', end: '10:30', source: 'outlook' },
-      { id: 'e2', title: 'Math Lab Hour', day: '2026-10-06', start: '12:30', end: '13:30', source: 'outlook' },
+      {
+        id: 'e1',
+        title: t('助教例会', 'TA meeting'),
+        day: '2026-10-06',
+        start: '09:30',
+        end: '10:30',
+        source: 'outlook',
+      },
+      {
+        id: 'e2',
+        title: t('答疑时间', 'Office hours'),
+        day: '2026-10-06',
+        start: '12:30',
+        end: '13:30',
+        source: 'outlook',
+      },
       {
         id: 'e3',
-        title: 'MATH 6850 Advanced Numerical Methods',
+        title: t('数值分析', 'Numerical Analysis'),
         day: '2026-10-06',
         start: '13:30',
         end: '14:20',
-        location: '105 MLH',
+        location: 'Room 210',
         source: 'outlook',
       },
       {
@@ -210,7 +224,7 @@ async function open(browser, lang, viewport, wide) {
       const { page, context } = await open(browser, lang, { width: 760, height: 1100 }, false);
       await page.getByRole('tab', { name: tr('清单', 'List') }).click();
       await page
-        .locator('.row', { has: page.locator('.tt', { hasText: tr('投 SERRA 论文', 'Submit the SERRA paper') }) })
+        .locator('.row', { has: page.locator('.tt', { hasText: tr('投 Lumen 论文', 'Submit the Lumen paper') }) })
         .locator('.title-btn')
         .click();
       await page.waitForTimeout(500);

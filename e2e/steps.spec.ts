@@ -133,12 +133,6 @@ test('steps come first in an opened task, above its properties and note', async 
   const steps = (await detail.getByRole('group', { name: '步骤' }).boundingBox())!;
   const due = (await detail.getByLabel('截止日期').boundingBox())!;
   expect(steps.y + steps.height).toBeLessThanOrEqual(due.y);
-  await page.screenshot({
-    path:
-      'C:/Users/lzh/AppData/Local/Temp/claude/D--codex-tmp-Documents-ChatGPT-Todo-attention-planner-mcp/191d38e1-ab57-4369-9b56-9f01e6159f87/scratchpad/detail-' +
-      test.info().project.name +
-      '.png',
-  });
 });
 
 test('the step box reads a deadline, an estimate and a repeat, and a tag gives the words back', async ({ page }) => {

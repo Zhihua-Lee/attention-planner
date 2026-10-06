@@ -105,7 +105,7 @@ describe('dates written out', () => {
   it('leaves numbers that are not dates alone', () => {
     expect(p('1560 备课')).toMatchObject({ title: '1560 备课' });
     expect(p('读 2/31 号文件').plan).toBeUndefined();
-    expect(p('MATH 6850 作业').plan).toBeUndefined();
+    expect(p('CS 4200 作业').plan).toBeUndefined();
   });
 });
 

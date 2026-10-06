@@ -132,8 +132,8 @@ test('short events keep a readable title; height matches length; nothing covers 
   const ics = [
     'BEGIN:VCALENDAR',
     ev('a', '20260929T123000', '20260929T133000', 'Math Lab Hour'),
-    ev('b', '20260929T130000', '20260929T133000', 'Research: Diffusion Model and Scientific Computing'),
-    ev('c', '20260929T133000', '20260929T142000', 'MATH:6850:0001 Advanced Numerical Methods I'),
+    ev('b', '20260929T130000', '20260929T133000', 'Research: Sparse Sensing Reading Group'),
+    ev('c', '20260929T133000', '20260929T142000', 'CS:4200:0001 Numerical Analysis I'),
     'END:VCALENDAR',
   ].join('\r\n');
   const chooser = page.waitForEvent('filechooser');
@@ -144,7 +144,7 @@ test('short events keep a readable title; height matches length; nothing covers 
   await agenda.getByRole('button', { name: '日', exact: true }).click();
   expect(await hourPx(page)).toBe(40); // a fixed scale keeps the day an overview
   const box = async (name: string) => (await agenda.locator('.blk.event', { hasText: name }).boundingBox())!;
-  const [lab, research, math] = [await box('Math Lab'), await box('Research'), await box('MATH:6850')];
+  const [lab, research, math] = [await box('Math Lab'), await box('Research'), await box('CS:4200')];
   expect(lab.height).toBeGreaterThan(research.height * 1.8); // an hour is twice half an hour
   expect(research.y + research.height).toBeLessThanOrEqual(math.y + 1); // no covering
   // The half-hour block shows its title and its time, each inside the block.
