@@ -11,4 +11,15 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
-if (import.meta.env.PROD) registerSW({ immediate: true });
+if (import.meta.env.PROD)
+  registerSW({
+    immediate: true,
+    // An app left open (an iPhone home-screen app is rarely started afresh) looks for a new version each time it comes
+    // back to the screen; a new version then takes over at once.
+    onRegisteredSW(_url, registration) {
+      if (!registration) return;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') void registration.update();
+      });
+    },
+  });
