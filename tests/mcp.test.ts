@@ -332,3 +332,23 @@ describe('the long-term goal', () => {
     expect((await call('what_now')).body.long_term_goal).toBeUndefined();
   });
 });
+
+describe('the capture link', () => {
+  it('writes one line down, read like the capture box; reads the line from a query, JSON, a form or plain text', async () => {
+    const { captureLine, lineFrom, hashKey } = await import('../mcp/src/capture');
+    const remote = new MemoryRemote();
+    remote.doc = seed();
+    const ws = new Workspace(remote, TZ, { clock: () => REAL });
+    expect(await captureLine(ws, '周五交表格 1小时')).toBe('交表格');
+    expect(liveTasks(remote.doc!).find((t) => t.title === '交表格')).toMatchObject({ due: '2026-10-02', effort: 60 });
+    expect(await captureLine(ws, '   ')).toBeNull();
+    const at = 'https://todo.example/api/ai/capture?k=x';
+    expect(await lineFrom(new Request(`${at}&text=${encodeURIComponent('买牛奶')}`))).toBe('买牛奶');
+    const post = (body: BodyInit, type: string) =>
+      lineFrom(new Request(at, { method: 'POST', body, headers: { 'Content-Type': type } }));
+    expect(await post(JSON.stringify({ text: 'a' }), 'application/json')).toBe('a');
+    expect(await post(new URLSearchParams({ text: 'b' }), 'application/x-www-form-urlencoded')).toBe('b');
+    expect(await post('c', 'text/plain')).toBe('c');
+    expect(await hashKey('k')).toMatch(/^[0-9a-f]{64}$/);
+  });
+});

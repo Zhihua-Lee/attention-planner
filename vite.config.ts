@@ -21,6 +21,8 @@ export default defineConfig({
         background_color: '#f3f5f1',
         display: 'standalone',
         start_url: '/',
+        // Android: share text from any app into the list (it arrives as `/?title=…&add=…&url=…`).
+        share_target: { action: '/', method: 'GET', params: { title: 'title', text: 'add', url: 'url' } },
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },

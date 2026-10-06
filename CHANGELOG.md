@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.15 — 2026-10-06
+
+- **Dates written out**: the capture box (and the step box, links and AI connections) reads 10月20日, 2027年1月5日,
+  10/20, 2026-10-20, 30号, 月底, 下个月底, 下月初, Oct 20 and 3rd November. Without a year it is the next such day; a day
+  of the month alone is this month's, or next month's once it has passed. Numbers that are not dates stay in the title.
+- **Capture from anywhere**: `/?add=<line>` writes the line down (a bookmark, a launcher, a script); on Android the app
+  is a share target; and Settings → 记录与清单 → 快捷记录 makes a personal link for an iPhone Shortcut (and so Siri) that
+  adds a task without opening the app. The link can only add; a new link or turning it off ends the old one, and the
+  server keeps only a hash of it.
+
 ## 0.2.14 — 2026-10-06
 
 - **Settings in groups**: 常用, 记录与清单, 提醒, 日历, 同步与数据 and AI 连接, with the groups in a column on the left

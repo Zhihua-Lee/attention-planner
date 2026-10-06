@@ -100,6 +100,7 @@ chips under the box, in the order that matters (deadline → when → effort →
 | `明天下午 写周报` · `tomorrow at 7pm call`   | when to do it (a day, a part of it, or a time) |
 | `每天 看邮件` · `every mon and thu gym`      | a repeat that reopens in place                 |
 | `每周五交周报`                               | due next Friday, a new copy every week         |
+| `10月20日` · `10/20` · `月底` · `Oct 20`     | a date written out (the next such day)         |
 
 ### Repeats that maintain themselves
 
@@ -138,6 +139,7 @@ intention.
 | Snooze                  | Replaces "waiting", "someday" and "not before"; a deadline that arrives brings the task back.                                                                                                                                            |
 | Areas and projects      | Group the list; a project can go one task after another (repeating tasks stay out of the queue).                                                                                                                                         |
 | My Day and filters      | ☀ on a row (or `T`, or a swipe on a phone) adds it to today; yesterday’s leftovers are offered, never moved. Filters: today, due this week, with a deadline, important, new, unplanned, snoozed, each area and project — you pick which. |
+| Capture from anywhere   | `todo.onthat.top/?add=…` links and bookmarks, the Android share sheet, and a personal link for an iPhone Shortcut — so “Hey Siri, note it” works without opening the app.                                                                |
 | Search and keyboard     | `/` or `Ctrl+K` searches titles, notes and steps; `N` captures; `Ctrl+Z` undoes anything; `Ctrl+S` syncs.                                                                                                                                |
 | Reminders               | Push notifications on a deadline's day, a step's deadline, before reserved times and when an AI proposes changes, app closed or not.                                                                                                     |
 | Offline and installable | A PWA for iPhone home screens and desktops; data in IndexedDB on the device.                                                                                                                                                             |

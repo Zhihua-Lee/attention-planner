@@ -2098,3 +2098,19 @@ mark {
     border-radius: 999px;
   }
 }
+
+.howto {
+  font-size: 13px;
+  color: var(--muted);
+}
+.howto summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.howto ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

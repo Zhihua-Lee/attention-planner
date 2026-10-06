@@ -10,7 +10,8 @@ import { DriveRemote } from '../../src/store/drive';
 import { brokerTokens, notifyDevices, sessionConnected, sessionOf, type Broker } from './broker';
 import { applyChanges, describeChange } from './changes';
 import { connectionsBody, consentBody, message, page, reviewBody } from './pages';
-import { isExpired, kvProposals } from './proposals';
+import { CAPTURE_CURRENT, CAPTURE_KEY_PREFIX, captureLine, hashKey, lineFrom } from './capture';
+import { isExpired, kvProposals, randomId } from './proposals';
 import { createServer } from './tools';
 import { Workspace } from './workspace';
 
@@ -208,9 +209,58 @@ async function connections(request: Request, env: Env): Promise<Response> {
   );
 }
 
+const plain = (text: string, status = 200) =>
+  new Response(text, {
+    status,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+    },
+  });
+
+/** Make (or turn off) this owner's capture link, from the app (same-origin, signed in). */
+async function captureLink(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'POST') return json({ error: 'Use POST.' }, 405);
+  if (!sameOrigin(request, env)) return json({ error: 'Cross-origin request rejected.' }, 403);
+  const session = sessionOf(request);
+  if (!(await sessionConnected(env.BROKER, env.PUBLIC_ORIGIN, session)))
+    return json({ error: 'Connect sync (sign in to Google) first.' }, 403);
+  const body = (await request.json().catch(() => ({}))) as { off?: boolean };
+  const old = await env.OAUTH_KV.get(CAPTURE_CURRENT);
+  if (old) await env.OAUTH_KV.delete(CAPTURE_KEY_PREFIX + old);
+  if (body.off) {
+    await env.OAUTH_KV.delete(CAPTURE_CURRENT);
+    return json({ url: null }, 200);
+  }
+  const key = randomId(24);
+  const hash = await hashKey(key);
+  await env.OAUTH_KV.put(CAPTURE_KEY_PREFIX + hash, session!);
+  await env.OAUTH_KV.put(CAPTURE_CURRENT, hash);
+  return json({ url: `${env.PUBLIC_ORIGIN}/api/ai/capture?k=${key}` }, 200);
+}
+
+/** Write one line down through the capture link: `?k=<key>&text=…`, or POST the text. */
+async function capture(request: Request, env: Env): Promise<Response> {
+  const key = new URL(request.url).searchParams.get('k') ?? '';
+  const session = /^[A-Za-z0-9_-]{20,64}$/.test(key)
+    ? await env.OAUTH_KV.get(CAPTURE_KEY_PREFIX + (await hashKey(key)))
+    : null;
+  if (!session) return plain('这个快捷记录链接无效或已停用。', 403);
+  const line = await lineFrom(request);
+  try {
+    const title = await captureLine(workspaceFor(env, session), line);
+    return title ? plain(`已记下：${title}`) : plain('没有要记下的内容。', 400);
+  } catch (e) {
+    return plain(e instanceof Error ? e.message : String(e), 502);
+  }
+}
+
 const pages = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/api/ai/capture') return capture(request, env);
+    if (url.pathname === '/api/ai/capture-link') return captureLink(request, env);
     if (url.pathname === '/api/ai/authorize') return authorize(request, env, url);
     if (url.pathname === '/api/ai/resume') {
       const path = await env.OAUTH_KV.get(`ap-resume:${url.searchParams.get('key') ?? ''}`);

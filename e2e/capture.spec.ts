@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { add, openRow, row, start, toList, reloadSaved } from './helpers';
+import { add, openRow, row, start, toList, reloadSaved, T0 } from './helpers';
 
 test('capture recognises a deadline, effort and importance, and saves on Enter', async ({ page }) => {
   await start(page);
@@ -89,4 +89,28 @@ test('a repeat in words: with a deadline a new copy each time, otherwise the tas
   await page.getByRole('button', { name: '收起' }).click();
   const report = await openRow(page, '交周报');
   await expect(report.getByRole('button', { name: /每周五 · 新建一份/ })).toBeVisible();
+});
+
+test('a link writes a line down: /?add=…, read like the capture box', async ({ page }) => {
+  await page.clock.install({ time: T0 });
+  await page.goto('/?add=' + encodeURIComponent('周五交表格 1小时'));
+  await expect(page.locator('.toast')).toContainText('已记下“交表格”');
+  await expect(row(page, '交表格')).toContainText('周五截止');
+  expect(new URL(page.url()).search).toBe('');
+});
+
+test('Settings make a personal capture link and explain Shortcuts', async ({ page }) => {
+  await start(page);
+  await page.route('**/api/ai/capture-link', (route) =>
+    route.fulfill({ json: { url: 'https://todo.onthat.top/api/ai/capture?k=testkeytestkeytestkey1' } }),
+  );
+  await page.getByRole('button', { name: '设置' }).click();
+  const dialog = page.getByRole('dialog', { name: '设置' });
+  await expect(dialog.getByRole('textbox', { name: '记下一句的网址' })).toHaveValue(/\/\?add=$/);
+  const make = dialog.getByRole('button', { name: /生成专属链接/ });
+  await expect(make).toBeVisible();
+  await make.click();
+  await expect(dialog.getByRole('textbox', { name: '专属记录链接' })).toHaveValue(/capture\?k=/);
+  await dialog.getByText('iPhone 快捷指令 / Siri 怎么设').click();
+  await expect(dialog.locator('.howto')).toContainText('获取 URL 内容');
 });

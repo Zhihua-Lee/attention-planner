@@ -18,6 +18,65 @@ const NUM: Record<string, number> = { 两: 2, 二: 2, 三: 3, 四: 4, 五: 5, �
 const count = (s?: string) => (!s ? 1 : /^\d+$/.test(s) ? Math.max(1, +s) : (NUM[s] ?? 1));
 const cnDay = (c: string) => '一二三四五六日'.indexOf(c === '天' ? '日' : c) + 1;
 
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** A real calendar day, or undefined (31 February is not one). */
+function realDay(y: number, mo: number, d: number): Day | undefined {
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return undefined;
+  const date = new Date(y, mo - 1, d);
+  return date.getMonth() === mo - 1 ? `${y}-${pad2(mo)}-${pad2(d)}` : undefined;
+}
+/** A month and day without a year: this year, or next year once this year's has passed. */
+function nextDate(today: Day, mo: number, d: number): Day | undefined {
+  const y = +today.slice(0, 4);
+  const day = realDay(y, mo, d);
+  return day && day >= today ? day : realDay(y + 1, mo, d);
+}
+const lastOfMonth = (y: number, mo: number): Day => `${y}-${pad2(mo)}-${pad2(new Date(y, mo, 0).getDate())}`;
+
+/**
+ * A date written out: 10/20, 2026-10-20, 10月20日, 20号, 月底, 下个月初, Oct 20, 20 October. Without a year it is
+ * the next such day; a day of the month alone is this month's, or next month's once it has passed.
+ */
+function takeAbsoluteDay(
+  take: (re: RegExp) => RegExpMatchArray | null,
+  today: Day,
+): { day: Day; dueWord: boolean; text: string } | undefined {
+  const [ty, tm] = [+today.slice(0, 4), +today.slice(5, 7)];
+  const pre = '(截止|之前|交|due|by)?\\s*';
+  const post = '\\s*(之前|前|截止)?';
+  const found = (m: RegExpMatchArray, day: Day | undefined) =>
+    day ? { day, dueWord: !!(m[1] || m[m.length - 1]), text: m[0].trim() } : undefined;
+  let m: RegExpMatchArray | null;
+  if ((m = take(new RegExp(`${pre}(?:(\\d{4})\\s*年\\s*)?(\\d{1,2})\\s*月\\s*(\\d{1,2})\\s*[日号]?${post}`, 'i'))))
+    return found(m, m[2] ? realDay(+m[2], +m[3], +m[4]) : nextDate(today, +m[3], +m[4]));
+  if ((m = take(new RegExp(`${pre}(?<![\\d/:.])(\\d{4})-(\\d{1,2})-(\\d{1,2})(?![\\d/:])${post}`, 'i'))))
+    return found(m, realDay(+m[2], +m[3], +m[4]));
+  if ((m = take(new RegExp(`${pre}(?<![\\d/:.])(\\d{1,2})/(\\d{1,2})(?![\\d/:])${post}`, 'i'))))
+    return found(m, nextDate(today, +m[2], +m[3]));
+  if ((m = take(new RegExp(`${pre}(本|这个|下个?)?\\s*(月底|月末|月初)${post}`)))) {
+    const next = !!m[2]?.startsWith('下');
+    const [y, mo] = next ? (tm === 12 ? [ty + 1, 1] : [ty, tm + 1]) : [ty, tm];
+    if (m[3] === '月初') {
+      // "月初" alone means the coming first of a month.
+      const first = realDay(y, mo, 1)!;
+      return found(m, first >= today ? first : tm === 12 ? `${ty + 1}-01-01` : realDay(ty, tm + 1, 1));
+    }
+    return found(m, lastOfMonth(y, mo));
+  }
+  if ((m = take(new RegExp(`${pre}(?<![\\d月])(\\d{1,2})\\s*[号日](?![\\d])${post}`)))) {
+    const d = +m[2];
+    const here = realDay(ty, tm, d);
+    return found(m, here && here >= today ? here : tm === 12 ? realDay(ty + 1, 1, d) : realDay(ty, tm + 1, d));
+  }
+  const MON = '(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?';
+  if ((m = take(new RegExp(`\\b(due|by)?\\s*${MON}\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b()`, 'i'))))
+    return found(m, nextDate(today, MONTHS.indexOf(m[2].toLowerCase().slice(0, 3)) + 1, +m[3]));
+  if ((m = take(new RegExp(`\\b(due|by)?\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s+${MON}\\b()`, 'i'))))
+    return found(m, nextDate(today, MONTHS.indexOf(m[3].toLowerCase().slice(0, 3)) + 1, +m[2]));
+  return undefined;
+}
+
 /**
  * A repeat in words, taken out of the text. The rule starts today; the caller moves the start to the task's own day.
  * Chinese: 每天 / 每 3 天 / 每个工作日 / 每周 / 每周一三五 / 每两周 / 每月 / 每月 15 号 / 每年 / 不重复.
@@ -157,6 +216,9 @@ export function parseCapture(input: string, now: Date, { step = false }: { step?
     else day = weekday(EN_DAYS.indexOf(m[4].toLowerCase()) + 1, today, !!m[3]);
     dueWord = !!m[1];
     dayText = m[0].trim();
+  } else {
+    const abs = takeAbsoluteDay(take, today);
+    if (abs) ({ day, dueWord, text: dayText } = abs);
   }
   if (!dueWord && /截止|交|\bdue\b/i.test(rest)) dueWord = !!day || typeof repeat.rule === 'object';
   // "每周五交周报": due on the next Friday.

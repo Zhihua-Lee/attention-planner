@@ -1,5 +1,7 @@
 import { MotionConfig } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import { addTask } from '../model/doc';
+import { taskFromText } from '../model/capture';
 import { store, useStore } from '../store/store';
 import { Icon, ToastHost, toast, useNow } from './common';
 import { NowView } from './NowView';
@@ -58,8 +60,18 @@ export function App() {
     const params = new URLSearchParams(location.search);
     const id = params.get('open');
     const proposal = params.get('proposal');
-    if (!id && !proposal) return;
+    // A line to write down: `/?add=周五交报告` (a bookmark, a shortcut) or the system share sheet (title, text, url).
+    const shared = [params.get('title'), params.get('add'), params.get('url')].filter(Boolean).join(' ').trim();
+    if (!id && !proposal && !shared) return;
     history.replaceState(null, '', location.pathname);
+    if (shared) {
+      const input = taskFromText(shared, new Date());
+      if (input) {
+        store.commit((d, c) => addTask(d, c, input)[0]);
+        setTab('list');
+        toast(t(`已记下“${input.title}”`, `Added “${input.title}”`), () => store.undo());
+      }
+    }
     if (proposal) {
       setTab('list');
       setProposal(proposal);

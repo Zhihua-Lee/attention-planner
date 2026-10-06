@@ -33,6 +33,35 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null);
   const [broker, setBroker] = useState(() => localStorage.getItem('ap:broker') ?? '/api');
   const [checking, setChecking] = useState(false);
+  // The personal capture link is shown on the device that made it (the server keeps only a hash of it).
+  const [captureUrl, setCaptureUrl] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('ap:capture-link');
+    } catch {
+      return null;
+    }
+  });
+  const makeCaptureLink = async (off: boolean) => {
+    try {
+      const res = await fetch('/api/ai/capture-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ off }),
+      });
+      const body = (await res.json()) as { url?: string | null; error?: string };
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setCaptureUrl(body.url ?? null);
+      if (body.url) localStorage.setItem('ap:capture-link', body.url);
+      else localStorage.removeItem('ap:capture-link');
+    } catch (e) {
+      toast(t('没能生成：', 'Could not make it: ') + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+  const copy = (text: string) =>
+    void navigator.clipboard?.writeText(text).then(
+      () => toast(t('已复制', 'Copied')),
+      () => toast(text),
+    );
   const [subName, setSubName] = useState('');
   const [subUrl, setSubUrl] = useState('');
   const [push, setPush] = useState<PushState | 'busy'>('off');
@@ -267,6 +296,75 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     </li>
                   ))}
                 </ul>
+              </section>
+              <section>
+                <h3>{t('快捷记录', 'Quick capture')}</h3>
+                <p className="hint">
+                  {t(
+                    '不打开应用也能记下一句话，规则和输入框一样。',
+                    'Write a line down without opening the app; it is read like the capture box.',
+                  )}
+                </p>
+                <div className="inline">
+                  <input
+                    className="grow"
+                    readOnly
+                    value={`${location.origin}/?add=`}
+                    aria-label={t('记下一句的网址', 'Address that adds a line')}
+                  />
+                  <button className="btn" onClick={() => copy(`${location.origin}/?add=`)}>
+                    {t('复制', 'Copy')}
+                  </button>
+                </div>
+                <p className="hint">
+                  {t(
+                    '在后面接上要记的话，比如 …/?add=周五交报告，可存成书签；安卓上从任何应用“分享”到本应用也行。',
+                    'Follow it with the line, e.g. …/?add=report due fri, and keep it as a bookmark; on Android, share to this app from anywhere.',
+                  )}
+                </p>
+                {captureUrl ? (
+                  <>
+                    <div className="inline">
+                      <input
+                        className="grow"
+                        readOnly
+                        value={captureUrl}
+                        aria-label={t('专属记录链接', 'Personal capture link')}
+                      />
+                      <button className="btn" onClick={() => copy(captureUrl)}>
+                        {t('复制', 'Copy')}
+                      </button>
+                      <button className="btn" onClick={() => void makeCaptureLink(true)}>
+                        {t('停用', 'Turn off')}
+                      </button>
+                    </div>
+                    <details className="howto">
+                      <summary>{t('iPhone 快捷指令 / Siri 怎么设', 'Set it up in iPhone Shortcuts / Siri')}</summary>
+                      <ol>
+                        <li>
+                          {t('快捷指令 → 新建，加“要求输入”（文本）。', 'Shortcuts → new; add “Ask for Input” (text).')}
+                        </li>
+                        <li>
+                          {t(
+                            '加“获取 URL 内容”：网址填上面的专属链接，方法 POST，请求体选“表单”，加一项 text = 提供的输入。',
+                            'Add “Get Contents of URL”: the link above, method POST, request body “Form”, one field text = Provided Input.',
+                          )}
+                        </li>
+                        <li>{t('加“显示结果”，命名为“记一下”。', 'Add “Show Result” and name it “Note it”.')}</li>
+                        <li>
+                          {t(
+                            '之后对 Siri 说“记一下”，或加到主屏幕/锁屏。链接只能新增任务，不能读取；换新链接或停用后旧的立即失效。',
+                            'Then say “Note it” to Siri, or add it to the Home or Lock Screen. The link can only add tasks; a new link, or turning it off, ends the old one.',
+                          )}
+                        </li>
+                      </ol>
+                    </details>
+                  </>
+                ) : (
+                  <button className="btn" onClick={() => void makeCaptureLink(false)}>
+                    {t('生成专属链接（给快捷指令、Siri 用）', 'Make a personal link (for Shortcuts and Siri)')}
+                  </button>
+                )}
               </section>
               <section>
                 <h3>{t('步骤后面的按钮', 'Buttons after each step')}</h3>

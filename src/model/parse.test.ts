@@ -84,3 +84,45 @@ describe('steps', () => {
     expect(parseCapture('每天 喝水', now, { step: true })).toMatchObject({ title: '喝水', repeat: { freq: 'daily' } });
   });
 });
+
+describe('dates written out', () => {
+  const p = (s: string) => parseCapture(s, now); // Tuesday 2026-09-29
+  it('reads month and day in Chinese, numbers and English, this year or next', () => {
+    expect(p('10月20日交论文')).toMatchObject({ title: '交论文', due: '2026-10-20', tokens: { due: '10月20日' } });
+    expect(p('10/20 交论文')).toMatchObject({ title: '交论文', due: '2026-10-20' });
+    expect(p('2027-01-05 体检')).toMatchObject({ title: '体检', plan: { day: '2027-01-05' } });
+    expect(p('9月1日 开学')).toMatchObject({ plan: { day: '2027-09-01' } }); // already passed this year
+    expect(p('paper due Oct 20')).toMatchObject({ title: 'paper', due: '2026-10-20' });
+    expect(p('meet 3rd November')).toMatchObject({ title: 'meet', plan: { day: '2026-11-03' } });
+  });
+  it('reads a day of the month, and the start or end of a month', () => {
+    expect(p('30号 交房租')).toMatchObject({ title: '交房租', due: '2026-09-30' });
+    expect(p('15号 体检')).toMatchObject({ plan: { day: '2026-10-15' } }); // the 15th has passed this month
+    expect(p('月底交报告')).toMatchObject({ title: '交报告', due: '2026-09-30' });
+    expect(p('下个月底 交报告')).toMatchObject({ due: '2026-10-31' });
+    expect(p('下月初 开组会')).toMatchObject({ plan: { day: '2026-10-01' } });
+  });
+  it('leaves numbers that are not dates alone', () => {
+    expect(p('1560 备课')).toMatchObject({ title: '1560 备课' });
+    expect(p('读 2/31 号文件').plan).toBeUndefined();
+    expect(p('MATH 6850 作业').plan).toBeUndefined();
+  });
+});
+
+describe('a task from a line of text', () => {
+  it('matches the capture box', async () => {
+    const { taskFromText } = await import('./capture');
+    expect(taskFromText('周五交表格 2小时 !', now)).toMatchObject({
+      title: '交表格',
+      due: '2026-10-02',
+      effort: 120,
+      star: true,
+    });
+    expect(taskFromText('明天下午3点 打电话', now)).toMatchObject({
+      title: '打电话',
+      plan: [{ day: '2026-09-30', start: '15:00', minutes: 60 }],
+    });
+    expect(taskFromText('每天 看邮件', now)?.repeat).toMatchObject({ mode: 'reopen', rule: { freq: 'daily' } });
+    expect(taskFromText('   ', now)).toBeNull();
+  });
+});
