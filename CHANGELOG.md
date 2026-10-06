@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.16 — 2026-10-06
+
+- **New versions arrive without restarting the app**: an app left open (an iPhone home-screen app is rarely started
+  afresh) looks for a new version each time it comes back to the screen, and a new version takes over at once. Until
+  now it stayed on the old version until it was closed and reopened.
+
 ## 0.2.15 — 2026-10-06
 
 - **Dates written out**: the capture box (and the step box, links and AI connections) reads 10月20日, 2027年1月5日,
