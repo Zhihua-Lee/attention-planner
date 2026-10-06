@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.12 — 2026-10-06
+
+- **A long-term goal**: Settings → 目标 holds your longest-range direction in your own words (Markdown). Nothing is
+  measured. AI connections get it with every "what now" and are asked to keep it in mind when they prioritise, plan
+  and break tasks down. NOW can show its first line at the top, quietly (off by default; tap for the whole text).
+- README: the hands-free loop from a recorded meeting, through the AI and MCP, to approved steps.
+
 ## 0.2.11 — 2026-10-06
 
 - **A notification when an AI proposes changes**: every device with reminders on gets one ("AI 提议了修改"); tapping
