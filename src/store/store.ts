@@ -3,7 +3,14 @@ import { emptyDoc, inRounds, restore, type Ctx } from '../model/doc';
 import { importLegacy, type ImportReport } from '../model/legacyImport';
 import { mergeDocs } from '../model/merge';
 import type { CalendarEvent, Doc } from '../model/types';
-import { brokerStatus, brokerTokens, DriveRemote, readOutlookExport, type TokenSource } from './drive';
+import {
+  brokerStatus,
+  brokerTokens,
+  DriveRemote,
+  prepareOutlookExport,
+  readOutlookExport,
+  type TokenSource,
+} from './drive';
 import { addDays, dayOf } from '../model/dates';
 import { outlookEvents } from '../model/outlook';
 import { parseIcs } from '../model/ics';
@@ -244,6 +251,11 @@ export class Store {
         });
       }
     }
+  }
+
+  /** Make sure the Drive file for the Outlook export exists (see prepareOutlookExport); null without sync. */
+  async prepareOutlook() {
+    return this.tokens ? prepareOutlookExport(this.tokens) : null;
   }
 
   /** Read the Outlook export at most every 10 minutes (or when forced) and show its events on this device. */

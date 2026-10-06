@@ -120,7 +120,7 @@ words: `周五 交初稿 30分钟`.
 ### NOW and the agenda
 
 The one thing to do now, with the reason, the facts that matter and the next step; under it, today's agenda — Outlook
-(via a Google Drive export), subscribed calendars (`.ics` or `webcal://`) and your reserved times — in a fixed-scale
+(via a Google Drive export; see [Outlook setup](docs/outlook-setup.md), in Chinese), subscribed calendars (`.ics` or `webcal://`) and your reserved times — in a fixed-scale
 day that opens at the current time, with overlapping items side by side. Tap empty time to reserve it; the tasks that
 suit that gap are suggested first.
 

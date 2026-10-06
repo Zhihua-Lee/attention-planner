@@ -93,6 +93,21 @@ test('Settings shows the MCP address for AI clients and a link to manage connect
   await expect(dialog.getByRole('link', { name: '管理' })).toHaveAttribute('href', '/api/ai/connections');
 });
 
+test('the Outlook steps are under Settings → Calendar, and ask for sync before the Drive file can be made', async ({
+  page,
+}) => {
+  await start(page);
+  await page.getByRole('button', { name: '设置' }).click();
+  const dialog = page.getByRole('dialog', { name: '设置' });
+  await dialog.getByText('怎么设置 Outlook').click();
+  await expect(dialog.locator('.howto[open] [role="status"]')).toContainText('先在“同步与数据”里连接同步');
+  await expect(dialog.locator('.howto[open] ol li')).toHaveCount(5);
+  await expect(dialog.getByRole('link', { name: '完整步骤（每一步填什么）' })).toHaveAttribute(
+    'href',
+    /docs\/outlook-setup\.md$/,
+  );
+});
+
 /** A document with one task and an AI's pending proposal for it, put straight into this browser's storage. */
 async function seedProposal(page: import('@playwright/test').Page) {
   const doc = {

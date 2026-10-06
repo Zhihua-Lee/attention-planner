@@ -69,6 +69,20 @@ export function Settings({ onClose }: { onClose: () => void }) {
     void pushState().then(setPush);
   }, []);
   const [newGroup, setNewGroup] = useState('');
+  // The Drive file for the Outlook export is made when its setup steps are opened, not before.
+  const [outlookFile, setOutlookFile] = useState<'busy' | 'no-sync' | 'ready' | 'created' | { error: string } | null>(
+    null,
+  );
+  const prepareOutlook = async () => {
+    if (sync.status === 'off') return setOutlookFile('no-sync');
+    setOutlookFile('busy');
+    try {
+      const r = await store.prepareOutlook();
+      setOutlookFile(!r ? 'no-sync' : r.created ? 'created' : 'ready');
+    } catch (e) {
+      setOutlookFile({ error: e instanceof Error ? e.message : String(e) });
+    }
+  };
   useEffect(() => {
     panel.current?.focus();
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -748,16 +762,90 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       {t('刷新', 'Refresh')}
                     </button>
                   </div>
+                ) : sync.status === 'off' ? (
+                  <p className="muted">{t('连接同步后自动读取。', 'Read once sync is connected.')}</p>
                 ) : (
-                  <p className="muted">
-                    {sync.status === 'off'
-                      ? t('连接同步后自动读取。', 'Read once sync is connected.')
-                      : t('Google Drive 里还没有 Outlook 导出。', 'No Outlook export in Google Drive yet.')}
-                  </p>
+                  <div className="inline">
+                    <span className="muted">
+                      {t('Google Drive 里还没有 Outlook 导出。', 'No Outlook export in Google Drive yet.')}
+                    </span>
+                    <button className="btn" onClick={() => void store.refreshCalendar(true)}>
+                      {t('刷新', 'Refresh')}
+                    </button>
+                  </div>
                 )}
                 {calendar.error && (
                   <p className="muted">{t('读取日历失败：', 'Could not read the calendar: ') + calendar.error}</p>
                 )}
+                <details
+                  className="howto"
+                  onToggle={(e) => {
+                    if (e.currentTarget.open) void prepareOutlook();
+                  }}
+                >
+                  <summary>{t('怎么设置 Outlook', 'Set up Outlook')}</summary>
+                  <p role="status">
+                    {outlookFile === 'busy'
+                      ? t('正在检查 Google Drive…', 'Checking Google Drive…')
+                      : outlookFile === 'no-sync'
+                        ? t(
+                            '先在“同步与数据”里连接同步，再回来打开这里。',
+                            'Connect sync under “Sync and data” first, then open this again.',
+                          )
+                        : outlookFile === 'created'
+                          ? t(
+                              '已在你的 Google Drive（我的云端硬盘）里新建 outlook-calendar.json，第 4 步选它。',
+                              'outlook-calendar.json has been made in your Google Drive (My Drive); choose it in step 4.',
+                            )
+                          : outlookFile === 'ready'
+                            ? t(
+                                '你的 Google Drive 里已经有 outlook-calendar.json，第 4 步选它。',
+                                'Your Google Drive already has outlook-calendar.json; choose it in step 4.',
+                              )
+                            : outlookFile
+                              ? t('没能准备文件：', 'Could not prepare the file: ') + outlookFile.error
+                              : ''}
+                  </p>
+                  <ol>
+                    <li>
+                      {t(
+                        '打开 Power Automate（make.powerautomate.com），用学校账号登录，新建“计划的云端流”，每 30 分钟运行一次。',
+                        'Open Power Automate (make.powerautomate.com) with your school account and make a scheduled cloud flow that runs every 30 minutes.',
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        '加 Office 365 Outlook 的“获取事件的日历视图 (V3)”，读前 30 天到后 365 天。它一次最多读 256 条，要分页读完，完整步骤里有现成的写法。',
+                        'Add Office 365 Outlook’s “Get calendar view of events (V3)” for 30 days back to 365 ahead. It returns at most 256 at a time, so read it page by page; the full steps show how.',
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        '加“选择”，每个日程只留 6 项：id、title、start、end、location、allDay。',
+                        'Add “Select” and keep six fields per event: id, title, start, end, location, allDay.',
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        '加 Google Drive 的“更新文件”：文件选 outlook-calendar.json，内容选“选择”的输出。不要用“创建文件”。',
+                        'Add Google Drive’s “Update file”: the file is outlook-calendar.json, the content is the output of Select. Do not use “Create file”.',
+                      )}
+                    </li>
+                    <li>
+                      {t(
+                        '保存，点“测试”跑一次，回到这里点“刷新”。',
+                        'Save, run a test, then come back and press Refresh.',
+                      )}
+                    </li>
+                  </ol>
+                  <a
+                    href="https://github.com/Zhihua-Lee/attention-planner/blob/main/docs/outlook-setup.md"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    {t('完整步骤（每一步填什么）', 'Full steps, with what to fill in')}
+                  </a>
+                </details>
               </section>
               <section>
                 <div className="sec-title">

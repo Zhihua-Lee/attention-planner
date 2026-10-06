@@ -138,3 +138,40 @@ export async function readOutlookExport(
   if (!body.ok) throw new Error(`Google Drive answered ${body.status}.`);
   return body.json();
 }
+
+/**
+ * Make sure the file for the Outlook export exists: a private, empty `outlook-calendar.json` in My Drive, marked so
+ * that `readOutlookExport` finds it. It has to be created here: `drive.file` only reaches files this app made, so one
+ * Power Automate made itself could not be read. The flow then updates this file. Nothing is created when it exists.
+ */
+export async function prepareOutlookExport(
+  token: TokenSource,
+  fetcher: typeof fetch = fetch.bind(globalThis),
+): Promise<{ created: boolean; modified?: string }> {
+  const auth = { Authorization: `Bearer ${await token()}` };
+  const q = encodeURIComponent(
+    "appProperties has { key='attentionPlannerRole' and value='outlookCalendarExport' } and trashed = false",
+  );
+  const list = await fetcher(
+    `https://www.googleapis.com/drive/v3/files?spaces=drive&orderBy=modifiedTime%20desc&pageSize=1&fields=files(id,modifiedTime)&q=${q}`,
+    { headers: auth },
+  );
+  if (!list.ok) throw new Error(`Google Drive answered ${list.status}.`);
+  const found = ((await list.json()) as { files?: { id: string; modifiedTime?: string }[] }).files?.[0];
+  if (found) return { created: false, modified: found.modifiedTime };
+  const boundary = `ap${Math.random().toString(36).slice(2)}`;
+  const part = (json: unknown) =>
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(json)}\r\n`;
+  const meta = {
+    name: 'outlook-calendar.json',
+    mimeType: 'application/json',
+    appProperties: { attentionPlannerRole: 'outlookCalendarExport' },
+  };
+  const made = await fetcher('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { ...auth, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body: part(meta) + part([]) + `--${boundary}--`,
+  });
+  if (!made.ok) throw new Error(`Google Drive answered ${made.status}.`);
+  return { created: true };
+}

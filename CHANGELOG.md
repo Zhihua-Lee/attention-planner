@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.24 — 2026-10-06
+
+- **Outlook setup is in the app again**: Settings → 日历 → Outlook 日历 → “怎么设置 Outlook” lists the Power Automate
+  steps and, when opened with sync connected, makes sure the private `outlook-calendar.json` exists in your Google
+  Drive (creating it only if it is missing). It has to be the app that creates it: its Google permission reaches only
+  files it made itself. `docs/outlook-setup.md` has every step with what to fill in, including reading the calendar
+  page by page past the connector's 256-event limit. Without an export yet, the Outlook part offers Refresh too.
+
 ## 0.2.23 — 2026-10-06
 
 - **Settings explained in plain words, behind ⓘ**: each setting has a short title and an ⓘ beside it that opens what it

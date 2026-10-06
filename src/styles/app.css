@@ -2264,3 +2264,6 @@ mark {
   width: 100%;
   margin: 6px 0 2px;
 }
+.howto a {
+  color: var(--accent);
+}

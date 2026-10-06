@@ -128,6 +128,31 @@ describe('Outlook export in Google Drive', () => {
     files = [{ id: 'f' }];
     expect(await readOutlookExport(async () => 't', fake)).toEqual({ events: [{ subject: 'x' }] });
   });
+
+  it('creates the marked, empty file once, only when there is none', async () => {
+    const { prepareOutlookExport } = await import('./drive');
+    let files: { id: string; modifiedTime?: string }[] = [];
+    const posts: { url: string; type: string; body: string }[] = [];
+    const fake = (async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        posts.push({ url, type: new Headers(init.headers).get('Content-Type')!, body: String(init.body) });
+        files = [{ id: 'new', modifiedTime: '2026-10-06T20:00:00Z' }];
+        return new Response(JSON.stringify({ id: 'new' }));
+      }
+      return new Response(JSON.stringify({ files }));
+    }) as typeof fetch;
+    expect(await prepareOutlookExport(async () => 't', fake)).toEqual({ created: true });
+    expect(posts).toHaveLength(1);
+    expect(posts[0].url).toContain('/upload/drive/v3/files?uploadType=multipart');
+    expect(posts[0].type).toMatch(/^multipart\/related; boundary=/);
+    expect(posts[0].body).toContain('"name":"outlook-calendar.json"');
+    expect(posts[0].body).toContain('"appProperties":{"attentionPlannerRole":"outlookCalendarExport"}');
+    expect(await prepareOutlookExport(async () => 't', fake)).toEqual({
+      created: false,
+      modified: '2026-10-06T20:00:00Z',
+    });
+    expect(posts).toHaveLength(1);
+  });
 });
 
 describe('concurrent text edits', () => {

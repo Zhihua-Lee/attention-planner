@@ -109,7 +109,7 @@
 **日历**
 
 - **点空白时间时推荐任务**：在日程里点空白时间预留时，先列出最适合这段时间的几件任务。默认开。
-- **Outlook 日历**：Outlook 里的日程由 Power Automate 定时导出到你的 Google Drive（`outlook-calendar.json`），连上同步后应用自动读取，最多 10 分钟更新一次，也可以点“刷新”。只读，不会改你的 Outlook。
+- **Outlook 日历**：Outlook 里的日程由 Power Automate 定时导出到你的 Google Drive（`outlook-calendar.json`），连上同步后应用自动读取，最多 10 分钟更新一次，也可以点“刷新”。只读，不会改你的 Outlook。第一次用时点开“怎么设置 Outlook”：应用会在你的 Drive 里准备好这个文件，并列出 Power Automate 的步骤；完整步骤见 [Outlook 设置](outlook-setup.md)。
 - **订阅日历**：粘贴日历的订阅链接（以 `.ics` 结尾或 `webcal://` 开头的网址，比如课表、节假日），每 30 分钟自动更新；订阅会同步到所有设备。
 - **日历文件**：导入一个 `.ics` 日历文件（日历应用“导出”得到的）。只存在这台设备上，不同步，也不会自动更新。
 
