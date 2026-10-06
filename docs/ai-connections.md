@@ -17,6 +17,20 @@
    - 查看任务、日程和“现在做什么”（必选）
    - 直接新建任务；修改已有任务时先发来让你批准
 
+### Claude Code
+
+1. 在终端添加（`--scope user` 表示所有项目都能用）：
+
+   ```bash
+   claude mcp add --scope user --transport http attention-planner https://todo.onthat.top/api/mcp
+   ```
+
+2. 在 Claude Code 里输入 `/mcp`，选 `attention-planner` → Authenticate。浏览器会打开授权页，页面会提示“这会把权限交给你电脑上的一个程序”——这是正常的，Claude Code 在本机接收授权。点“允许”后回到 Claude Code。
+3. 用 `claude mcp list` 查看状态，或直接问“现在该做什么”。
+4. 不想每次确认工具调用：在设置的 `permissions.allow` 里加 `mcp__attention-planner`。
+
+桌面版（Code 标签页）和 VS Code 扩展读的是同一份配置，加一次三处都能用。授权过期或想换账号：在 `/mcp` 里选它 → Re-authenticate 或 Clear authentication。
+
 ## AI 能做什么
 
 | 工具                      | 作用                                                                                        |
