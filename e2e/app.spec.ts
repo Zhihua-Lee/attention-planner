@@ -88,7 +88,7 @@ test('importing a calendar file shows its events in the agenda', async ({ page }
     'END:VCALENDAR',
   ].join('\r\n');
   const chooser = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: '导入 .ics' }).click();
+  await page.getByRole('button', { name: '导入日历文件', exact: true }).click();
   await (await chooser).setFiles({ name: 'cal.ics', mimeType: 'text/calendar', buffer: Buffer.from(ics) });
   await expect(page.locator('.toast')).toContainText('导入了 1 个日程');
   await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();

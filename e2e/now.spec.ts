@@ -90,7 +90,7 @@ test('overlapping events sit side by side; tapping shows details; an empty time 
     'END:VCALENDAR',
   ].join('\r\n');
   const chooser = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: '导入 .ics' }).click();
+  await page.getByRole('button', { name: '导入日历文件', exact: true }).click();
   await (await chooser).setFiles({ name: 'cal.ics', mimeType: 'text/calendar', buffer: Buffer.from(ics) });
   await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
   const agenda = page.getByRole('region', { name: '日程' });
@@ -137,7 +137,7 @@ test('short events keep a readable title; height matches length; nothing covers 
     'END:VCALENDAR',
   ].join('\r\n');
   const chooser = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: '导入 .ics' }).click();
+  await page.getByRole('button', { name: '导入日历文件', exact: true }).click();
   await (await chooser).setFiles({ name: 'cal.ics', mimeType: 'text/calendar', buffer: Buffer.from(ics) });
   await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
   const agenda = page.getByRole('region', { name: '日程' });

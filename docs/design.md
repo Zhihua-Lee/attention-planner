@@ -47,7 +47,7 @@
 ## 同步
 
 - 每条记录（任务、步骤、安排、区域、项目）带版本戳 `{版本号, 时间, 设备}`，按记录合并；删除留“墓碑”记录。
-- Google Drive 上只存一个 JSON 文件，沿用现有的同步中转（OAuth、令牌、推送）。
+- Google Drive 上只存一个 JSON 文件，沿用现有的同步服务（broker：Google 登录、令牌、推送），代码在 `broker/`。
 - 本地改用 IndexedDB，不再用 localStorage（后者大约只有 5 MB 上限）。
 
 ## 旧数据怎么迁

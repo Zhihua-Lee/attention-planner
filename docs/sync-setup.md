@@ -19,7 +19,7 @@ its session cookie is scoped to `/api` on that host. Only one Google account, `A
    - `ALLOWED_EMAIL` — the one Google account that may use it;
    - `TOKEN_ENCRYPTION_KEY` — 32 random bytes, base64url;
    - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` — from `npx web-push generate-vapid-keys`.
-4. `npm run deploy:broker`, then deploy the app on the same host and open Settings → Sync → Connect.
+4. `npm run deploy:broker`, then deploy the app on the same host and open Settings → Sync and data → Connect.
 
 For local work, copy `broker/.dev.vars.example` to `broker/.dev.vars` (never committed).
 

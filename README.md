@@ -150,7 +150,7 @@ intention.
 ## Use it
 
 Open [todo.onthat.top](https://todo.onthat.top), then **Add to Home Screen** on iPhone (iOS 16.4+ for notifications)
-or **Install** in a desktop browser. To sync, open Settings → Sync → Connect and sign in to Google; your data goes to a
+or **Install** in a desktop browser. To sync, open Settings → Sync and data → Connect and sign in to Google; your data goes to a
 hidden app folder in your own Drive. Reminders: Settings → Reminders.
 
 ## Getting started

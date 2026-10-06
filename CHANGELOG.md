@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.23 — 2026-10-06
+
+- **Settings explained in plain words, behind ⓘ**: each setting has a short title and an ⓘ beside it that opens what it
+  does, in everyday words; the long notes under the titles are gone. Jargon is renamed: 同步中转 → 同步服务 (its
+  address now sits under “高级”, since it rarely changes), MCP 地址 → 连接地址, 导入 .ics → 导入日历文件. Reminders and
+  the calendar are split into titled parts (这台设备的通知; Outlook 日历, 订阅日历, 日历文件), and the Outlook part says
+  when no export has been found yet.
+- The user guide's Settings section walks through every group the same way.
+
 ## 0.2.22 — 2026-10-06
 
 - **The sync broker lives here now**: `broker/` is the Cloudflare Worker behind `/api/*` (Google sign-in, the encrypted

@@ -112,7 +112,7 @@
 
 ## 开始使用
 
-打开 [todo.onthat.top](https://todo.onthat.top)，在 iPhone 上“添加到主屏幕”（通知需要 iOS 16.4 及以上），桌面浏览器里点“安装”。同步：设置 → 同步 → 连接，登录 Google；数据存进你自己 Drive 的隐藏应用文件夹。提醒：设置 → 提醒。
+打开 [todo.onthat.top](https://todo.onthat.top)，在 iPhone 上“添加到主屏幕”（通知需要 iOS 16.4 及以上），桌面浏览器里点“安装”。同步：设置 → 同步与数据 → 连接，登录 Google；数据存进你自己 Drive 的隐藏应用文件夹。提醒：设置 → 提醒。
 
 ## 上手
 

@@ -9,7 +9,7 @@ import { brokerStatus, trimSlash } from '../store/drive';
 import { disablePush, enablePush, pushState, testPush, type PushState } from '../store/push';
 import { reminderPrefs } from '../model/reminders';
 import { store, useStore } from '../store/store';
-import { toast } from './common';
+import { Info, toast } from './common';
 import { DEFAULT_STEP_TOOLS } from './StepList';
 import { useT, weekdayShort } from './text';
 
@@ -163,13 +163,23 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <div className="settings-group" id="settings-general" data-group="general">
               <h2 className="group-title">{t('常用', 'General')}</h2>
               <section>
-                <h3>{t('目标', 'Goal')}</h3>
-                <p className="hint">
-                  {t(
-                    '最长远的方向，用你自己的话写。AI 规划和拆分任务时会参照它；不计进度，不催你。',
-                    'Your longest-range direction, in your own words. The AI keeps it in mind when it plans and breaks tasks down; nothing is measured or chased.',
-                  )}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('目标', 'Goal')}</h3>
+                  <Info label={t('目标是什么', 'What the goal is for')}>
+                    <p>
+                      {t(
+                        '写下你最长远的方向，比如这几年最想做成的事、想成为什么样的人。',
+                        'Write down where you are heading in the long run: what you most want to get done in the next few years, or who you want to become.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        'AI 帮你排计划、拆任务时会参考它。它只是方向：不打分、不统计进度，也不会催你。',
+                        'An AI keeps it in mind when it plans or breaks tasks down for you. It is only a direction: nothing is scored, counted or chased.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <textarea
                   className="goal-input"
                   rows={3}
@@ -208,10 +218,18 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 </div>
               </section>
               <section>
-                <h3>{t('可用于做事的时间', 'Working time')}</h3>
-                <p className="hint">
-                  {t('用来计算“截止前时间够不够”和空档。', 'Used to work out free time and whether deadlines fit.')}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('可用于做事的时间', 'Working time')}</h3>
+                  <Info label={t('这段时间用来做什么', 'What working time is for')}>
+                    <p>{t('你一般在哪几天、几点到几点做事。', 'The days and hours you usually work.')}</p>
+                    <p>
+                      {t(
+                        '找空闲时间（“找时间”、日历空白处的推荐）只在这段时间里找；判断“截止前时间还够不够”也只算这段时间。',
+                        'Free time is only looked for inside it (Find time, suggestions in an empty slot), and only these hours count when the app checks whether a deadline still fits.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <div className="inline">
                   <input
                     type="time"
@@ -249,10 +267,23 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <div className="settings-group" id="settings-capture" data-group="capture">
               <h2 className="group-title">{t('记录与清单', 'Capture and list')}</h2>
               <section>
-                <h3>{t('记录时的标签', 'Capture chips')}</h3>
-                <p className="hint">
-                  {t('前排按顺序显示，其余收在“更多”。', 'Shown up front in this order; the rest sit under “More”.')}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('记录时的标签', 'Capture chips')}</h3>
+                  <Info label={t('记录时的标签是什么', 'What capture chips are')}>
+                    <p>
+                      {t(
+                        '输入框下面那排小按钮，比如截止、哪天做、用时，点一下就能给新任务设上。',
+                        'The small buttons under the capture box, such as Due, When and Effort: a tap sets that for the new task.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '这里排在前面的直接显示，按这个顺序；其余的收在“更多”里。',
+                        'The ones listed first here show directly, in this order; the rest sit under “More”.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <ul className="chip-order">
                   {front.map((k, i) => (
                     <li key={k}>
@@ -298,13 +329,37 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 </ul>
               </section>
               <section>
-                <h3>{t('快捷记录', 'Quick capture')}</h3>
-                <p className="hint">
-                  {t(
-                    '不打开应用也能记下一句话，规则和输入框一样。',
-                    'Write a line down without opening the app; it is read like the capture box.',
-                  )}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('快捷记录', 'Quick capture')}</h3>
+                  <Info label={t('快捷记录怎么用', 'How quick capture works')}>
+                    <p>
+                      {t(
+                        '不打开应用也能记下一件事，写法和输入框一样，比如“周五交报告 2小时”。三种方式：',
+                        'Write something down without opening the app, the same way as in the capture box, e.g. “report due fri 2h”. Three ways:',
+                      )}
+                    </p>
+                    <ul>
+                      <li>
+                        {t(
+                          '网址：复制下面的网址，在末尾接上要记的话，比如 …/?add=周五交报告，可以存成书签。',
+                          'An address: copy the one below and add the words at its end, e.g. …/?add=report due fri; it can be a bookmark.',
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          '安卓：在任何应用里点“分享”，选 Attention Planner。',
+                          'Android: in any app, tap Share and choose Attention Planner.',
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          'iPhone：生成专属链接，配合快捷指令或 Siri 用。这个链接只能新增任务，看不到你的清单；换新链接或停用后，旧的马上失效。',
+                          'iPhone: make a personal link and use it with Shortcuts or Siri. It can only add tasks and cannot see your list; a new link, or turning it off, ends the old one at once.',
+                        )}
+                      </li>
+                    </ul>
+                  </Info>
+                </div>
                 <div className="inline">
                   <input
                     className="grow"
@@ -316,12 +371,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     {t('复制', 'Copy')}
                   </button>
                 </div>
-                <p className="hint">
-                  {t(
-                    '在后面接上要记的话，比如 …/?add=周五交报告，可存成书签；安卓上从任何应用“分享”到本应用也行。',
-                    'Follow it with the line, e.g. …/?add=report due fri, and keep it as a bookmark; on Android, share to this app from anywhere.',
-                  )}
-                </p>
                 {captureUrl ? (
                   <>
                     <div className="inline">
@@ -377,13 +426,23 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 )}
               </section>
               <section>
-                <h3>{t('步骤后面的按钮', 'Buttons after each step')}</h3>
-                <p className="hint">
-                  {t(
-                    '拖动排序和删除一直都在；其余按需打开。已经设了的截止、用时、重复会以小标签显示在步骤后面。',
-                    'Dragging and deleting are always there; turn on the rest as you need them. A deadline, estimate or repeat already set shows as a small tag.',
-                  )}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('步骤后面的按钮', 'Buttons after each step')}</h3>
+                  <Info label={t('步骤后面的按钮是什么', 'What the step buttons are')}>
+                    <p>
+                      {t(
+                        '任务里每个步骤后面的小按钮：给步骤设截止、用时、重复，或者把步骤变成单独的任务。',
+                        'The small buttons after each step of a task: give the step a deadline, an estimate or a repeat, or turn it into a task of its own.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '只显示勾上的。拖动排序和删除一直都有；已经设好的截止、用时、重复，不勾也会以小标签显示在步骤后面。',
+                        'Only the ticked ones show. Dragging and deleting are always there, and a deadline, estimate or repeat already set shows as a small tag even when its button is off.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <div className="checks">
                   {(
                     [
@@ -410,13 +469,17 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 </div>
               </section>
               <section>
-                <h3>{t('清单筛选', 'List filters')}</h3>
-                <p className="hint">
-                  {t(
-                    '“全部”一直都在；没有内容的筛选会自动隐藏。',
-                    '"All" is always there; a filter with nothing in it hides itself.',
-                  )}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('清单筛选', 'List filters')}</h3>
+                  <Info label={t('清单筛选是什么', 'What list filters are')}>
+                    <p>
+                      {t(
+                        '清单上方那排筛选按钮，勾上的才显示。“全部”一直都在；某个筛选里暂时没有任务时，它会自动隐藏。',
+                        'The row of filters above the list; only the ticked ones show. “All” is always there, and a filter with nothing in it hides itself for now.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <div className="checks">
                   {(
                     [
@@ -452,7 +515,31 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 </div>
               </section>
               <section>
-                <h3>{t('区域与项目', 'Areas and projects')}</h3>
+                <div className="sec-title">
+                  <h3>{t('区域与项目', 'Areas and projects')}</h3>
+                  <Info label={t('区域和项目有什么不同', 'Areas and projects')}>
+                    <ul>
+                      <li>
+                        {t(
+                          '区域：生活或工作里长期存在的一块，没有终点，比如“科研”“教学”“家务”。',
+                          'An area is a lasting part of life or work with no end, such as Research, Teaching or Home.',
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          '项目：有终点的一件大事，做完就结束，比如“投一篇论文”。',
+                          'A project is a larger piece of work that ends when it is done, such as submitting a paper.',
+                        )}
+                      </li>
+                    </ul>
+                    <p>
+                      {t(
+                        '勾上“按顺序”，这个项目一次只推荐最前面那件没做完的任务，后面的先排队（重复的任务不排队）。删除区域或项目不会删掉里面的任务。',
+                        'With “In order”, a project offers only its earliest unfinished task and the rest wait their turn (repeating tasks never wait). Deleting an area or a project keeps its tasks.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <ul className="groups">
                   {groups.map(({ kind, g }) => (
                     <li key={g.id}>
@@ -515,12 +602,27 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <div className="settings-group" id="settings-reminders" data-group="reminders">
               <h2 className="group-title">{t('提醒', 'Reminders')}</h2>
               <section>
-                <p className="hint">
-                  {t(
-                    '到了截止当天和预留时段开始前，在这台设备上弹通知；应用没打开也会收到。iPhone 要先把应用添加到主屏幕（iOS 16.4 及以上）。',
-                    'Notifications on this device on a deadline’s day and before reserved times, even when the app is closed. On iPhone, add the app to the Home Screen first (iOS 16.4+).',
-                  )}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('这台设备的通知', 'Notifications on this device')}</h3>
+                  <Info label={t('提醒怎么工作', 'How reminders work')}>
+                    <p>
+                      {t(
+                        '到了截止当天、预留时段开始前，这台设备会弹通知，应用关着也能收到。截止设了具体时刻的，提前 1 小时提醒。AI 有新提议时也会通知。',
+                        'This device shows a notification on a deadline’s day and before a reserved time, even with the app closed. A deadline with a time is reminded an hour before. A new AI proposal is announced too.',
+                      )}
+                    </p>
+                    <ul>
+                      <li>{t('要先连接同步（登录 Google）。', 'Connect sync (sign in to Google) first.')}</li>
+                      <li>{t('每台设备分别开启。', 'Turn it on on each device.')}</li>
+                      <li>
+                        {t(
+                          'iPhone 要先把应用添加到主屏幕（iOS 16.4 及以上），再从主屏幕打开。',
+                          'On iPhone, add the app to the Home Screen first (iOS 16.4 or later) and open it from there.',
+                        )}
+                      </li>
+                    </ul>
+                  </Info>
+                </div>
                 <div className="inline">
                   {push === 'on' ? (
                     <>
@@ -602,9 +704,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     </select>
                   </label>
                 </div>
-                <p className="hint">
-                  {t('有具体时刻的截止，会提前 1 小时提醒。', 'A deadline with a time is reminded an hour before.')}
-                </p>
               </section>
             </div>
             <div className="settings-group" id="settings-calendar" data-group="calendar">
@@ -618,23 +717,66 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   />
                   {t('点空白时间时推荐任务', 'Suggest tasks for a tapped free time')}
                 </label>
-                {calendar.source === 'outlook' && (
+              </section>
+              <section>
+                <div className="sec-title">
+                  <h3>{t('Outlook 日历', 'Outlook calendar')}</h3>
+                  <Info label={t('Outlook 日历怎么来的', 'Where the Outlook calendar comes from')}>
+                    <p>
+                      {t(
+                        'Outlook 里的日程由 Power Automate 定时导出到你的 Google Drive（一个叫 outlook-calendar.json 的文件），连上同步后应用会自动读取，最多 10 分钟更新一次。',
+                        'A Power Automate flow copies your Outlook events into your Google Drive (a file called outlook-calendar.json); once sync is connected the app reads it, at most every 10 minutes.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '只读：应用不会改动你的 Outlook。只读取标题、时间、地点，不读正文和参会人。',
+                        'Read only: the app never changes your Outlook. Only titles, times and places are read, not descriptions or attendees.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
+                {calendar.source === 'outlook' ? (
                   <div className="inline">
                     <span>
-                      {t('Outlook（经 Google Drive）', 'Outlook (via Google Drive)')} ·{' '}
                       {t(
                         `更新于 ${new Date(calendar.at!).toLocaleTimeString()}`,
-                        `updated ${new Date(calendar.at!).toLocaleTimeString()}`,
+                        `Updated ${new Date(calendar.at!).toLocaleTimeString()}`,
                       )}
                     </span>
                     <button className="btn" onClick={() => void store.refreshCalendar(true)}>
                       {t('刷新', 'Refresh')}
                     </button>
                   </div>
+                ) : (
+                  <p className="muted">
+                    {sync.status === 'off'
+                      ? t('连接同步后自动读取。', 'Read once sync is connected.')
+                      : t('Google Drive 里还没有 Outlook 导出。', 'No Outlook export in Google Drive yet.')}
+                  </p>
                 )}
                 {calendar.error && (
                   <p className="muted">{t('读取日历失败：', 'Could not read the calendar: ') + calendar.error}</p>
                 )}
+              </section>
+              <section>
+                <div className="sec-title">
+                  <h3>{t('订阅日历', 'Subscribed calendars')}</h3>
+                  <Info label={t('订阅日历是什么', 'What a subscribed calendar is')}>
+                    <p>
+                      {t(
+                        '很多日历（课表、节假日、别的日历应用）能给出一个“订阅链接”：以 .ics 结尾，或以 webcal:// 开头的网址。粘贴到这里，日程就会显示在 NOW 的日程里。',
+                        'Many calendars (class timetables, holidays, other calendar apps) offer a subscription link: an address ending in .ics or starting with webcal://. Paste it here and its events show in NOW.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '每 30 分钟自动更新；订阅会同步，每台设备都能看到。',
+                        'It refreshes every 30 minutes, and the subscription syncs to all your devices.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <div className="subs">
                   {(s.calendars ?? []).map((c) => (
                     <div key={c.id} className="sub-row">
@@ -672,7 +814,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       className="grow"
                       value={subUrl}
                       onChange={(e) => setSubUrl(e.target.value)}
-                      placeholder="https://… .ics / webcal://…"
+                      placeholder={t('订阅链接：https://….ics 或 webcal://…', 'Link: https://….ics or webcal://…')}
                       aria-label={t('日历订阅地址', 'Calendar address')}
                     />
                     <button
@@ -699,19 +841,26 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       </button>
                     )}
                   </div>
-                  <p className="hint">
-                    {t(
-                      '填日历的订阅链接（.ics 或 webcal），每 30 分钟自动更新。',
-                      'Paste a calendar subscription link (.ics or webcal); it refreshes every 30 minutes.',
-                    )}
-                  </p>
                 </div>
-                <p className="hint">
-                  {t(
-                    '导入 .ics 文件，在 NOW 的日程里显示（只存在这台设备上）。',
-                    'Import an .ics file to show its events in NOW (kept on this device only).',
-                  )}
-                </p>
+              </section>
+              <section>
+                <div className="sec-title">
+                  <h3>{t('日历文件', 'Calendar file')}</h3>
+                  <Info label={t('导入日历文件是什么', 'What importing a calendar file does')}>
+                    <p>
+                      {t(
+                        '从这台设备选一个日历文件（.ics，日历应用“导出”得到的），里面的日程会显示在 NOW 的日程里。',
+                        'Choose a calendar file (.ics, what a calendar app’s Export gives you) from this device; its events show in NOW.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '只存在这台设备上：不同步，也不会自动更新。要一直更新的日历，用上面的订阅。',
+                        'It stays on this device: it does not sync or refresh. For a calendar that keeps up to date, subscribe above.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <div className="inline">
                   <button
                     className="btn"
@@ -724,7 +873,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       })
                     }
                   >
-                    {t('导入 .ics', 'Import .ics')}
+                    {t('导入日历文件', 'Import a calendar file')}
                   </button>
                   {fileEvents ? (
                     <button className="btn" onClick={() => store.setEvents('file', [])}>
@@ -738,21 +887,30 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <div className="settings-group" id="settings-sync" data-group="sync">
               <h2 className="group-title">{t('同步与数据', 'Sync and data')}</h2>
               <section>
-                <h3>{t('同步', 'Sync')}</h3>
-                <p className="hint">
-                  {t(
-                    '通过同步中转连接 Google Drive；数据存进新文件 attention-planner-v3.json，不会改动旧应用的数据。',
-                    'Connects Google Drive through the sync broker; data goes to a new file, attention-planner-v3.json, and the previous app’s data is never changed.',
-                  )}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('同步', 'Sync')}</h3>
+                  <Info label={t('同步怎么工作', 'How sync works')}>
+                    <p>
+                      {t(
+                        '用你自己的 Google Drive 在手机、电脑之间同步任务。点“连接”会跳到 Google 登录，登录后回到这里。',
+                        'Your own Google Drive keeps your phone and computers in step. Connect takes you to Google’s sign-in and back here.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '任务存在 Drive 里一个隐藏的应用文件夹，别人看不到，你在 Drive 网页上也看不到。应用只能读写它自己建的文件，看不到你 Drive 里的其他东西。',
+                        'Tasks live in a hidden app folder in Drive that nobody else can see, nor can you on the Drive website. The app can only read and write files it made itself, nothing else in your Drive.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '两台设备改了同一个任务的不同地方，两边的改动都会保留；同时改了同一段文字，会让你选留哪个。',
+                        'Edits to different parts of the same task on two devices are both kept; if both changed the same text, you choose which to keep.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <div className="inline">
-                  <input
-                    className="grow"
-                    value={broker}
-                    onChange={(e) => setBroker(e.target.value)}
-                    placeholder="https://…/api"
-                    aria-label={t('同步中转地址', 'Sync broker address')}
-                  />
                   {sync.status === 'off' ? (
                     <button
                       className="btn"
@@ -768,7 +926,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                           return;
                         }
                         if (status === 'unavailable') {
-                          toast(t('这个地址上没有同步中转。', 'No sync broker answers at that address.'));
+                          toast(t('这个地址上没有同步服务。', 'No sync service answers at that address.'));
                           return;
                         }
                         localStorage.setItem('ap:broker', base);
@@ -810,9 +968,45 @@ export function Settings({ onClose }: { onClose: () => void }) {
                             )
                           : t('已连接', 'Connected')}
                 </p>
+                {sync.status === 'off' && (
+                  <details className="advanced">
+                    <summary>{t('高级：同步服务地址', 'Advanced: sync service address')}</summary>
+                    <input
+                      className="grow"
+                      value={broker}
+                      onChange={(e) => setBroker(e.target.value)}
+                      placeholder="https://…/api"
+                      aria-label={t('同步服务地址', 'Sync service address')}
+                    />
+                    <p className="muted">
+                      {t(
+                        '一般不用改。只有自己部署了同步服务，才填它的地址。',
+                        'Leave it as it is, unless you run your own sync service; then put its address here.',
+                      )}
+                    </p>
+                  </details>
+                )}
               </section>
               <section>
-                <h3>{t('数据', 'Data')}</h3>
+                <div className="sec-title">
+                  <h3>{t('数据', 'Data')}</h3>
+                  <Info label={t('导出和导入', 'Export and import')}>
+                    <ul>
+                      <li>
+                        {t(
+                          '导出备份：把全部任务、区域、项目和设置存成一个文件（.json），自己留着以防万一。',
+                          'Export a backup: saves all tasks, areas, projects and settings in one file (.json) for you to keep.',
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          '导入旧应用数据：把以前那版 Attention Planner 导出的文件搬进来，和现有任务放在一起；导入后可以撤销。',
+                          'Import from the previous app: brings in a file exported from the earlier Attention Planner, next to what is here; it can be undone.',
+                        )}
+                      </li>
+                    </ul>
+                  </Info>
+                </div>
                 <div className="inline">
                   <button
                     className="btn"
@@ -865,31 +1059,66 @@ export function Settings({ onClose }: { onClose: () => void }) {
             <div className="settings-group" id="settings-ai" data-group="ai">
               <h2 className="group-title">{t('AI 连接', 'AI connections')}</h2>
               <section>
-                <p className="hint">
-                  {t(
-                    '在 ChatGPT、Claude 等 AI 客户端里添加下面的 MCP 地址。AI 可以查看任务；它的新建和修改要你批准。',
-                    'Add this MCP address in an AI client such as ChatGPT or Claude. It can read your tasks; what it adds or changes waits for your approval.',
-                  )}
-                </p>
+                <div className="sec-title">
+                  <h3>{t('连接地址', 'Connection address')}</h3>
+                  <Info label={t('怎么连接 AI 助手', 'How to connect an AI assistant')}>
+                    <p>
+                      {t(
+                        '让 ChatGPT、Claude 等 AI 助手查看你的清单和日程，帮你安排、拆分任务。',
+                        'Lets an AI assistant such as ChatGPT or Claude see your list and agenda, and help you plan and break tasks down.',
+                      )}
+                    </p>
+                    <ol>
+                      <li>
+                        {t(
+                          '在 AI 应用里找到“添加连接器”或“MCP 服务器”，填下面的地址。',
+                          'In the AI app, find “Add connector” or “MCP server” and enter the address below.',
+                        )}
+                      </li>
+                      <li>
+                        {t(
+                          '它会打开一个网页，登录 Google 后点“允许”。',
+                          'It opens a page; sign in to Google and choose Allow.',
+                        )}
+                      </li>
+                    </ol>
+                    <p>
+                      {t(
+                        'AI 新建或修改任务，都会先变成“提议”出现在清单顶部，你批准后才生效（可以撤销）。“管理”里能看到、断开已连接的 AI。',
+                        'Whatever an AI adds or changes first appears as a proposal at the top of the list and only takes effect when you approve it (and can be undone). Manage shows the connected AIs and lets you disconnect them.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
                 <div className="inline">
                   <input
                     className="grow"
                     readOnly
                     value={`${location.origin}/api/mcp`}
-                    aria-label={t('MCP 地址', 'MCP address')}
+                    aria-label={t('连接地址（MCP）', 'Connection address (MCP)')}
                   />
                   <a className="btn" href="/api/ai/connections" target="_blank" rel="noopener">
                     {t('管理', 'Manage')}
                   </a>
                 </div>
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    checked={!!s.aiAddsDirectly}
-                    onChange={(e) => set({ aiAddsDirectly: e.target.checked })}
-                  />
-                  {t('AI 新建任务无需批准', 'Save tasks the AI adds without approval')}
-                </label>
+                <div className="sec-title">
+                  <label className="check-row">
+                    <input
+                      type="checkbox"
+                      checked={!!s.aiAddsDirectly}
+                      onChange={(e) => set({ aiAddsDirectly: e.target.checked })}
+                    />
+                    {t('AI 新建任务无需批准', 'Save tasks the AI adds without approval')}
+                  </label>
+                  <Info label={t('无需批准是什么意思', 'What saving without approval means')}>
+                    <p>
+                      {t(
+                        '勾上后，AI 新建的任务直接保存，不再等你批准。修改、完成或删除已有任务，仍然一定要你批准。',
+                        'When ticked, tasks an AI adds are saved at once. Changing, completing or deleting an existing task always waits for your approval.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
               </section>
             </div>
             <footer className="muted">Attention Planner {__APP_VERSION__}</footer>

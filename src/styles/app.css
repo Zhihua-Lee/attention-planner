@@ -2120,7 +2120,7 @@ mark {
   align-items: center;
   flex: none;
 }
-.filters .info {
+.info {
   color: var(--muted);
   font-size: 13px;
   padding: 2px 4px;
@@ -2134,7 +2134,8 @@ mark {
 .info-text p {
   margin: 0 0 4px;
 }
-.info-text ul {
+.info-text ul,
+.info-text ol {
   margin: 0 0 6px;
   padding-left: 18px;
 }
@@ -2244,4 +2245,22 @@ mark {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+/* an ⓘ after a settings title or option */
+/* a settings title (or option) with its ⓘ beside it, outside the title so it does not become part of its name */
+.sec-title {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.advanced {
+  font-size: 13px;
+  color: var(--muted);
+}
+.advanced summary {
+  cursor: pointer;
+}
+.advanced input {
+  width: 100%;
+  margin: 6px 0 2px;
 }

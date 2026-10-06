@@ -132,6 +132,32 @@ export function Popover({
   );
 }
 
+/** A small ⓘ beside a title that opens an explanation in plain words. */
+export function Info({ label, children }: { label: string; children: ReactNode }) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  return (
+    <>
+      <button
+        type="button"
+        className="info"
+        aria-label={label}
+        aria-expanded={!!anchor}
+        onClick={(e) => {
+          const el = e.currentTarget;
+          setAnchor((a) => (a ? null : el));
+        }}
+      >
+        ⓘ
+      </button>
+      {anchor && (
+        <Popover anchor={anchor} onClose={() => setAnchor(null)} label={label}>
+          <div className="info-text">{children}</div>
+        </Popover>
+      )}
+    </>
+  );
+}
+
 /** Track which control opened a popover. */
 export function usePopover<K extends string>() {
   const [open, setOpen] = useState<{ key: K; el: HTMLElement } | null>(null);

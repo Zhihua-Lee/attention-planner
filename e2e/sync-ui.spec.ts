@@ -89,7 +89,7 @@ test('Settings shows the MCP address for AI clients and a link to manage connect
   await start(page);
   await page.getByRole('button', { name: '设置' }).click();
   const dialog = page.getByRole('dialog', { name: '设置' });
-  await expect(dialog.getByRole('textbox', { name: 'MCP 地址' })).toHaveValue(/\/api\/mcp$/);
+  await expect(dialog.getByRole('textbox', { name: '连接地址（MCP）' })).toHaveValue(/\/api\/mcp$/);
   await expect(dialog.getByRole('link', { name: '管理' })).toHaveAttribute('href', '/api/ai/connections');
 });
 
