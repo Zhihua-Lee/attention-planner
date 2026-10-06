@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.9 — 2026-10-06
+
+- **AI connections can do what the app does**: tasks show what they are linked to and what links to them; a new task
+  can be linked and given an explicit repeat; proposals can also edit, remove or promote steps, move a plan, link or
+  unlink, set or stop a repeat, rename a project or set it to go one after another, and rename an area. A proposal is
+  tried on a copy first, so a wrong id is reported when it is made. The review page words each of these.
+
 ## 0.2.8 — 2026-10-06
 
 - **Fix: Claude Code could only read**: it asks for the permissions the server lists as required, which were reading

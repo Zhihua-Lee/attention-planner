@@ -206,3 +206,74 @@ describe('add_task repeats', () => {
     expect(byTitle('看邮件').repeat).toMatchObject({ mode: 'reopen', rule: { freq: 'daily', every: 1 } });
   });
 });
+
+describe('the full set of operations', () => {
+  it('reads and makes links; adds a task with an explicit repeat', async () => {
+    const remote = new MemoryRemote();
+    remote.doc = seed();
+    const { call } = await connect(remote);
+    const paper = liveTasks(remote.doc).find((x) => x.title === '交论文')!;
+    const res = await call('add_task', {
+      text: '画图',
+      link_to: paper.id,
+      repeat: { mode: 'reopen', rule: { freq: 'weekly', weekdays: [1, 3] } },
+    });
+    expect(res.body.task).toMatchObject({ linked_to: { id: paper.id, title: '交论文' } });
+    const fig = liveTasks(remote.doc!).find((x) => x.title === '画图')!;
+    expect(fig.repeat).toMatchObject({ mode: 'reopen', rule: { freq: 'weekly', weekdays: [1, 3], every: 1 } });
+    const back = await call('get_task', { id: paper.id });
+    expect(back.body.linked_here).toEqual([{ id: fig.id, title: '画图' }]);
+    expect((await call('add_task', { text: 'x', link_to: 'nope' })).error).toBe(true);
+  });
+
+  it('proposes and applies step, plan, link, repeat and project changes, with words for each', async () => {
+    const { addStep, addPlan, addProject } = await import('../src/model/doc');
+    const remote = new MemoryRemote();
+    let d = seed();
+    const paper = liveTasks(d).find((x) => x.title === '交论文')!;
+    const mail = liveTasks(d).find((x) => x.title === '回邮件')!;
+    d = addStep(d, wallCtx(), paper.id, '写摘要');
+    d = addStep(d, wallCtx(), paper.id, '画图');
+    d = addPlan(d, wallCtx(), paper.id, { day: '2026-09-30', part: 'am' });
+    [d] = addProject(d, wallCtx(), '论文');
+    remote.doc = d;
+    const [abstract, figure] = liveTasks(d).find((x) => x.id === paper.id)!.steps;
+    const plan = d.tasks[paper.id].plan[0];
+    const changes: Change[] = [
+      { type: 'edit_step', task_id: paper.id, step_id: abstract.id, due: '2026-10-01', effort_minutes: 45 },
+      { type: 'promote_step', task_id: paper.id, step_id: figure.id },
+      { type: 'move_plan', task_id: paper.id, plan_id: plan.id, start: '14:00', minutes: 60 },
+      { type: 'link', task_id: mail.id, to: paper.id },
+      { type: 'set_repeat', task_id: mail.id, repeat: { mode: 'reopen', rule: { freq: 'daily' } } },
+      { type: 'update_project', project: '论文', name: '毕业论文', one_after_another: true },
+    ];
+    const zh = (a: string) => a;
+    expect(changes.map((c) => describeChange(d, c, zh))).toEqual([
+      '修改 「交论文」 的步骤 「写摘要」：截止：无 → 10/1（周四）；用时：无 → 45 分钟',
+      '把 「交论文」 的步骤 「画图」 独立成任务',
+      '把 「交论文」 的安排从 9/30（周三） 上午 改到 9/30（周三） 14:00，1 小时',
+      '把 「回邮件」 关联到「交论文」',
+      '「回邮件」 改为重复：每天，原地重开',
+      '项目 「论文」：改名为「毕业论文」；按顺序做',
+    ]);
+    const after = applyChanges(d, wallCtx(), changes);
+    const p = after.tasks[paper.id];
+    expect(p.steps.find((s) => s.id === abstract.id)).toMatchObject({ due: '2026-10-01', effort: 45 });
+    expect(p.steps.find((s) => s.id === figure.id)!.deleted).toBe(true);
+    expect(liveTasks(after).some((t) => t.title === '画图' && t.linkTo === paper.id)).toBe(true);
+    expect(p.plan[0]).toMatchObject({ day: '2026-09-30', start: '14:00', minutes: 60 });
+    expect(p.plan[0].part).toBeUndefined();
+    expect(after.tasks[mail.id]).toMatchObject({
+      linkTo: paper.id,
+      repeat: { mode: 'reopen', rule: { freq: 'daily' } },
+    });
+    expect(Object.values(after.projects)[0]).toMatchObject({ name: '毕业论文', sequential: true });
+    // A wrong id is reported when proposing, not on approval.
+    const { call } = await connect(remote);
+    const bad = await call('propose_changes', {
+      summary: 'x',
+      changes: [{ type: 'remove_step', task_id: paper.id, step_id: 'nope' }],
+    });
+    expect(bad).toMatchObject({ error: true, raw: 'There is no step nope.' });
+  });
+});
