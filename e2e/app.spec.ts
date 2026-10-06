@@ -182,3 +182,20 @@ test('web-page shortcuts are taken over: Ctrl+S syncs instead of saving the page
   await page.keyboard.press('Control+f');
   await expect(page.getByRole('dialog', { name: /搜索/ })).toBeVisible();
 });
+
+test('the goal is written in Settings and shows on NOW only when turned on', async ({ page }) => {
+  await start(page);
+  await page.getByRole('button', { name: '设置' }).click();
+  const dialog = page.getByRole('dialog', { name: '设置' });
+  await dialog.getByRole('textbox', { name: '目标' }).fill('# 做出能被用起来的科研\n身体健康地读完博士');
+  await dialog.getByRole('textbox', { name: '目标' }).blur();
+  await dialog.getByRole('button', { name: '完成' }).click();
+  await expect(page.getByRole('button', { name: '目标' })).toHaveCount(0); // off unless turned on
+  await page.getByRole('button', { name: '设置' }).click();
+  await dialog.getByRole('checkbox', { name: '在 NOW 顶部显示' }).check();
+  await dialog.getByRole('button', { name: '完成' }).click();
+  const goal = page.getByRole('button', { name: '目标' });
+  await expect(goal).toHaveText('做出能被用起来的科研');
+  await goal.click();
+  await expect(goal).toContainText('身体健康地读完博士');
+});

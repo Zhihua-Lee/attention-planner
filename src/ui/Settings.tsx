@@ -89,6 +89,34 @@ export function Settings({ onClose }: { onClose: () => void }) {
         </header>
 
         <section>
+          <h3>{t('目标', 'Goal')}</h3>
+          <p className="hint">
+            {t(
+              '最长远的方向，用你自己的话写。AI 规划和拆分任务时会参照它；不计进度，不催你。',
+              'Your longest-range direction, in your own words. The AI keeps it in mind when it plans and breaks tasks down; nothing is measured or chased.',
+            )}
+          </p>
+          <textarea
+            className="goal-input"
+            rows={3}
+            defaultValue={s.goal ?? ''}
+            aria-label={t('目标', 'Goal')}
+            placeholder={t(
+              '比如：做出能被用起来的科研；身体健康地读完博士',
+              'e.g. Research that gets used; finish the PhD in good health',
+            )}
+            onBlur={(e) => {
+              const goal = e.target.value.trim() ? e.target.value : undefined;
+              if (goal !== s.goal) set({ goal });
+            }}
+          />
+          <label className="check-row">
+            <input type="checkbox" checked={!!s.showGoal} onChange={(e) => set({ showGoal: e.target.checked })} />
+            {t('在 NOW 顶部显示', 'Show at the top of NOW')}
+          </label>
+        </section>
+
+        <section>
           <h3>{t('外观与语言', 'Look and language')}</h3>
           <div className="seg" role="radiogroup" aria-label={t('主题', 'Theme')}>
             {(['system', 'light', 'dark'] as const).map((k) => (

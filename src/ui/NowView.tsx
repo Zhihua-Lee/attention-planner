@@ -17,6 +17,7 @@ export function NowView({ now, open }: { now: Date; open: (id: string) => void }
   const { doc } = useStore();
   const { t, lang } = useT();
   const [skip, setSkip] = useState(0);
+  const [goalOpen, setGoalOpen] = useState(false);
   const today = dayOf(now);
   const event = currentEvent(doc, now);
   const all = nowCandidates(doc, now);
@@ -139,8 +140,24 @@ export function NowView({ now, open }: { now: Date; open: (id: string) => void }
     );
   }
 
+  // The goal, if the owner chose to see it here: its first line, quietly; tap for the whole text.
+  const goal = doc.settings.showGoal ? doc.settings.goal?.trim() : undefined;
+  const goalLine = goal
+    ?.split('\n')
+    .map((l) => l.replace(/^[#>*\-\s]+/, '').trim())
+    .find(Boolean);
   return (
     <div className="stack">
+      {goal && goalLine && (
+        <button
+          className={`goal${goalOpen ? ' open' : ''}`}
+          aria-expanded={goalOpen}
+          aria-label={t('目标', 'Goal')}
+          onClick={() => setGoalOpen((v) => !v)}
+        >
+          {goalOpen ? goal : goalLine}
+        </button>
+      )}
       <AnimatePresence mode="wait" initial={false}>
         <motion.section
           key={event?.id ?? pick?.task.id ?? 'none'}

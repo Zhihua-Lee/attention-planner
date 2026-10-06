@@ -1909,3 +1909,29 @@ mark {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* the goal: one quiet line at the top of NOW, the whole text on a tap */
+.goal {
+  text-align: left;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.goal.open {
+  white-space: pre-wrap;
+}
+.goal-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 6px 8px;
+  font: 14px/1.6 var(--font-body);
+  color: var(--ink);
+  resize: vertical;
+}

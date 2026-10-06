@@ -62,7 +62,9 @@ remembers, orders and reminds. Every unfinished task is in one list. A task may 
 part of a day, or a reserved time), an effort estimate, an "important" star, a snooze (until a day, with a reason),
 steps (each with its own deadline, estimate and repeat), a repeat (reopen in place, or a new copy each time), an area
 or project, and a link to another task it belongs with. Projects can be done one task after another. "what_now"
-answers what to do at this moment; "find_time" finds free working time for a task. Days are YYYY-MM-DD and times HH:MM in the owner's
+answers what to do at this moment and also returns the owner's long-term goal, when they wrote one: treat it as the
+longest-range context when you prioritise, plan or break tasks down, and say so when a proposal does not serve it.
+"find_time" finds free working time for a task. Days are YYYY-MM-DD and times HH:MM in the owner's
 time zone. New tasks are saved at once. Changes to existing tasks are proposals: the owner approves them in the browser,
 so give them the review link that propose_changes returns, and do not claim a change is made until get_proposal says so.`;
 
@@ -210,6 +212,7 @@ export function createServer(c: ToolContext): McpServer {
       const short = capacity(withEvents, now);
       return text(
         clean({
+          long_term_goal: doc.settings.goal?.trim() || undefined,
           now: `${today} ${timeOf(m)} (${WEEK[isoWeekday(today) - 1]}, ${ws.timeZone})`,
           in_event_now: current && eventWords(current),
           next_event: next && eventWords(next),

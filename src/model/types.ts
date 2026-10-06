@@ -158,6 +158,10 @@ export type Settings = {
   stepTools?: StepTool[];
   /** Tapping a free time on the calendar suggests tasks for it (on unless turned off). */
   slotSuggestions?: boolean;
+  /** The owner's long-term goal, in their own words (Markdown): the longest context, for the AI and, if shown, NOW. */
+  goal?: string;
+  /** Show the goal's first line at the top of NOW (off unless turned on). */
+  showGoal?: boolean;
   /** Filters shown above the list; all of them when unset. */
   filters?: FilterChip[];
   theme: 'system' | 'light' | 'dark';

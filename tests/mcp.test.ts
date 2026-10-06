@@ -321,3 +321,14 @@ describe('notifying the owner', () => {
     expect(sent).toEqual([JSON.parse(res.content[0].text).proposal_id]);
   });
 });
+
+describe('the long-term goal', () => {
+  it('what_now gives the AI the goal when there is one', async () => {
+    const remote = new MemoryRemote();
+    remote.doc = setSettings(seed(), wallCtx(), { goal: '做出能被用起来的科研\n身体健康地读完博士' });
+    const { call } = await connect(remote);
+    expect((await call('what_now')).body.long_term_goal).toBe('做出能被用起来的科研\n身体健康地读完博士');
+    remote.doc = setSettings(remote.doc!, wallCtx(), { goal: undefined });
+    expect((await call('what_now')).body.long_term_goal).toBeUndefined();
+  });
+});
