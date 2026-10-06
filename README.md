@@ -46,6 +46,10 @@ whatever you are working on, the AI can draft tasks and break a big, vague one i
 approve in the app. For anyone who stalls in front of a task that is too large and too abstract (hello, ADHD and
 procrastination), the thinking-it-into-steps part is no longer yours to do; you only follow the next step.
 
+Since most AI assistants take voice, the whole chain can run without typing: the AI listens to a meeting or a
+conversation, calls the MCP tools, and the action items arrive in your list already broken into steps, with deadlines
+and estimates — waiting for one tap.
+
 **Yours, and private.** Data lives on your devices and in your own Google Drive's hidden app folder. Edits from two
 devices merge field by field; concurrent edits to the same text keep both versions until you choose. The push service
 only ever sees an opaque id and a time.
@@ -62,9 +66,12 @@ only ever sees an opaque id and a time.
    ```
 
 2. Allow it in the browser page that opens: reading, and (if you want) adding tasks and proposing changes.
-3. Talk to it. New tasks are saved at once; changes to existing ones arrive as a proposal: the list shows "AI 提议",
-   the affected task shows before → after, your devices get a notification, and one tap approves (undoable) or
-   rejects.
+3. Talk to it — typing, or by voice in an assistant that listens. New tasks are saved at once; changes to existing
+   ones arrive as a proposal: the list shows "AI 提议", the affected task shows before → after, your devices get a
+   notification, and one tap approves (undoable) or rejects.
+
+The hands-free loop: **record a meeting or talk it through → the AI turns it into tasks and steps over MCP → you
+approve on your phone → NOW tells you the first step.**
 
 Things to ask:
 
