@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.27 — 2026-10-06
+
+- **A checked step stays checked**: three ways a check could come undone are closed.
+  - Merging two devices took a step whole from whichever side touched it last, so renaming or moving a step on a device
+    that had not yet seen a check undid the check. A step now records when it was checked or unchecked, and merging
+    takes its done state from the side checked last and the rest from the side edited last.
+  - Giving a checked step a rhythm of its own (say, 6 weeks after done) made it look never done; it now stays checked,
+    from now, and an open one stays open.
+  - The first-open import of the previous app's data stamped everything as new, so on a fresh device (a home-screen app
+    has storage of its own) it could undo newer edits from other devices. Imported records now carry the oldest
+    possible stamp and are skipped when already here; a step on its own rhythm that was done there comes over as done
+    when it was.
+
 ## 0.2.26 — 2026-10-06
 
 - The AI tools show, for a step with a rhythm of its own, when it was last done and when it opens again, and for every

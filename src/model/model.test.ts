@@ -534,3 +534,46 @@ describe('a note in a few words', () => {
     expect(noteGist('x'.repeat(80))).toBe(`${'x'.repeat(60)}…`);
   });
 });
+
+describe('a check is not lost to an edit made elsewhere', () => {
+  const fortnight: RepeatRule = { freq: 'weekly', every: 2, fromDone: true, start: '2026-09-01' };
+
+  it('merges a step’s check by when it was checked, its other fields by when they were edited', () => {
+    let [d, id] = make('家务');
+    d = addStep(d, ctx(), id, '剪指甲');
+    const stepId = d.tasks[id].steps[0].id;
+    d = updateStep(d, ctx(), id, stepId, { repeat: fortnight });
+    // Device A checks it; device B, which has not seen that, renames the step afterwards.
+    const a = toggleStep(d, ctx(at('2026-09-29', '11:00'), 'a'), id, stepId, true);
+    const b = updateStep({ ...d, clock: a.clock + 5 }, ctx(at('2026-09-29', '12:00'), 'b'), id, stepId, {
+      text: '剪手指甲',
+    });
+    for (const merged of [mergeDocs(a, b), mergeDocs(b, a)]) {
+      const step = merged.tasks[id].steps[0];
+      expect(step.text).toBe('剪手指甲');
+      expect(stepDone(merged.tasks[id], step, at('2026-10-05'))).toBe(true);
+      expect(stepDone(merged.tasks[id], step, at('2026-10-14'))).toBe(false); // two weeks after it was done
+    }
+    // Unchecking later wins over the earlier check.
+    const undo = toggleStep(a, ctx(at('2026-09-29', '13:00'), 'a'), id, stepId, false);
+    expect(stepDone(mergeDocs(undo, b).tasks[id], mergeDocs(undo, b).tasks[id].steps[0], at('2026-09-30'))).toBe(false);
+  });
+
+  it('keeps a step checked (or open) when its rhythm changes', () => {
+    const weekly: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [5], start: '2026-09-25' };
+    let [d, id] = make('家务', { repeat: { mode: 'reopen', rule: weekly } });
+    d = addStep(d, ctx(), id, '理发');
+    d = addStep(d, ctx(), id, '吸尘');
+    const [hair, vacuum] = d.tasks[id].steps.map((s) => s.id);
+    d = toggleStep(d, ctx(), id, hair, true); // checked while it followed the task
+    const sixWeeks: RepeatRule = { freq: 'weekly', every: 6, fromDone: true, start: '2026-09-29' };
+    d = updateStep(d, ctx(), id, hair, { repeat: sixWeeks });
+    d = updateStep(d, ctx(), id, vacuum, { repeat: sixWeeks });
+    const [h, v] = d.tasks[id].steps;
+    expect(stepDone(d.tasks[id], h, at('2026-10-20'))).toBe(true);
+    expect(stepDone(d.tasks[id], h, at('2026-11-11'))).toBe(false); // six weeks on
+    expect(stepDone(d.tasks[id], v, T0)).toBe(false);
+    d = updateStep(d, ctx(), id, hair, { repeat: 'none' });
+    expect(stepDone(d.tasks[id], d.tasks[id].steps[0], at('2026-12-01'))).toBe(true);
+  });
+});

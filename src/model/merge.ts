@@ -1,15 +1,39 @@
 import { cmpStamp } from './doc';
-import { TASK_FIELDS, TEXT_FIELDS, type Doc, type Stamp, type Task } from './types';
+import { TASK_FIELDS, TEXT_FIELDS, type Doc, type Stamp, type Step, type Task } from './types';
 
 type Stamped = { s: Stamp };
 const newer = <T extends Stamped>(a: T | undefined, b: T | undefined): T | undefined =>
   cmpStamp(a?.s, b?.s) >= 0 ? a : b;
 
-function mergeList<T extends Stamped>(a: T[], b: T[], key: (x: T) => string): T[] {
+function mergeList<T extends Stamped>(
+  a: T[],
+  b: T[],
+  key: (x: T) => string,
+  pick: (x: T, y: T) => T = (x, y) => newer(x, y)!,
+): T[] {
   const map = new Map<string, T>();
   for (const x of a) map.set(key(x), x);
-  for (const y of b) map.set(key(y), newer(map.get(key(y)), y)!);
+  for (const y of b) {
+    const x = map.get(key(y));
+    map.set(key(y), x ? pick(x, y) : y);
+  }
   return [...map.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, v]) => v);
+}
+
+const CHECK_FIELDS = ['done', 'doneIn', 'doneAt', 'ds'] as const;
+
+/** A step: the newer record, with its check state from whichever side was checked or unchecked last. */
+function mergeStep(a: Step, b: Step): Step {
+  const base = newer(a, b)!;
+  if (!a.ds && !b.ds) return base;
+  const checked = cmpStamp(a.ds, b.ds) >= 0 ? a : b;
+  if (checked === base) return base;
+  const out: Step = { ...base };
+  for (const k of CHECK_FIELDS) {
+    if (checked[k] === undefined) delete out[k];
+    else (out as Record<string, unknown>)[k] = checked[k];
+  }
+  return out;
 }
 
 /** Each scalar field keeps whichever side stamped it last; children merge record by record. */
@@ -52,7 +76,7 @@ export function mergeTask(a: Task, b: Task): Task {
   if (Object.keys(conflicts).length) out.conflicts = conflicts;
   else delete out.conflicts;
   out.plan = mergeList(a.plan, b.plan, (x) => x.id);
-  out.steps = mergeList(a.steps, b.steps, (x) => x.id);
+  out.steps = mergeList(a.steps, b.steps, (x) => x.id, mergeStep);
   out.rounds = mergeList(a.rounds, b.rounds, (x) => x.key);
   out.s = cmpStamp(a.s, b.s) >= 0 ? a.s : b.s;
   return out;

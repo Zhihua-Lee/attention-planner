@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyDoc, stepsOf } from './doc';
+import { emptyDoc, stepDone, stepsOf } from './doc';
 import { parseIcs } from './ics';
 import { importLegacy } from './legacyImport';
 
@@ -210,5 +210,56 @@ describe('outlook export', () => {
     expect(outlookEvents(payload, '2026-09-28', '2026-10-31').find((e) => e.title === '假期')?.allDay).toBe(true);
     expect(outlookEvents({ value: [] }, '2026-09-28', '2026-10-31')).toEqual([]);
     expect(outlookEvents('nonsense', '2026-09-28', '2026-10-31')).toEqual([]);
+  });
+});
+
+describe('importing the previous app again, or on another device', () => {
+  it('leaves what is already here alone, and loses to any real edit when merging', async () => {
+    const { addTask, setField } = await import('./doc');
+    const { mergeDocs } = await import('./merge');
+    const [first] = importLegacy(emptyDoc(ctx), ctx, legacy);
+    const later = { now: new Date(2026, 9, 6, 16), device: 'phone' };
+    const edited = setField(first, later, 't1', 'title', '写报告（改过）');
+    // A second import here changes nothing; one on a fresh device merges without undoing the edit.
+    const [again, report] = importLegacy(edited, later, legacy);
+    expect(again.tasks.t1.title).toBe('写报告（改过）');
+    expect(report.tasks).toBe(0);
+    const [fresh] = importLegacy(emptyDoc(later), later, legacy);
+    expect(fresh.tasks.t1.s.rev).toBe(0);
+    expect(mergeDocs(fresh, edited).tasks.t1.title).toBe('写报告（改过）');
+    expect(mergeDocs(edited, fresh).tasks.t1.title).toBe('写报告（改过）');
+    void addTask;
+  });
+
+  it('carries a completed step on its own rhythm over as done when it was', () => {
+    const data = {
+      tasks: [
+        {
+          id: 'chores',
+          title: '家务',
+          status: 'next',
+          checklist: [{ id: 'nails', title: '剪指甲', isCompleted: true, completedAt: '2026-09-27T15:00:00.000Z' }],
+          planner: {
+            checklistRefresh: {
+              defaults: {
+                mode: 'custom',
+                schedule: { frequency: 'weekly', interval: 1, weekdays: [5], startDate: '2026-09-04' },
+              },
+              items: {
+                nails: {
+                  mode: 'custom',
+                  schedule: { frequency: 'weekly', interval: 2, anchor: 'completion', startDate: '2026-09-04' },
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+    const [doc] = importLegacy(emptyDoc(ctx), ctx, data);
+    const step = stepsOf(doc.tasks.chores)[0];
+    expect(step.repeat).toBeTypeOf('object');
+    expect(step.doneAt).toBe('2026-09-27T15:00:00.000Z');
+    expect(stepDone(doc.tasks.chores, step, now)).toBe(true); // two weeks from 9/27 are not up on 9/29
   });
 });

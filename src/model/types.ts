@@ -58,6 +58,11 @@ export type Step = {
   /** For a repeating step: the round key it was checked in, and when. */
   doneIn?: string;
   doneAt?: string;
+  /**
+   * When the step was last checked or unchecked. Merging takes `done`/`doneIn`/`doneAt` from the side checked last,
+   * so an edit of the step elsewhere (its text, its place) does not undo a check it had not seen.
+   */
+  ds?: Stamp;
   /** A deadline for this step only, earlier than the task's own. */
   due?: Day;
   /** Estimated minutes for this step; when steps carry estimates, the task's effort is their sum. */

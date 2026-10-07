@@ -1,5 +1,6 @@
 import { dayOf, isDay, isTime, timeOf, nowMinutes } from './dates';
 import { edit, newId, type Ctx } from './doc';
+import { roundOf } from './repeat';
 import {
   TASK_FIELDS,
   type Doc,
@@ -130,18 +131,25 @@ function reopenRule(policy: unknown): (RepeatRule & { paused?: boolean }) | 'non
 
 const SNOOZE_REASON: Record<string, string> = { waiting: '等待中', someday: '暂不做', reference: '资料' };
 
+/**
+ * Imported records carry the oldest possible stamp, so any real edit, on any device, wins over them when merging; and a
+ * record that is already here is left alone. Importing again, or on a second device, never undoes newer work.
+ */
+const IMPORTED: Stamp = { rev: 0, at: '1970-01-01T00:00:00.000Z', by: 'import' };
+
 export function importLegacy(doc: Doc, ctx: Ctx, data: unknown): [Doc, ImportReport] {
   const root = obj(data) ?? {};
   const src = obj(root.data) ?? root; // some exports wrap the payload
   const report: ImportReport = { tasks: 0, done: 0, snoozed: 0, areas: 0, projects: 0, skipped: 0 };
   const today = dayOf(ctx.now);
   const next = edit(doc, ctx, (e) => {
-    const s: Stamp = e.s;
+    const s: Stamp = IMPORTED;
     const areaIds = new Map<string, string>();
     for (const a of arr(src.areas).map(obj)) {
       if (!a || a.deletedAt || !str(a.name ?? a.title)) continue;
       const id = str(a.id) ?? newId();
       areaIds.set(String(a.id), id);
+      if (e.doc.areas[id]) continue;
       e.doc.areas[id] = { id, name: String(a.name ?? a.title), order: Number(a.order) || report.areas, s };
       report.areas++;
     }
@@ -150,6 +158,7 @@ export function importLegacy(doc: Doc, ctx: Ctx, data: unknown): [Doc, ImportRep
       if (!p || p.deletedAt || !str(p.title ?? p.name)) continue;
       const id = str(p.id) ?? newId();
       projectIds.set(String(p.id), id);
+      if (e.doc.projects[id]) continue;
       e.doc.projects[id] = {
         id,
         name: String(p.title ?? p.name),
@@ -170,6 +179,10 @@ export function importLegacy(doc: Doc, ctx: Ctx, data: unknown): [Doc, ImportRep
         continue;
       }
       const id = str(t.id) ?? newId();
+      if (e.doc.tasks[id]) {
+        report.skipped++;
+        continue;
+      }
       const status = String(t.status ?? 'inbox');
       const planner = obj(t.planner) ?? {};
       const refresh = obj(planner.checklistRefresh);
@@ -218,6 +231,13 @@ export function importLegacy(doc: Doc, ctx: Ctx, data: unknown): [Doc, ImportRep
             text: String(c.title),
             order: i,
             ...(repeat?.mode === 'reopen' && !stepRepeat ? {} : { done: !!c.isCompleted }),
+            // A step on its own rhythm counts as done by its round: carry a completed one over as done when it was.
+            ...(stepRepeat && stepRepeat !== 'none' && c.isCompleted
+              ? ((at: string) => ({
+                  doneIn: roundOf(stepRepeat, undefined, new Date(at))?.key ?? 'start',
+                  doneAt: at,
+                }))(str(c.completedAt) ?? str(t.updatedAt) ?? ctx.now.toISOString())
+              : {}),
             ...(stepRepeat ? { repeat: stepRepeat } : {}),
             s,
           } as Step;

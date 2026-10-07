@@ -320,17 +320,23 @@ export const updateStep = (
   stepId: string,
   patch: Partial<Pick<Step, 'text' | 'repeat' | 'order' | 'due' | 'effort'>>,
 ) =>
-  edit(doc, ctx, (e) =>
+  edit(doc, ctx, (e) => {
+    const t = e.task(id);
     e.child(id, 'steps', (steps) =>
       steps.map((s) => {
         if (s.id !== stepId) return s;
-        const due = patch.due ? { due: stored(e.task(id), ctx.now, patch.due) } : {};
-        const next = { ...s, ...patch, ...due, s: e.s };
+        const due = patch.due ? { due: stored(t, ctx.now, patch.due) } : {};
+        const next: Step = { ...s, ...patch, ...due, s: e.s };
         for (const k of Object.keys(patch) as (keyof typeof patch)[]) if (patch[k] === undefined) delete next[k];
+        // A new rhythm keeps the step as it was: checked stays checked (from now), open stays open.
+        if ('repeat' in patch) {
+          const was = stepDone(t, s, ctx.now);
+          if (was !== stepDone(t, next, ctx.now)) Object.assign(next, checkPatch(t, next, was, ctx.now), { ds: e.s });
+        }
         return next;
       }),
-    ),
-  );
+    );
+  });
 
 /** Put the steps in the given order (after a drag). */
 export const reorderSteps = (doc: Doc, ctx: Ctx, id: string, ids: string[]) =>
@@ -374,6 +380,18 @@ export const moveStep = (doc: Doc, ctx: Ctx, id: string, stepId: string, dir: -1
     );
   });
 
+/** What checking (or unchecking) a step writes, by how it repeats: its own round, the task's round, or a flag. */
+function checkPatch(t: Task, step: Step, checked: boolean, now: Date): Partial<Step> {
+  if (step.repeat && step.repeat !== 'none') {
+    const r = stepRound(step, now);
+    return checked
+      ? { doneIn: r?.key ?? 'start', doneAt: now.toISOString() }
+      : { doneIn: undefined, doneAt: undefined };
+  }
+  if (!step.repeat && taskRound(t, now)) return { doneIn: checked ? taskRound(t, now)!.key : undefined };
+  return { done: checked };
+}
+
 /** Check or uncheck a step; in a task that reopens, checking the last one finishes the round. */
 export function toggleStep(doc: Doc, ctx: Ctx, id: string, stepId: string, checked: boolean): Doc {
   return edit(doc, ctx, (e) => {
@@ -381,16 +399,8 @@ export function toggleStep(doc: Doc, ctx: Ctx, id: string, stepId: string, check
     const step = t.steps.find((s) => s.id === stepId);
     if (!step) throw new Error('This step no longer exists.');
     const now = ctx.now;
-    let patch: Partial<Step>;
-    if (step.repeat && step.repeat !== 'none') {
-      const r = stepRound(step, now);
-      patch = checked
-        ? { doneIn: r?.key ?? 'start', doneAt: now.toISOString() }
-        : { doneIn: undefined, doneAt: undefined };
-    } else if (!step.repeat && taskRound(t, now)) {
-      patch = { doneIn: checked ? taskRound(t, now)!.key : undefined };
-    } else patch = { done: checked };
-    e.child(id, 'steps', (steps) => steps.map((s) => (s.id === stepId ? { ...s, ...patch, s: e.s } : s)));
+    const patch = checkPatch(t, step, checked, now);
+    e.child(id, 'steps', (steps) => steps.map((s) => (s.id === stepId ? { ...s, ...patch, ds: e.s, s: e.s } : s)));
     const after = e.task(id);
     const round = taskRound(after, now);
     if (!round) return;
@@ -427,7 +437,7 @@ export function complete(doc: Doc, ctx: Ctx, id: string): Doc {
     if (t.repeat?.mode === 'reopen') {
       if (!round) throw new Error('The first round has not started yet.');
       e.child(id, 'steps', (steps) =>
-        steps.map((s) => (!s.repeat && !s.deleted ? { ...s, doneIn: round.key, s: e.s } : s)),
+        steps.map((s) => (!s.repeat && !s.deleted ? { ...s, doneIn: round.key, ds: e.s, s: e.s } : s)),
       );
       finishRound(e, id, round.key);
       return;
@@ -522,7 +532,7 @@ export function uncomplete(doc: Doc, ctx: Ctx, id: string): Doc {
     if (round?.done) {
       reopenRound(e, id, round.key);
       e.child(id, 'steps', (steps) =>
-        steps.map((s) => (s.doneIn === round.key && !s.repeat ? { ...s, doneIn: undefined, s: e.s } : s)),
+        steps.map((s) => (s.doneIn === round.key && !s.repeat ? { ...s, doneIn: undefined, ds: e.s, s: e.s } : s)),
       );
     }
   });
