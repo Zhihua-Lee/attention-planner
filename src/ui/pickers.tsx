@@ -446,7 +446,12 @@ export function RuleForm({
           type="checkbox"
           checked={rule.fromDone}
           onChange={(e) =>
-            set({ fromDone: e.target.checked, freq: !e.target.checked && rule.freq === 'hourly' ? 'daily' : rule.freq })
+            set({
+              fromDone: e.target.checked,
+              freq: !e.target.checked && rule.freq === 'hourly' ? 'daily' : rule.freq,
+              // Counted from completion, weekdays and month days mean nothing: drop them rather than keep them hidden.
+              ...(e.target.checked ? { weekdays: undefined, monthDay: undefined } : {}),
+            })
           }
         />
         {t('从完成后计时', 'Count from completion')}

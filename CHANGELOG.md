@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.28 — 2026-10-06
+
+- Turning on “从完成后计时” in a repeat now drops the weekdays or month day chosen before (they never applied counted
+  from completion, but stayed in the rule), and the AI tools no longer mention them for such a rule.
+
 ## 0.2.27 — 2026-10-06
 
 - **A checked step stays checked**: three ways a check could come undone are closed.

@@ -363,9 +363,10 @@ export function ruleWords(r: RuleInput, t: T): string {
     : n === 1
       ? t(`每${unit === '个月' ? '月' : unit}`, `every ${unit}`)
       : t(`每 ${n} ${unit}`, `every ${n} ${unit}s`);
-  if (r.weekdays?.length)
+  // Counted from completion, the calendar's weekdays and month days do not apply.
+  if (r.weekdays?.length && !r.from_done)
     s += ' ' + r.weekdays.map((d) => t(`周${CN_WEEK[d - 1]}`, EN_WEEK[d - 1])).join(t('、', ', '));
-  if (r.month_day)
+  if (r.month_day && !r.from_done)
     s += r.month_day === -1 ? t(' 最后一天', ', last day') : t(` ${r.month_day} 日`, `, day ${r.month_day}`);
   if (r.until) s += t(`，到 ${dayWords(r.until, t)}`, `, until ${dayWords(r.until, t)}`);
   if (r.count) s += t(`，共 ${r.count} 次`, `, ${r.count} times`);

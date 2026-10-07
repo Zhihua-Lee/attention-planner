@@ -577,3 +577,12 @@ describe('a check is not lost to an edit made elsewhere', () => {
     expect(stepDone(d.tasks[id], d.tasks[id].steps[0], at('2026-12-01'))).toBe(true);
   });
 });
+
+describe('a rule counted from completion', () => {
+  it('is described without the weekdays or month day a calendar rule would use', async () => {
+    const { ruleWords } = await import('./changes');
+    const en = (_zh: string, e: string) => e;
+    expect(ruleWords({ freq: 'weekly', every: 1, from_done: true, weekdays: [2] }, en)).toBe('1 week(s) after done');
+    expect(ruleWords({ freq: 'weekly', every: 1, weekdays: [2] }, en)).toBe('every week Tue');
+  });
+});
