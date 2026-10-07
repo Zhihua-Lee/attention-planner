@@ -467,3 +467,35 @@ describe('a new copy shown before its deadline, through MCP', () => {
     expect((await call('get_task', { id: paper.id })).body.repeat).toContain('shows up 3 day(s) before its deadline');
   });
 });
+
+describe('a step in the agenda, through MCP', () => {
+  it('plans one step for a day or reserves time for it, and names the step in the agenda', async () => {
+    const { addStep } = await import('../src/model/doc');
+    const remote = new MemoryRemote();
+    let d = seed();
+    const paper = liveTasks(d).find((x) => x.title === '交论文')!;
+    d = addStep(d, wallCtx(), paper.id, '画图');
+    remote.doc = d;
+    const figure = d.tasks[paper.id].steps[0].id;
+    const changes: Change[] = [
+      { type: 'plan', task_id: paper.id, day: '2026-09-29', step_id: figure },
+      { type: 'plan', task_id: paper.id, day: '2026-09-30', start: '14:00', minutes: 45, step_id: figure },
+    ];
+    expect(describeChange(d, changes[1], (a: string) => a)).toBe(
+      '安排 「交论文」 的步骤「画图」 在 9/30（周三） 14:00，45 分钟',
+    );
+    remote.doc = applyChanges(d, wallCtx(), changes);
+    const { call } = await connect(remote);
+    const days = (await call('agenda', { start: '2026-09-29', days: 2 })).body;
+    expect(days[0].planned[0]).toMatchObject({ task: '交论文', step: '画图' });
+    expect(days[1].reserved[0]).toMatchObject({ time: '14:00–14:45', step: '画图' });
+    expect(
+      (
+        await call('propose_changes', {
+          summary: 'x',
+          changes: [{ type: 'plan', task_id: paper.id, day: '2026-09-29', step_id: 'nope' }],
+        })
+      ).raw,
+    ).toBe('There is no step nope.');
+  });
+});

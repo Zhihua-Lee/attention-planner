@@ -355,14 +355,49 @@ export function promoteStep(doc: Doc, ctx: Ctx, id: string, stepId: string): [Do
   // The new task is one-off: give it the step's deadline as this round sees it.
   const step = task && inRound(task, ctx.now).steps.find((s) => s.id === stepId && !s.deleted);
   if (!step) throw new Error('This step no longer exists.');
-  const [withTask, newId] = addTask(doc, ctx, { title: step.text, linkTo: id, due: step.due, effort: step.effort });
+  const plans = planOf(inRound(task, ctx.now))
+    .filter((p) => p.stepId === stepId)
+    .map((p) => ({
+      day: p.day,
+      ...(p.part ? { part: p.part } : {}),
+      ...(p.start ? { start: p.start, minutes: p.minutes } : {}),
+    }));
+  const [withTask, newId] = addTask(doc, ctx, {
+    title: step.text,
+    linkTo: id,
+    due: step.due,
+    effort: step.effort,
+    plan: plans,
+  });
   return [removeStep(withTask, ctx, id, stepId), newId];
 }
 
 export const removeStep = (doc: Doc, ctx: Ctx, id: string, stepId: string) =>
-  edit(doc, ctx, (e) =>
-    e.child(id, 'steps', (steps) => steps.map((s) => (s.id === stepId ? { ...s, deleted: true, s: e.s } : s))),
-  );
+  edit(doc, ctx, (e) => {
+    e.child(id, 'steps', (steps) => steps.map((s) => (s.id === stepId ? { ...s, deleted: true, s: e.s } : s)));
+    // What was arranged for the step goes with it.
+    e.child(id, 'plan', (plan) =>
+      plan.map((p) => (p.stepId === stepId && !p.deleted ? { ...p, deleted: true, s: e.s } : p)),
+    );
+  });
+
+/** Whether a step is arranged for a day (as the current round sees it). */
+export const stepPlannedOn = (t: Task, stepId: string, day: Day, now: Date) =>
+  planOf(inRound(t, now)).some((p) => p.day === day && p.stepId === stepId);
+
+/**
+ * "Today's step": arrange one step for a day with no set time, or take it off again. The task comes into that day
+ * with it, and NOW offers that step first. A reserved time for the step that day stays.
+ */
+export function toggleStepDay(doc: Doc, ctx: Ctx, id: string, stepId: string, day: Day): Doc {
+  const t = doc.tasks[id];
+  if (!t || t.deleted) return doc;
+  const seen = planOf(inRound(t, ctx.now)).filter((p) => p.day === day && p.stepId === stepId);
+  const loose = seen.filter((p) => !p.start);
+  if (loose.length) return loose.reduce((d, p) => removePlan(d, ctx, id, p.id), doc);
+  if (seen.length) return doc;
+  return addPlan(doc, ctx, id, { day, stepId });
+}
 
 /** Move a step one place up (-1) or down (+1). */
 export const moveStep = (doc: Doc, ctx: Ctx, id: string, stepId: string, dir: -1 | 1) =>
@@ -457,6 +492,7 @@ function spawnCopy(e: Edit, t: Task) {
   const nextRule: RepeatRule = { ...rule, ...(rule.count !== undefined ? { count: rule.count - 1 } : {}) };
   const id = newId();
   const fs: Record<string, Stamp> = {};
+  const stepIds = new Map(stepsOf(t).map((s) => [s.id, newId()]));
   const copy: Task = {
     id,
     title: t.title,
@@ -467,11 +503,12 @@ function spawnCopy(e: Edit, t: Task) {
       part: p.part,
       start: p.start,
       minutes: p.minutes,
+      ...(p.stepId && stepIds.has(p.stepId) ? { stepId: stepIds.get(p.stepId) } : {}),
       s: e.s,
     })),
     // Steps start unchecked; their deadlines move with the task's, and their estimates come along.
     steps: stepsOf(t).map((s) => ({
-      id: newId(),
+      id: stepIds.get(s.id)!,
       text: s.text,
       order: s.order,
       repeat: s.repeat,

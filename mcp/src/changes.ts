@@ -138,6 +138,14 @@ export const changeSchema = z.discriminatedUnion('type', [
       .max(24 * 60)
       .optional()
       .describe('Length of the reserved time.'),
+    step_id: z
+      .string()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe(
+        "For one step of the task: without a start it is that day's step (offered first in NOW); with one, time for it.",
+      ),
   }),
   z.object({ type: z.literal('unplan'), task_id: taskId, plan_id: z.string().min(1).max(100) }),
   z.object({ type: z.literal('add_step'), task_id: taskId, text: z.string().trim().min(1).max(2000) }),

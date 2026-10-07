@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.30 — 2026-10-07
+
+- **A step for today**: ☀ after a step (Settings → 步骤后面的按钮 → 今日, on by default) puts just that step into today.
+  The task comes into 今天 with it, NOW's 下一步 offers that step first, the step shows ☀ 今天 (tap to take it off),
+  and the next day it lapses like any plan for a day.
+- **Time for a step**: the step's 用时 popup also finds time for it — as long as its estimate (or an hour), before its
+  own deadline — and reserves it; the calendar shows it as “step · task”. A deleted step takes its arrangements along,
+  a step made into a task brings them with it, and a new copy keeps them on its copied steps.
+- **Quieter steps on a computer**: a step's buttons show only while the pointer is over it (or it has focus); what is
+  set shows as tags anyway. On a phone, the box and handle keep to the first line, so the tap that brings a step's
+  buttons out also checks it.
+- The AI tools can plan or reserve time for one step (`step_id` on a plan), and the agenda names the step.
+
 ## 0.2.29 — 2026-10-07
 
 - **A new copy can wait until shortly before its deadline**: a task that makes a new copy each time and has a deadline

@@ -115,8 +115,9 @@ due the day after it opens is due the day after every time, never "overdue by 7 
 ![A task opened: steps first, each with its own deadline, estimate or repeat; then the properties; Find time beside the estimate](docs/images/en/detail.png)
 
 Steps come first in an opened task. Each can have its own deadline (the earliest open one is shown everywhere), its
-own estimate (they add up), and its own repeat; one can become a task of its own. The step box reads the same quick
-words: `周五 交初稿 30分钟`.
+own estimate (they add up), and its own repeat; one can become a task of its own. One step can be today's step — the
+task comes into Today and NOW offers that step first — and a step can get its own time in the calendar, sized by its
+estimate. The step box reads the same quick words: `周五 交初稿 30分钟`.
 
 ### NOW and the agenda
 

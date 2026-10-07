@@ -22,6 +22,8 @@ export type PlanEntry = {
   minutes?: number;
   /** Minutes actually worked in this reserved time. */
   doneMin?: number;
+  /** An arrangement for one step of the task: today's step, or time reserved for it. */
+  stepId?: string;
   s: Stamp;
   deleted?: boolean;
 };
@@ -145,7 +147,7 @@ export type CalendarEvent = {
   source?: string;
 };
 
-export type StepTool = 'due' | 'effort' | 'repeat' | 'promote';
+export type StepTool = 'today' | 'due' | 'effort' | 'repeat' | 'promote';
 /** Filters that can be shown above the list ("all" is always there). */
 export type FilterChip = 'today' | 'soon' | 'due' | 'star' | 'new' | 'unplanned' | 'snoozed' | 'areas' | 'projects';
 export const FILTER_CHIPS: FilterChip[] = [

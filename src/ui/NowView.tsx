@@ -290,7 +290,16 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
             },
           ]
         : x.kind === 'slot'
-          ? [{ key: x.entryId, kind: 'slot', title: x.task.title, s: x.start, e: x.end, taskId: x.task.id }]
+          ? [
+              {
+                key: x.entryId,
+                kind: 'slot',
+                title: x.step ? `${x.step} · ${x.task.title}` : x.task.title,
+                s: x.start,
+                e: x.end,
+                taskId: x.task.id,
+              },
+            ]
           : [],
     ),
   );
@@ -333,7 +342,7 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
                 ) : (
                   x.part && <span className="part">{partName(x.part, lang)}</span>
                 )}
-                {x.kind === 'due' && x.step ? `${x.step} · ${x.task.title}` : x.task.title}
+                {x.step ? `${x.step} · ${x.task.title}` : x.task.title}
               </button>
             ) : null,
           )}
@@ -461,7 +470,7 @@ function WeekView({
           key: x.entryId,
           k: timeOf(x.start),
           time: timeOf(x.start),
-          title: x.task.title,
+          title: x.step ? `${x.step} · ${x.task.title}` : x.task.title,
           cls: 'slot',
           ref: { kind: 'slot', taskId: x.task.id, entryId: x.entryId },
         });
@@ -470,7 +479,7 @@ function WeekView({
           key: x.entryId,
           k: x.part === 'am' ? '08:00' : x.part === 'pm' ? '12:00' : x.part === 'eve' ? '18:00' : '00:01',
           time: x.part ? partName(x.part, lang) : t('不定', 'Any'),
-          title: x.task.title,
+          title: x.step ? `${x.step} · ${x.task.title}` : x.task.title,
           cls: 'loose',
           ref: { kind: 'task', taskId: x.task.id },
         });

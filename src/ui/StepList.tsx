@@ -1,21 +1,25 @@
 import { Reorder, useDragControls } from 'motion/react';
 import { useState } from 'react';
 import { dayOf } from '../model/dates';
+import { findTimes, stillToReserveStep } from '../model/derive';
 import {
+  addPlan,
   moveStep,
   promoteStep,
   removeStep,
   reorderSteps,
   stepDone,
+  stepPlannedOn,
   stepsOf,
   toggleStep,
+  toggleStepDay,
   updateStep,
 } from '../model/doc';
 import type { Step, StepTool, Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { AutoText, Popover, toast, usePopover } from './common';
 import { DayOptions, EffortPicker, StepRepeatEditor } from './pickers';
-import { dueLabel, duration, ruleLabel, useT } from './text';
+import { dueLabel, duration, planLabel, ruleLabel, useT } from './text';
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
   try {
@@ -25,7 +29,7 @@ const commit = (fn: Parameters<typeof store.commit>[0]) => {
   }
 };
 
-export const DEFAULT_STEP_TOOLS: StepTool[] = ['due', 'repeat'];
+export const DEFAULT_STEP_TOOLS: StepTool[] = ['today', 'due', 'repeat'];
 
 /**
  * The steps of a task. Drag the handle (or use ↑/↓ on it) to reorder. A step's own deadline, estimate and repeat show
@@ -33,7 +37,7 @@ export const DEFAULT_STEP_TOOLS: StepTool[] = ['due', 'repeat'];
  */
 export function StepList({ task, now }: { task: Task; now: Date }) {
   const { doc } = useStore();
-  const { t } = useT();
+  const { t, lang } = useT();
   const tools = doc.settings.stepTools ?? DEFAULT_STEP_TOOLS;
   const pop = usePopover<string>();
   const steps = stepsOf(task);
@@ -93,13 +97,47 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
             </div>
           )}
           {kind === 'effort' && (
-            <EffortPicker
-              value={open.effort}
-              onPick={(m) => {
-                commit((d, c) => updateStep(d, c, task.id, open.id, { effort: m }));
-                pop.close();
-              }}
-            />
+            <>
+              <EffortPicker
+                value={open.effort}
+                onPick={(m) => {
+                  commit((d, c) => updateStep(d, c, task.id, open.id, { effort: m }));
+                  pop.close();
+                }}
+              />
+              {/* Time for this step in the calendar: as long as its estimate (or an hour), before its deadline. */}
+              <div className="menu find-time">
+                <div className="menu-title">
+                  {t('找时间', 'Find time')} · {duration(Math.min(120, stillToReserveStep(task, open) || 60), lang)}
+                </div>
+                {findTimes(doc, task, now, 3, open).map((slot) => (
+                  <button
+                    key={`${slot.day} ${slot.start}`}
+                    className="menu-item"
+                    onClick={() => {
+                      commit((d, c) =>
+                        addPlan(d, c, task.id, {
+                          day: slot.day,
+                          start: slot.start,
+                          minutes: slot.minutes,
+                          stepId: open.id,
+                        }),
+                      );
+                      toast(
+                        t(
+                          `已为“${open.text}”预留 ${planLabel(slot, today, lang)}`,
+                          `Reserved ${planLabel(slot, today, lang)} for “${open.text}”`,
+                        ),
+                        () => store.undo(),
+                      );
+                      pop.close();
+                    }}
+                  >
+                    <span>{planLabel(slot, today, lang)}</span>
+                  </button>
+                ))}
+              </div>
+            </>
           )}
           {kind === 'repeat' && (
             <StepRepeatEditor
@@ -141,6 +179,16 @@ function StepRow({
   const checked = stepDone(task, step, now);
   const today = dayOf(now);
   const own = typeof step.repeat === 'object' ? step.repeat : undefined;
+  const inToday = stepPlannedOn(task, step.id, today, now);
+  const toggleToday = () => {
+    commit((d, c) => toggleStepDay(d, c, task.id, step.id, today));
+    toast(
+      inToday
+        ? t(`已移出今天：${step.text}`, `Off today: ${step.text}`)
+        : t(`今天做这一步：${step.text}`, `Today: ${step.text}`),
+      () => store.undo(),
+    );
+  };
   const tag = (kind: string, text: string, cls = '') => (
     <button
       className={`step-tag ${cls}`}
@@ -187,8 +235,17 @@ function StepRow({
           label={t('步骤内容', 'Step text')}
           onCommit={(text) => commit((d, c) => updateStep(d, c, task.id, step.id, { text }))}
         />
-        {(step.due || step.effort || own || (step.repeat === 'none' && task.repeat?.mode === 'reopen')) && (
+        {(inToday || step.due || step.effort || own || (step.repeat === 'none' && task.repeat?.mode === 'reopen')) && (
           <span className="step-tags">
+            {inToday && (
+              <button
+                className="step-tag today"
+                title={t('点一下移出今天', 'Tap to take it off today')}
+                onClick={toggleToday}
+              >
+                ☀ {t('今天', 'Today')}
+              </button>
+            )}
             {step.due && tag('due', dueLabel(step.due, today, lang), step.due < today && !checked ? 'late' : '')}
             {step.effort ? tag('effort', duration(step.effort, lang)) : null}
             {own ? tag('repeat', `↻ ${ruleLabel(own, lang)}`) : null}
@@ -197,6 +254,17 @@ function StepRow({
         )}
       </span>
       <span className="step-tools">
+        {tools.includes('today') && !checked && (
+          <button
+            className={`mini${inToday ? ' on' : ''}`}
+            aria-pressed={inToday}
+            aria-label={`${inToday ? t('移出今天', 'Off today') : t('今天做这一步', 'Do this step today')}: ${step.text}`}
+            title={inToday ? t('移出今天', 'Off today') : t('今天做这一步', 'Do this step today')}
+            onClick={toggleToday}
+          >
+            ☀
+          </button>
+        )}
         {tools.includes('due') && (
           <button
             className={`mini${step.due ? ' on' : ''}`}

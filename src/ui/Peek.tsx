@@ -72,7 +72,11 @@ export function SlotPeek({
     );
   return (
     <div className="peek">
-      <div className="peek-title">{task.title}</div>
+      <div className="peek-title">
+        {entry.stepId && task.steps.find((x) => x.id === entry.stepId && !x.deleted)
+          ? `${task.steps.find((x) => x.id === entry.stepId)!.text} · ${task.title}`
+          : task.title}
+      </div>
       <div className="peek-line">
         {planLabel(entry, today, lang)}
         {entry.start && entry.minutes ? `（${duration(entry.minutes, lang)}）` : ''}

@@ -609,3 +609,52 @@ describe('a new copy that shows up some days before its deadline', () => {
     expect(liveTasks(e).find((t) => t.id !== id2)?.snooze).toBeUndefined();
   });
 });
+
+describe('a step for today, and time for a step', () => {
+  it('brings the task into today, offers that step first in NOW, and goes again with a second tap', async () => {
+    const { toggleStepDay, stepPlannedOn } = await import('./doc');
+    const { stepProgress, agenda } = await import('./derive');
+    let [d, id] = make('写论文', { steps: ['列提纲', '写引言', '画图'] });
+    const figure = stepsOf(d.tasks[id])[2].id;
+    expect(stepProgress(d.tasks[id], T0).next?.text).toBe('列提纲');
+    d = toggleStepDay(d, ctx(), id, figure, '2026-09-29');
+    expect(stepPlannedOn(d.tasks[id], figure, '2026-09-29', T0)).toBe(true);
+    expect(listTasks(d, T0, 'today').map((t) => t.id)).toContain(id);
+    expect(stepProgress(d.tasks[id], T0).next?.text).toBe('画图');
+    expect(stepProgress(d.tasks[id], at('2026-09-30')).next?.text).toBe('列提纲'); // the next day it is plain again
+    expect(agenda(d, '2026-09-29', T0).find((x) => x.kind === 'loose')).toMatchObject({ step: '画图' });
+    d = toggleStepDay(d, ctx(), id, figure, '2026-09-29');
+    expect(stepPlannedOn(d.tasks[id], figure, '2026-09-29', T0)).toBe(false);
+  });
+
+  it('finds time as long as the step’s estimate, before the step’s deadline, and reserves it for the step', async () => {
+    const { findTimes } = await import('./derive');
+    let [d, id] = make('写论文', { steps: ['画图'] });
+    const figure = stepsOf(d.tasks[id])[0].id;
+    d = updateStep(d, ctx(), id, figure, { effort: 45, due: '2026-09-30' });
+    const step = stepsOf(d.tasks[id])[0];
+    const slots = findTimes(d, d.tasks[id], T0, 5, step);
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.every((s) => s.minutes === 45 && s.day <= '2026-09-30')).toBe(true);
+    d = addPlan(d, ctx(), id, { day: slots[0].day, start: slots[0].start, minutes: 45, stepId: figure });
+    expect(findTimes(d, d.tasks[id], T0, 5, stepsOf(d.tasks[id])[0])[0]?.minutes).toBe(60); // nothing left: an hour
+  });
+
+  it('a step’s arrangements go when it is deleted, follow it when it becomes a task, and carry over to a copy', async () => {
+    const { toggleStepDay, removeStep, promoteStep } = await import('./doc');
+    const rule: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2], start: '2026-09-29' };
+    let [d, id] = make('周报', { due: '2026-09-29', steps: ['收集', '写'], repeat: { mode: 'copy', rule } });
+    const [collect, write] = stepsOf(d.tasks[id]).map((s) => s.id);
+    d = toggleStepDay(d, ctx(), id, collect, '2026-09-29');
+    d = addPlan(d, ctx(), id, { day: '2026-09-29', start: '15:00', minutes: 60, stepId: write });
+    const copied = complete(d, ctx(), id);
+    const copy = liveTasks(copied).find((t) => t.id !== id)!;
+    const newWrite = stepsOf(copy).find((s) => s.text === '写')!.id;
+    expect(copy.plan.find((p) => p.start)).toMatchObject({ day: '2026-10-06', stepId: newWrite });
+    const removed = removeStep(d, ctx(), id, collect);
+    expect(removed.tasks[id].plan.filter((p) => !p.deleted && p.stepId === collect)).toHaveLength(0);
+    const [promoted, newId] = promoteStep(d, ctx(), id, write);
+    expect(promoted.tasks[newId].plan[0]).toMatchObject({ day: '2026-09-29', start: '15:00', minutes: 60 });
+    expect(promoted.tasks[newId].plan[0].stepId).toBeUndefined();
+  });
+});

@@ -77,7 +77,7 @@ export type Change =
   | { type: 'reopen'; task_id: string }
   | { type: 'snooze'; task_id: string; until?: Day; reason?: string }
   | { type: 'unsnooze'; task_id: string }
-  | { type: 'plan'; task_id: string; day: Day; part?: Part; start?: Time; minutes?: number }
+  | { type: 'plan'; task_id: string; day: Day; part?: Part; start?: Time; minutes?: number; step_id?: string }
   | { type: 'unplan'; task_id: string; plan_id: string }
   | { type: 'add_step'; task_id: string; text: string }
   | { type: 'check_step'; task_id: string; step_id: string; done: boolean }
@@ -299,12 +299,20 @@ export function applyChange(doc: Doc, ctx: Ctx, c: Change): Doc {
       });
     case 'unsnooze':
       return setField(doc, ctx, t.id, 'snooze', undefined);
-    case 'plan':
+    case 'plan': {
+      const forStep = c.step_id ? stepsOf(t).find((s) => s.id === step(c.step_id!)) : undefined;
       return addPlan(doc, ctx, t.id, {
         day: c.day,
-        ...(c.start ? { start: c.start, minutes: reservedMinutes(t, c.minutes) } : {}),
+        ...(c.start
+          ? {
+              start: c.start,
+              minutes: c.minutes ?? (forStep?.effort ? Math.min(forStep.effort, 120) : reservedMinutes(t)),
+            }
+          : {}),
         ...(!c.start && c.part ? { part: c.part } : {}),
+        ...(forStep ? { stepId: forStep.id } : {}),
       });
+    }
     case 'unplan':
       if (!t.plan.some((p) => p.id === c.plan_id && !p.deleted)) throw new Error(`There is no plan ${c.plan_id}.`);
       return removePlan(doc, ctx, t.id, c.plan_id);
@@ -488,9 +496,11 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
         : c.part
           ? partWords(c.part, t)
           : '';
+      const forStep = c.step_id ? task.steps.find((s) => s.id === c.step_id) : undefined;
+      const what = forStep ? t(`${name} 的步骤「${forStep.text}」`, `step “${forStep.text}” of ${name}`) : name;
       return t(
-        `安排 ${name} 在 ${dayWords(c.day, t)} ${when}`,
-        `Plan ${name} for ${dayWords(c.day, t)} ${when}`,
+        `安排 ${what} 在 ${dayWords(c.day, t)} ${when}`,
+        `Plan ${what} for ${dayWords(c.day, t)} ${when}`,
       ).trim();
     }
     case 'unplan': {

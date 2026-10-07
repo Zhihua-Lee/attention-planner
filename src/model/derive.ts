@@ -11,7 +11,7 @@ import {
   taskEffort,
   taskRound,
 } from './doc';
-import type { CalendarEvent, Day, Doc, Part, Settings, Task } from './types';
+import type { CalendarEvent, Day, Doc, Part, Settings, Step, Task } from './types';
 
 export type Reason =
   | { kind: 'slot'; until: string }
@@ -176,6 +176,14 @@ const LONGEST = 120;
  */
 export const stillToReserve = (t: Task) => Math.max(0, (taskEffort(t) ?? 60) - reservedFor(t));
 
+/** For one step: its estimate (or an hour) less the time already reserved for it. */
+export const stillToReserveStep = (t: Task, step: Step) =>
+  Math.max(
+    0,
+    (step.effort ?? 60) -
+      planOf(t).reduce((sum, p) => sum + (p.stepId === step.id && p.start ? (p.minutes ?? 60) : 0), 0),
+  );
+
 export type Slot = { day: Day; start: string; minutes: number };
 
 /**
@@ -183,10 +191,10 @@ export type Slot = { day: Day; start: string; minutes: number };
  * before its deadline (or in the next two weeks). Each is as long as what is still to reserve, up to two hours; a
  * shorter gap (at least half an hour) is offered too, so a long job can be done in pieces. At most two per day.
  */
-export function findTimes(doc: Doc, t: Task, now: Date, limit = 3): Slot[] {
-  const want = Math.min(LONGEST, stillToReserve(t) || 60);
+export function findTimes(doc: Doc, t: Task, now: Date, limit = 3, step?: Step): Slot[] {
+  const want = Math.min(LONGEST, (step ? stillToReserveStep(t, step) : stillToReserve(t)) || 60);
   const today = dayOf(now);
-  const last = effectiveDue(t, now)?.day ?? addDays(today, 13);
+  const last = step?.due ?? effectiveDue(t, now)?.day ?? addDays(today, 13);
   const out: Slot[] = [];
   const from = Math.ceil((nowMinutes(now) + 5) / 30) * 30; // the next half hour, with a moment to get ready
   for (let day = today; day <= last && out.length < limit; day = addDays(day, 1)) {
@@ -344,19 +352,26 @@ export const finishedTasks = (doc: Doc) =>
     .sort((a, b) => b.done!.localeCompare(a.done!));
 
 /** Steps progress for display, e.g. 1/3. */
+/** Steps done and in all; the next step is one arranged for today, if any, else the first open one. */
 export function stepProgress(t: Task, now: Date) {
   const steps = stepsOf(t);
+  const today = dayOf(now);
+  const forToday = new Set(planOf(t).flatMap((p) => (p.day === today && p.stepId ? [p.stepId] : [])));
+  const open = steps.filter((s) => !stepDone(t, s, now));
   return {
-    done: steps.filter((s) => stepDone(t, s, now)).length,
+    done: steps.length - open.length,
     total: steps.length,
-    next: steps.find((s) => !stepDone(t, s, now)),
+    next: open.find((s) => forToday.has(s.id)) ?? open[0],
   };
 }
 
+/** The words of the step an arrangement is for, when it is for one that is still there. */
+const stepOf = (t: Task, stepId?: string) => (stepId ? stepsOf(t).find((s) => s.id === stepId)?.text : undefined);
+
 export type AgendaItem =
   | { kind: 'event'; event: CalendarEvent }
-  | { kind: 'slot'; task: Task; start: number; end: number; entryId: string }
-  | { kind: 'loose'; task: Task; part?: Part; entryId: string }
+  | { kind: 'slot'; task: Task; start: number; end: number; entryId: string; step?: string }
+  | { kind: 'loose'; task: Task; part?: Part; entryId: string; step?: string }
   | { kind: 'due'; task: Task; step?: string };
 
 export function agenda(doc: Doc, day: Day, now: Date): AgendaItem[] {
@@ -372,8 +387,10 @@ export function agenda(doc: Doc, day: Day, now: Date): AgendaItem[] {
             start: minutesOf(p.start),
             end: minutesOf(p.start) + (p.minutes ?? 60),
             entryId: p.id,
+            step: stepOf(t, p.stepId),
           });
-        else if (!isSnoozed(t, today)) items.push({ kind: 'loose', task: t, part: p.part, entryId: p.id });
+        else if (!isSnoozed(t, today))
+          items.push({ kind: 'loose', task: t, part: p.part, entryId: p.id, step: stepOf(t, p.stepId) });
       }
     if (t.due === day) items.push({ kind: 'due', task: t });
     for (const s of stepsOf(t))

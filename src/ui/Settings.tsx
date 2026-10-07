@@ -448,14 +448,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   <Info label={t('步骤后面的按钮是什么', 'What the step buttons are')}>
                     <p>
                       {t(
-                        '任务里每个步骤后面的小按钮：给步骤设截止、用时、重复，或者把步骤变成单独的任务。',
-                        'The small buttons after each step of a task: give the step a deadline, an estimate or a repeat, or turn it into a task of its own.',
+                        '任务里每个步骤后面的小按钮：今天做这一步（整个任务也进入今天，NOW 先给这一步）、给步骤设截止、用时（里面可以给这一步找时间预留）、重复，或者把步骤变成单独的任务。',
+                        'The small buttons after each step of a task: do this step today (the task comes into today and NOW offers this step first), give the step a deadline, an estimate (where you can also find time for it) or a repeat, or turn it into a task of its own.',
                       )}
                     </p>
                     <p>
                       {t(
-                        '只显示勾上的。拖动排序和删除一直都有；已经设好的截止、用时、重复，不勾也会以小标签显示在步骤后面。',
-                        'Only the ticked ones show. Dragging and deleting are always there, and a deadline, estimate or repeat already set shows as a small tag even when its button is off.',
+                        '只显示勾上的；电脑上鼠标移到步骤上才出现。拖动排序和删除一直都有；已经设好的今天、截止、用时、重复，不勾也会以小标签显示在步骤后面。',
+                        'Only the ticked ones show, and on a computer only while the pointer is over the step. Dragging and deleting are always there, and today, a deadline, estimate or repeat already set shows as a small tag even when its button is off.',
                       )}
                     </p>
                   </Info>
@@ -463,8 +463,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 <div className="checks">
                   {(
                     [
+                      ['today', t('今日', 'Today')],
                       ['due', t('截止', 'Deadline')],
-                      ['effort', t('用时', 'Effort')],
+                      ['effort', t('用时与找时间', 'Effort and Find time')],
                       ['repeat', t('重复', 'Repeat')],
                       ['promote', t('独立成任务', 'Make it a task')],
                     ] as const

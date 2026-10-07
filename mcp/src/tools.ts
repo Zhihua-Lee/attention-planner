@@ -129,7 +129,9 @@ export function brief(doc: Doc, t: Task, now: Date) {
         ? { id: t.linkTo, title: doc.tasks[t.linkTo].title }
         : undefined,
     plans: planOf(t).length
-      ? planOf(t).map((p) => clean({ id: p.id, day: p.day, part: p.part, start: p.start, minutes: p.minutes }))
+      ? planOf(t).map((p) =>
+          clean({ id: p.id, day: p.day, part: p.part, start: p.start, minutes: p.minutes, step_id: p.stepId }),
+        )
       : undefined,
     steps: steps.total ? `${steps.done}/${steps.total} done` : undefined,
     next_step: steps.next?.text,
@@ -341,13 +343,14 @@ export function createServer(c: ToolContext): McpServer {
                       task: x.task.title,
                       task_id: x.task.id,
                       plan_id: x.entryId,
+                      ...(x.step ? { step: x.step } : {}),
                     },
                   ]
                 : [],
             ),
             planned: items.flatMap((x) =>
               x.kind === 'loose'
-                ? [clean({ task: x.task.title, task_id: x.task.id, part: x.part, plan_id: x.entryId })]
+                ? [clean({ task: x.task.title, task_id: x.task.id, part: x.part, plan_id: x.entryId, step: x.step })]
                 : [],
             ),
             deadlines: items.flatMap((x) =>

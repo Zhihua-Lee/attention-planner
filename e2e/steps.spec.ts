@@ -156,3 +156,22 @@ test('the step box reads a deadline, an estimate and a repeat, and a tag gives t
   await box.press('Enter');
   await expect(detail.locator('.step', { hasText: '喝水' })).toContainText('↻');
 });
+
+test('a step for today brings its task into today and comes first in NOW; its time is found from its estimate', async ({
+  page,
+}) => {
+  await start(page);
+  await add(page, '写论文');
+  const detail = await openRow(page, '写论文');
+  for (const s of ['列提纲', '画图']) {
+    await detail.getByRole('textbox', { name: '添加步骤' }).fill(s);
+    await detail.getByRole('textbox', { name: '添加步骤' }).press('Enter');
+  }
+  await tool(detail, '今天做这一步', '画图');
+  await expect(detail.locator('.step-tag.today')).toHaveText('☀ 今天');
+  await page.getByRole('button', { name: '收起' }).click();
+  await page.getByRole('button', { name: /^今天/ }).first().click();
+  await expect(row(page, '写论文')).toBeVisible();
+  await page.getByRole('tab', { name: 'NOW' }).click();
+  await expect(page.getByTestId('now-card')).toContainText('下一步：画图');
+});

@@ -1718,6 +1718,18 @@ mark {
   .step-list .step:focus-within .step-tools {
     display: flex;
   }
+  /* The buttons appearing can make the row taller; the box and the handle keep to the first line, so the tap that
+     brought them out still lands on the box. */
+  .step-list .step {
+    align-items: start;
+  }
+  .step-list .step > .handle,
+  .step-list .step > .step-tools {
+    margin-top: 2px;
+  }
+  .step-list .step > input[type='checkbox'] {
+    margin-top: 9px;
+  }
 }
 
 /* a text edited on two devices at once */
@@ -2302,4 +2314,18 @@ mark {
   margin: 0;
   font-size: 13px;
   color: var(--late);
+}
+/* Computer: a step's buttons appear while the pointer is over it (or it has focus); what is set shows as tags. */
+@media (hover: hover) and (pointer: fine) {
+  .step-tools {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .step:hover .step-tools,
+  .step:focus-within .step-tools {
+    opacity: 1;
+  }
+}
+.step-tag.today {
+  color: var(--accent);
 }
