@@ -446,3 +446,24 @@ describe('the capture link', () => {
     expect(await hashKey('k')).toMatch(/^[0-9a-f]{64}$/);
   });
 });
+
+describe('a new copy shown before its deadline, through MCP', () => {
+  it('sets the lead with a repeat, says so in words, and reads it back', async () => {
+    const remote = new MemoryRemote();
+    remote.doc = seed();
+    const paper = liveTasks(remote.doc).find((x) => x.title === '交论文')!;
+    const change: Change = {
+      type: 'set_repeat',
+      task_id: paper.id,
+      repeat: { mode: 'copy', rule: { freq: 'weekly', weekdays: [1] }, lead_days: 3 },
+    };
+    expect(describeChange(remote.doc, change, (a: string) => a)).toBe(
+      '「交论文」 改为重复：每周 周一，新建一份，截止前 3 天出现',
+    );
+    const after = applyChanges(remote.doc, wallCtx(), [change]);
+    expect(after.tasks[paper.id].repeat).toMatchObject({ mode: 'copy', lead: 3 });
+    remote.doc = after;
+    const { call } = await connect(remote);
+    expect((await call('get_task', { id: paper.id })).body.repeat).toContain('shows up 3 day(s) before its deadline');
+  });
+});

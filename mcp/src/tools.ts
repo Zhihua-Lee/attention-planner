@@ -134,7 +134,7 @@ export function brief(doc: Doc, t: Task, now: Date) {
     steps: steps.total ? `${steps.done}/${steps.total} done` : undefined,
     next_step: steps.next?.text,
     repeat: t.repeat
-      ? `${ruleWords(fromRule(t.repeat.rule), en)}, ${t.repeat.mode === 'reopen' ? 'reopens in place' : 'a new copy each time'}${t.repeat.paused ? ', paused' : ''}`
+      ? `${ruleWords(fromRule(t.repeat.rule), en)}, ${t.repeat.mode === 'reopen' ? 'reopens in place' : 'a new copy each time'}${t.repeat.lead ? `, each copy shows up ${t.repeat.lead} day(s) before its deadline` : ''}${t.repeat.paused ? ', paused' : ''}`
       : undefined,
     finished: isFinished(t, now) ? (t.done ?? 'this round') : undefined,
   });

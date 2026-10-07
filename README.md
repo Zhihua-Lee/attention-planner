@@ -105,7 +105,8 @@ chips under the box, in the order that matters (deadline → when → effort →
 ### Repeats that maintain themselves
 
 A task can **reopen in place** (a weekly checklist that clears its steps each round and keeps a history) or create a
-**new copy** when you finish (deadlines, plans and step deadlines move along). Each step can follow the task, never
+**new copy** when you finish (deadlines, plans and step deadlines move along; the next copy can wait until a few days
+before its deadline instead of filling the list at once). Each step can follow the task, never
 reset, or keep a rhythm of its own. A round is done only when every open step is. Dates belong to the round: a list
 due the day after it opens is due the day after every time, never "overdue by 7 days".
 

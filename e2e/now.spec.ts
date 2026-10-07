@@ -270,3 +270,15 @@ test('a tapped free time suggests tasks that suit it, unless turned off in Setti
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole('group', { name: '推荐' })).toHaveCount(0);
 });
+
+test('a new copy can show up some days before its deadline', async ({ page }) => {
+  await start(page);
+  await add(page, '每周五交周报');
+  const detail = await openRow(page, '交周报');
+  await detail.getByRole('button', { name: /新建一份/ }).click();
+  await detail.getByRole('spinbutton', { name: '截止前几天出现' }).fill('2');
+  await page.getByRole('button', { name: '收起' }).click();
+  await row(page, '交周报').getByRole('checkbox', { name: '完成: 交周报' }).click();
+  // Done on Tuesday 9/29 before Friday 10/2; the next copy is due 10/9 and waits until Wednesday 10/7.
+  await expect(row(page, '交周报').first()).toContainText('暂缓到');
+});

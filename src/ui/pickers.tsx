@@ -631,6 +631,29 @@ export function RepeatEditor({
           }
         />
       )}
+      {r?.mode === 'copy' && task.due && (
+        <div className="form">
+          <label>
+            {t('提前出现', 'Shows up')}
+            <span className="inline">
+              {t('截止前', '')}
+              <input
+                type="number"
+                min={0}
+                max={365}
+                value={r.lead ?? ''}
+                placeholder="0"
+                aria-label={t('截止前几天出现', 'Days before its deadline')}
+                onChange={(e) => {
+                  const n = Math.round(Number(e.target.value));
+                  onChange({ ...r, lead: n >= 1 && n <= 365 ? n : undefined });
+                }}
+              />
+              {t('天', 'days before its deadline')}
+            </span>
+          </label>
+        </div>
+      )}
     </div>
   );
 }

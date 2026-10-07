@@ -492,7 +492,12 @@ function spawnCopy(e: Edit, t: Task) {
     projectId: t.projectId,
     dueTime: t.dueTime,
     due: t.due ? addDays(t.due, shift) : undefined,
-    repeat: { mode: 'copy', rule: nextRule },
+    repeat: { mode: 'copy', rule: nextRule, ...(t.repeat!.lead ? { lead: t.repeat!.lead } : {}) },
+    // Shown some days before its deadline, if so chosen: until then it waits, snoozed.
+    snooze:
+      t.repeat!.lead && t.due && addDays(t.due, shift - t.repeat!.lead) > dayOf(e.ctx.now)
+        ? { until: addDays(t.due, shift - t.repeat!.lead) }
+        : undefined,
   };
   for (const [k, v] of Object.entries(carry)) if (v !== undefined) Object.assign(copy, { [k]: v });
   for (const f of TASK_FIELDS) fs[f] = e.s;

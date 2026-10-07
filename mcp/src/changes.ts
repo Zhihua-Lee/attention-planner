@@ -46,6 +46,15 @@ export const repeatSchema = z.object({
     .enum(['reopen', 'copy'])
     .describe('reopen: the same task opens again each round (a checklist); copy: completing it creates the next one.'),
   rule: ruleSchema,
+  lead_days: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe(
+      'New copy with a deadline only: each new copy shows up this many days before its deadline (snoozed until then).',
+    ),
 });
 
 const groupRef = z.string().min(1).max(100);

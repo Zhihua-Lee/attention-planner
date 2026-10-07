@@ -40,7 +40,7 @@ export type RuleInput = {
   until?: Day;
   count?: number;
 };
-export type RepeatInput = { mode: 'reopen' | 'copy'; rule: RuleInput };
+export type RepeatInput = { mode: 'reopen' | 'copy'; rule: RuleInput; lead_days?: number };
 
 /** A new task, its words already read: the title as it will show, with days and times worked out. */
 export type NewTaskInput = {
@@ -137,7 +137,11 @@ export function fromRule(r: RepeatRule): RuleInput {
 }
 export function toRepeat(r: RepeatInput, start: Day): Repeat {
   if (r.mode === 'copy' && r.rule.freq === 'hourly') throw new Error('A new-copy repeat cannot be hourly.');
-  return { mode: r.mode, rule: toRule(r.rule, start) };
+  return {
+    mode: r.mode,
+    rule: toRule(r.rule, start),
+    ...(r.mode === 'copy' && r.lead_days ? { lead: r.lead_days } : {}),
+  };
 }
 
 /** An area or project by id or by name (any case); a name that does not exist yet is created. */
@@ -338,6 +342,12 @@ export const minutesWords = (m: number, t: T) =>
 const partWords = (p: Part, t: T) =>
   ({ am: t('上午', 'morning'), pm: t('下午', 'afternoon'), eve: t('晚上', 'evening') })[p];
 
+/** “Shows up N days before its deadline”, for a new-copy repeat that says so. */
+const leadWords = (r: RepeatInput, t: T) =>
+  r.mode === 'copy' && r.lead_days
+    ? t(`，截止前 ${r.lead_days} 天出现`, `, shows up ${r.lead_days} day(s) before its deadline`)
+    : '';
+
 /** A note in one short line: its first line without Markdown marks, cut at 60 characters. */
 export function noteGist(note: string): string {
   const line = note.split(/\r?\n/).find((l) => l.trim()) ?? '';
@@ -396,7 +406,8 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
           ruleWords(c.repeat.rule, t) +
           (c.repeat.mode === 'reopen'
             ? t('，原地重开', ', reopens in place')
-            : t('，新建一份', ', a new copy each time')),
+            : t('，新建一份', ', a new copy each time')) +
+          leadWords(c.repeat, t),
       c.area && t('区域：', 'area: ') + group('areas', c.area),
       c.project && t('项目：', 'project: ') + group('projects', c.project),
       link && t(`关联到「${link}」`, `linked to “${link}”`),
@@ -553,7 +564,7 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
         ? t(
             `${name} 改为重复：${ruleWords(c.repeat.rule, t)}，${c.repeat.mode === 'reopen' ? '原地重开' : '新建一份'}`,
             `${name} repeats: ${ruleWords(c.repeat.rule, t)}, ${c.repeat.mode === 'reopen' ? 'reopens in place' : 'a new copy each time'}`,
-          )
+          ) + leadWords(c.repeat, t)
         : t(`${name} 不再重复`, `${name} stops repeating`);
     case 'delete':
       return t(`删除 ${name}`, `Delete ${name}`);

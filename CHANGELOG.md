@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.29 — 2026-10-07
+
+- **A new copy can wait until shortly before its deadline**: a task that makes a new copy each time and has a deadline
+  can set 提前出现 · 截止前 N 天. The next copy is then snoozed until N days before its deadline (每周五交周报 with 2
+  days shows up on Wednesday) instead of sitting in the list from the moment the last one was done. Without it, the
+  copy shows up at once, as before. The AI tools can set it too (`lead_days`).
+
 ## 0.2.28 — 2026-10-06
 
 - Turning on “从完成后计时” in a repeat now drops the weekdays or month day chosen before (they never applied counted

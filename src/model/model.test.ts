@@ -586,3 +586,26 @@ describe('a rule counted from completion', () => {
     expect(ruleWords({ freq: 'weekly', every: 1, weekdays: [2] }, en)).toBe('every week Tue');
   });
 });
+
+describe('a new copy that shows up some days before its deadline', () => {
+  const fridays: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [5], start: '2026-10-02' };
+
+  it('waits, snoozed, until that many days before its deadline, and passes the choice on', () => {
+    let [d, id] = make('交周报', { due: '2026-10-02', repeat: { mode: 'copy', rule: fridays, lead: 2 } });
+    d = complete(d, ctx(at('2026-10-02', '16:00')), id);
+    const [copy] = liveTasks(d).filter((t) => t.id !== id);
+    expect(copy.due).toBe('2026-10-09');
+    expect(copy.snooze).toEqual({ until: '2026-10-07' }); // Wednesday, two days before Friday
+    expect(copy.repeat?.lead).toBe(2);
+    expect(listTasks(d, at('2026-10-05'), 'all').some((t) => t.id === copy.id && !t.snooze)).toBe(false);
+  });
+
+  it('shows up at once when the day has already come, or when no lead is chosen', () => {
+    let [d, id] = make('交周报', { due: '2026-10-02', repeat: { mode: 'copy', rule: fridays, lead: 10 } });
+    d = complete(d, ctx(at('2026-10-02', '16:00')), id);
+    expect(liveTasks(d).find((t) => t.id !== id)?.snooze).toBeUndefined(); // 10 days before 10/9 is already past
+    let [e, id2] = make('交周报', { due: '2026-10-02', repeat: { mode: 'copy', rule: fridays } });
+    e = complete(e, ctx(at('2026-10-02', '16:00')), id2);
+    expect(liveTasks(e).find((t) => t.id !== id2)?.snooze).toBeUndefined();
+  });
+});

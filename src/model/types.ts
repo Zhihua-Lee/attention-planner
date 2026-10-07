@@ -47,7 +47,13 @@ export type RepeatRule = {
 };
 
 /** Reopen: the same task starts a new round. Copy: completing it creates the next task. */
-export type Repeat = { mode: 'reopen' | 'copy'; rule: RepeatRule; paused?: boolean };
+export type Repeat = {
+  mode: 'reopen' | 'copy';
+  rule: RepeatRule;
+  paused?: boolean;
+  /** New copy with a deadline: each new copy shows up this many days before its deadline (snoozed until then). */
+  lead?: number;
+};
 
 export type Step = {
   id: string;
