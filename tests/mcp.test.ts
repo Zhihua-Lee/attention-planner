@@ -7,7 +7,7 @@ import { memoryProposals } from '../mcp/src/proposals';
 import { createServer } from '../mcp/src/tools';
 import { Workspace } from '../mcp/src/workspace';
 import { dayOf } from '../src/model/dates';
-import { addTask, emptyDoc, liveTasks, setSettings, type Ctx } from '../src/model/doc';
+import { addTask, emptyDoc, liveTasks, setSettings, stepsOf, type Ctx } from '../src/model/doc';
 import { addProposal } from '../src/model/proposals';
 import type { Doc } from '../src/model/types';
 import { ConflictError, MemoryRemote } from '../src/store/sync';
@@ -352,6 +352,7 @@ describe('the full set of operations', () => {
     const plan = d.tasks[paper.id].plan[0];
     const changes: Change[] = [
       { type: 'edit_step', task_id: paper.id, step_id: abstract.id, due: '2026-10-01', effort_minutes: 45 },
+      { type: 'order_steps', task_id: paper.id, step_ids: [figure.id] },
       { type: 'promote_step', task_id: paper.id, step_id: figure.id },
       { type: 'move_plan', task_id: paper.id, plan_id: plan.id, start: '14:00', minutes: 60 },
       { type: 'link', task_id: mail.id, to: paper.id },
@@ -361,6 +362,7 @@ describe('the full set of operations', () => {
     const zh = (a: string) => a;
     expect(changes.map((c) => describeChange(d, c, zh))).toEqual([
       '修改 「交论文」 的步骤 「写摘要」：截止：无 → 10/1（周四）；用时：无 → 45 分钟',
+      '调整 「交论文」 的步骤顺序：「画图」',
       '把 「交论文」 的步骤 「画图」 独立成任务',
       '把 「交论文」 的安排从 9/30（周三） 上午 改到 9/30（周三） 14:00，1 小时',
       '把 「回邮件」 关联到「交论文」',
@@ -386,6 +388,19 @@ describe('the full set of operations', () => {
       changes: [{ type: 'remove_step', task_id: paper.id, step_id: 'nope' }],
     });
     expect(bad).toMatchObject({ error: true, raw: 'There is no step nope.' });
+  });
+
+  it('reorders steps: the listed ones first, the rest after in their order', async () => {
+    const { addStep } = await import('../src/model/doc');
+    let d = seed();
+    const paper = liveTasks(d).find((x) => x.title === '交论文')!;
+    for (const x of ['a', 'b', 'c', 'd']) d = addStep(d, wallCtx(), paper.id, x);
+    const [a, b, c] = stepsOf(d.tasks[paper.id]);
+    const after = applyChanges(d, wallCtx(), [{ type: 'order_steps', task_id: paper.id, step_ids: [c.id, a.id] }]);
+    expect(stepsOf(after.tasks[paper.id]).map((s) => s.text)).toEqual(['c', 'a', 'b', 'd']);
+    expect(() =>
+      applyChanges(d, wallCtx(), [{ type: 'order_steps', task_id: paper.id, step_ids: [b.id, b.id] }]),
+    ).toThrow('A step is listed twice.');
   });
 });
 

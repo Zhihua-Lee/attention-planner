@@ -170,6 +170,13 @@ export const changeSchema = z.discriminatedUnion('type', [
       step_id: z.string().min(1).max(100),
     })
     .describe('Turn a step into its own task, linked to this one (it keeps its deadline and estimate).'),
+  z
+    .object({
+      type: z.literal('order_steps'),
+      task_id: taskId,
+      step_ids: z.array(z.string().min(1).max(100)).min(1).max(200),
+    })
+    .describe('Put the steps in this order; steps left out keep their order after these.'),
   z.object({
     type: z.literal('move_plan'),
     task_id: taskId,

@@ -10,6 +10,7 @@ import {
   promoteStep,
   removePlan,
   removeStep,
+  reorderSteps,
   removeTask,
   renameGroup,
   setField,
@@ -92,6 +93,7 @@ export type Change =
     }
   | { type: 'remove_step'; task_id: string; step_id: string }
   | { type: 'promote_step'; task_id: string; step_id: string }
+  | { type: 'order_steps'; task_id: string; step_ids: string[] }
   | {
       type: 'move_plan';
       task_id: string;
@@ -240,6 +242,12 @@ export function applyChange(doc: Doc, ctx: Ctx, c: Change): Doc {
       return removeStep(doc, ctx, t.id, step(c.step_id));
     case 'promote_step':
       return promoteStep(doc, ctx, t.id, step(c.step_id))[0];
+    case 'order_steps': {
+      const first = c.step_ids.map(step);
+      if (new Set(first).size !== first.length) throw new Error('A step is listed twice.');
+      const rest = stepsOf(t).filter((s) => !first.includes(s.id));
+      return reorderSteps(doc, ctx, t.id, [...first, ...rest.map((s) => s.id)]);
+    }
     case 'move_plan': {
       if (!t.plan.some((p) => p.id === c.plan_id && !p.deleted)) throw new Error(`There is no plan ${c.plan_id}.`);
       const patch: Parameters<typeof updatePlan>[4] = {};
@@ -518,6 +526,12 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
       return c.done
         ? t(`勾掉 ${name} 的步骤 ${label}`, `Check ${label} in ${name}`)
         : t(`取消勾选 ${name} 的步骤 ${label}`, `Uncheck ${label} in ${name}`);
+    }
+    case 'order_steps': {
+      const texts = c.step_ids.map((id) => task.steps.find((s) => s.id === id)?.text ?? id);
+      return (
+        t(`调整 ${name} 的步骤顺序：`, `Reorder the steps of ${name}: `) + texts.map((x) => `「${x}」`).join(' → ')
+      );
     }
     case 'edit_step':
     case 'remove_step':

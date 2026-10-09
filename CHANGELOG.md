@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.31 — 2026-10-09
+
+- The AI tools can reorder a task's steps (`order_steps`: the listed steps first, the rest after them in their order).
+  The proposal's preview shows the steps in their new order with the moved one highlighted.
+
 ## 0.2.30 — 2026-10-07
 
 - **A step for today**: ☀ after a step (Settings → 步骤后面的按钮 → 今日, on by default) puts just that step into today.

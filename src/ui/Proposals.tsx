@@ -91,8 +91,13 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
   const oldSteps = before ? stepsOf(before) : [];
   const newSteps = stepsOf(after);
   const removed = oldSteps.filter((s) => !newSteps.some((n) => n.id === s.id));
+  const moved = movedSteps(
+    oldSteps.map((s) => s.id),
+    newSteps.map((s) => s.id),
+  );
   const stepsChanged =
     removed.length > 0 ||
+    moved.size > 0 ||
     newSteps.some((s) => {
       const o = oldSteps.find((x) => x.id === s.id);
       return (
@@ -150,7 +155,7 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
               <li key={s.id} className={`${done ? 'done' : ''}${mark}`}>
                 <span className={`box${done ? ' on' : ''}${chg(!!o && stepDone(before!, o, now) !== done)}`} />
                 <span className="pv-step">
-                  <span className={`txt${chg(!!o && o.text !== s.text)}`}>{s.text}</span>
+                  <span className={`txt${chg(!!o && (o.text !== s.text || moved.has(s.id)))}`}>{s.text}</span>
                   {(s.due || o?.due) && (
                     <span className={`tag${chg(!!o && o.due !== s.due)}`}>
                       {was(!!o && !!o.due && o.due !== s.due, o?.due ? dueLabel(o.due, today, lang) : '')}
@@ -321,4 +326,23 @@ export function ProposalNotice({ task, now }: { task: Task; now: Date }) {
       ))}
     </div>
   );
+}
+
+/** The steps that moved: those outside the longest run kept in the old order (so one step pulled up marks only it). */
+function movedSteps(before: string[], after: string[]): Set<string> {
+  const pos = after.filter((id) => before.includes(id)).map((id) => ({ id, at: before.indexOf(id) }));
+  // Longest increasing run of old positions, O(n²): a task has a few dozen steps at most.
+  const len = pos.map(() => 1);
+  const prev = pos.map(() => -1);
+  pos.forEach((p, i) => {
+    for (let j = 0; j < i; j++)
+      if (pos[j].at < p.at && len[j] + 1 > len[i]) {
+        len[i] = len[j] + 1;
+        prev[i] = j;
+      }
+  });
+  const kept = new Set<string>();
+  // On a tie keep the later one, so a step pulled up is the one marked.
+  for (let i = len.lastIndexOf(Math.max(0, ...len)); i >= 0; i = prev[i]) kept.add(pos[i].id);
+  return new Set(pos.filter((p) => !kept.has(p.id)).map((p) => p.id));
 }

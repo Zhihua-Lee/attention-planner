@@ -512,7 +512,7 @@ export function createServer(c: ToolContext): McpServer {
     {
       title: 'Propose changes',
       description:
-        'Propose changes: add a task (add_task: the title as it should read, without quick words); for existing tasks edit fields, complete, reopen, snooze, plan / move a plan / unplan, add, check, edit, remove or promote steps, link to another task, set or stop a repeat, delete; and rename or order a project, or rename an area. Nothing changes until the owner approves all of them together at the review link this returns; show them the link. The whole list is checked first, so a wrong id is reported now. Use ids from list_tasks/get_task.',
+        'Propose changes: add a task (add_task: the title as it should read, without quick words); for existing tasks edit fields, complete, reopen, snooze, plan / move a plan / unplan, add, check, edit, remove, promote or reorder steps, link to another task, set or stop a repeat, delete; and rename or order a project, or rename an area. Nothing changes until the owner approves all of them together at the review link this returns; show them the link. The whole list is checked first, so a wrong id is reported now. Use ids from list_tasks/get_task.',
       inputSchema: {
         summary: z.string().trim().min(1).max(300).describe('One line for the owner: what and why.'),
         changes: z.array(changeSchema).min(1).max(30),

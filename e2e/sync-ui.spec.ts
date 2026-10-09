@@ -120,7 +120,10 @@ async function seedProposal(page: import('@playwright/test').Page) {
         due: '2026-09-28',
         created: '2026-09-27T10:00:00.000Z',
         plan: [],
-        steps: [],
+        steps: [
+          { id: 's1', text: '查资料', order: 0, s: S(1, 'a') },
+          { id: 's2', text: '写正文', order: 1, s: S(1, 'a') },
+        ],
         rounds: [],
         fs: { title: S(1, 'a'), due: S(1, 'a') },
         s: S(1, 'a'),
@@ -138,6 +141,7 @@ async function seedProposal(page: import('@playwright/test').Page) {
         changes: [
           { type: 'update', task_id: 't1', due: '2026-10-05' },
           { type: 'add_step', task_id: 't1', text: '写摘要' },
+          { type: 'order_steps', task_id: 't1', step_ids: ['s2'] },
         ],
         s: S(5, 'ai'),
       },
@@ -184,14 +188,17 @@ test('an AI proposal shows in the list and on its task; approving applies it, un
   // Drawn like the task's row: the new deadline highlighted beside the old one struck through, the new step dashed.
   await expect(card.locator('.pv-task .meta .chg .was')).toBeVisible();
   await expect(card.locator('.pv-steps li.new')).toHaveText('写摘要');
+  // The step pulled up is highlighted where it lands; the one it passed is not.
+  await expect(card.locator('.pv-steps li .txt')).toHaveText(['写正文', '查资料', '写摘要']);
+  await expect(card.locator('.pv-steps .txt.chg')).toHaveText('写正文');
   // And in words, under 明细.
   await card.getByText('明细').click();
   await expect(card).toContainText('截止：9/28（周一） → 10/5（周一）');
   await expect(card).toContainText('给 「交论文」 加步骤：写摘要');
-  await card.getByRole('button', { name: '批准全部 2 条' }).click();
+  await card.getByRole('button', { name: '批准全部 3 条' }).click();
   await expect(page.locator('.toast')).toContainText('已批准并套用');
   await expect(detail.getByLabel('截止日期')).toHaveValue('2026-10-05');
-  await expect(detail.locator('.step')).toContainText(['写摘要']);
+  await expect(detail.locator('.step')).toContainText(['写正文', '查资料', '写摘要']);
   await expect(bar).toHaveCount(0);
   await page.locator('.toast').getByRole('button', { name: '撤销' }).click();
   await expect(page.getByRole('region', { name: 'AI 提议' })).toBeVisible();
