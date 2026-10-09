@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.32 — 2026-10-09
+
+- **A proposal's changes stand out**: in the preview, each row that changes is tinted, with a bar on its left and a
+  word at its end — 勾选, 取消勾选, 修改, 移动, 新增, 删除 for a step; 完成, 重开, 删除 for a task — and the steps that
+  stay as they are step back. A checked step no longer shows only as a faint ring round its box.
+
 ## 0.2.31 — 2026-10-09
 
 - The AI tools can reorder a task's steps (`order_steps`: the listed steps first, the rest after them in their order).

@@ -3,7 +3,7 @@ import { applyChanges, changeTask, describeChange } from '../model/changes';
 import { dayOf } from '../model/dates';
 import { effectiveDue, isFinished, isSnoozed, planOf, stepDone, stepsOf, taskEffort } from '../model/doc';
 import { decideProposal, pendingProposals, proposalsFor } from '../model/proposals';
-import type { Doc, Proposal, Task } from '../model/types';
+import type { Doc, Proposal, Step, Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { noteHtml } from './markdown';
@@ -33,6 +33,8 @@ function afterProposal(doc: Doc, p: Proposal, now: Date): { after: Doc; ids: str
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+type Mark = 'new' | 'gone' | 'check' | 'uncheck' | 'edit' | 'moved' | 'done' | 'reopen';
 
 /**
  * A task as it would be after a proposal, drawn like its row in the list: a new task is outlined with a dashed line,
@@ -109,10 +111,40 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
       );
     });
   const noteChanged = !!before && (before.note ?? '') !== (after.note ?? '');
+  // What happens to a row, in a word at its end; the row itself is tinted, and unchanged steps step back.
+  const marks: Record<Mark, string> = {
+    new: t('新增', 'New'),
+    gone: t('删除', 'Removed'),
+    check: t('勾选', 'Checked'),
+    uncheck: t('取消勾选', 'Unchecked'),
+    edit: t('修改', 'Edited'),
+    moved: t('移动', 'Moved'),
+    done: t('完成', 'Done'),
+    reopen: t('重开', 'Reopened'),
+  };
+  const badge = (m: Mark | '') => m && <span className={`pv-badge is-${m}`}>{marks[m]}</span>;
+  const taskMark: Mark | '' = !before
+    ? 'new'
+    : after.deleted
+      ? 'gone'
+      : isFinished(before, now) !== finished
+        ? finished
+          ? 'done'
+          : 'reopen'
+        : '';
+  const stepMark = (s: Step): Mark | '' => {
+    const o = oldSteps.find((x) => x.id === s.id);
+    if (!before) return '';
+    if (!o) return 'new';
+    const done = stepDone(after, s, now);
+    if (stepDone(before, o, now) !== done) return done ? 'check' : 'uncheck';
+    if (o.text !== s.text || o.due !== s.due || o.effort !== s.effort) return 'edit';
+    return moved.has(s.id) ? 'moved' : '';
+  };
 
   return (
     <div className={`pv-task${after.deleted ? ' gone' : !before ? ' new' : ''}`}>
-      <div className="row-main">
+      <div className={`row-main${taskMark && taskMark !== 'new' ? ' mark' : ''}`}>
         <span
           className={`check${finished ? ' on' : ''}${chg(!!before && isFinished(before, now) !== finished)}`}
           aria-hidden="true"
@@ -120,6 +152,7 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
         <span className="title-btn">
           {was(!!before && before.title !== after.title, before?.title ?? '')}
           <span className={`tt${chg(!!before && before.title !== after.title)}`}>{after.title}</span>
+          {badge(taskMark)}
           {(after.star || before?.star) &&
             (after.star ? (
               <span className={`st${chg(!before?.star)}`} aria-label={t('重要', 'Important')}>
@@ -146,13 +179,13 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
         </span>
       </div>
       {(stepsChanged || (!before && newSteps.length > 0)) && (
-        <ul className="pv-steps">
+        <ul className={`pv-steps${before ? ' dim' : ''}`}>
           {newSteps.map((s) => {
             const o = oldSteps.find((x) => x.id === s.id);
             const done = stepDone(after, s, now);
-            const mark = !before ? '' : !o ? ' new' : '';
+            const mark = stepMark(s);
             return (
-              <li key={s.id} className={`${done ? 'done' : ''}${mark}`}>
+              <li key={s.id} className={`${done ? 'done' : ''}${mark ? ` mark is-${mark}` : ''}`}>
                 <span className={`box${done ? ' on' : ''}${chg(!!o && stepDone(before!, o, now) !== done)}`} />
                 <span className="pv-step">
                   <span className={`txt${chg(!!o && (o.text !== s.text || moved.has(s.id)))}`}>{s.text}</span>
@@ -171,15 +204,17 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
                   {/* The old wording under the new, so the new one keeps its place by the box. */}
                   {!!o && o.text !== s.text && <s className="was old-text">{o.text}</s>}
                 </span>
+                {badge(mark)}
               </li>
             );
           })}
           {removed.map((s) => (
-            <li key={s.id} className="gone">
+            <li key={s.id} className="mark is-gone">
               <span className="box" />
               <span className="pv-step">
                 <span className="txt">{s.text}</span>
               </span>
+              {badge('gone')}
             </li>
           ))}
         </ul>

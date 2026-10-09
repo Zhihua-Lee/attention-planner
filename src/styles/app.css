@@ -2004,14 +2004,51 @@ mark {
   display: flex;
   gap: 8px;
   align-items: baseline;
-}
-.pv-steps li.new {
-  outline: 1.5px dashed var(--accent);
-  outline-offset: 1px;
+  margin-left: -6px;
+  padding: 1px 6px;
   border-radius: 4px;
 }
+/* a changed row is tinted with a bar on its left and says what happens at its end; the rest step back */
+.pv-steps.dim li:not(.mark) {
+  opacity: 0.55;
+}
+.pv-steps li.mark,
+.pv-task .row-main.mark {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.pv-steps li.is-new {
+  box-shadow: none;
+  outline: 1.5px dashed var(--accent);
+  outline-offset: -1px;
+}
+.pv-steps li.is-gone,
+.pv-task .row-main.mark:has(.is-gone) {
+  background: color-mix(in srgb, var(--late) 12%, transparent);
+  box-shadow: inset 3px 0 var(--late);
+}
+.pv-badge {
+  flex: none;
+  align-self: center;
+  margin-left: auto;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.pv-badge.is-gone {
+  background: var(--late);
+  color: var(--surface);
+}
+.pv-task .title-btn .pv-badge {
+  margin-left: 4px;
+}
 .pv-steps li.done .txt,
-.pv-steps li.gone .txt {
+.pv-steps li.is-gone .txt {
   color: var(--muted);
   text-decoration: line-through;
 }
@@ -2065,6 +2102,7 @@ mark {
 }
 /* a step: the box, then its words (new ones by the box, an old wording struck through underneath) */
 .pv-step {
+  flex: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;

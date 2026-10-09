@@ -187,9 +187,9 @@ test('an AI proposal shows in the list and on its task; approving applies it, un
   await expect(card).toContainText('推迟论文，先写摘要');
   // Drawn like the task's row: the new deadline highlighted beside the old one struck through, the new step dashed.
   await expect(card.locator('.pv-task .meta .chg .was')).toBeVisible();
-  await expect(card.locator('.pv-steps li.new')).toHaveText('写摘要');
-  // The step pulled up is highlighted where it lands; the one it passed is not.
+  // Each changed step says what happens to it; the step pulled up is marked where it lands, the one it passed is not.
   await expect(card.locator('.pv-steps li .txt')).toHaveText(['写正文', '查资料', '写摘要']);
+  await expect(card.locator('.pv-steps li.mark')).toHaveText(['写正文移动', '写摘要新增']);
   await expect(card.locator('.pv-steps .txt.chg')).toHaveText('写正文');
   // And in words, under 明细.
   await card.getByText('明细').click();
