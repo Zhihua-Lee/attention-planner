@@ -8,6 +8,8 @@ const tool = async (detail: import('@playwright/test').Locator, name: string, st
     .filter({ has: detail.page().getByRole('checkbox', { name: step, exact: true }) })
     .locator('.step-text')
     .click();
+  // As on an iPhone, where the tapped button does not take focus: the step's buttons stay out without it.
+  await detail.page().evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await detail.getByRole('button', { name: `${name}: ${step}` }).click();
 };
 

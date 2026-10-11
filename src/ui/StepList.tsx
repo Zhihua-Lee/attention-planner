@@ -42,6 +42,9 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
   const pop = usePopover<string>();
   const steps = stepsOf(task);
   const [dragging, setDragging] = useState<string[] | null>(null);
+  // The step last tapped keeps its buttons out on a phone: iOS does not focus a tapped button, so focus alone would
+  // hide them between the touch and the click. It is set on click, once the tap is over, so no row moves under it.
+  const [active, setActive] = useState<string | null>(null);
   const ids = dragging ?? steps.map((s) => s.id);
   const byId = new Map(steps.map((s) => [s.id, s]));
   const today = dayOf(now);
@@ -60,6 +63,8 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
               now={now}
               tools={tools}
               first={i === 0}
+              active={active === sid}
+              onActive={() => setActive(sid)}
               last={i === ids.length - 1}
               onOpen={(k, el) => pop.toggle(`${k}:${s.id}`, el)}
               isOpen={(k) => pop.is(`${k}:${s.id}`)}
@@ -160,6 +165,8 @@ function StepRow({
   tools,
   first,
   last,
+  active,
+  onActive,
   onOpen,
   isOpen,
   onDrop,
@@ -170,6 +177,8 @@ function StepRow({
   tools: StepTool[];
   first: boolean;
   last: boolean;
+  active: boolean;
+  onActive: () => void;
   onOpen: (kind: string, el: HTMLElement) => void;
   isOpen: (kind: string) => boolean;
   onDrop: () => void;
@@ -203,7 +212,8 @@ function StepRow({
     <Reorder.Item
       value={step.id}
       as="div"
-      className={`step${checked ? ' done' : ''}`}
+      className={`step${checked ? ' done' : ''}${active ? ' active' : ''}`}
+      onClick={onActive}
       dragListener={false}
       dragControls={controls}
       onDragEnd={onDrop}

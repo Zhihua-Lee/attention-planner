@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.33 — 2026-10-11
+
+- **Fix: a step's buttons on an iPhone**: tapping one did nothing, because iOS does not focus a tapped button, so the
+  step lost focus and its buttons were hidden before the tap arrived. The step last tapped now keeps its buttons out
+  until another step is tapped.
+
 ## 0.2.32 — 2026-10-09
 
 - **A proposal's changes stand out**: in the preview, each row that changes is tinted, with a bar on its left and a

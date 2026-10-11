@@ -1710,11 +1710,12 @@ mark {
   font-size: 14px;
 }
 
-/* Phone: a step's buttons appear once that step is tapped. */
+/* Phone: a step's buttons appear once that step is tapped, and stay until another one is. */
 @media (max-width: 520px) {
   .step-list .step-tools {
     display: none;
   }
+  .step-list .step.active .step-tools,
   .step-list .step:focus-within .step-tools {
     display: flex;
   }
