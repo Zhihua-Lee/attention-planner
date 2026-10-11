@@ -1,5 +1,5 @@
 import { Reorder, useDragControls } from 'motion/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { dayOf } from '../model/dates';
 import { findTimes, stillToReserveStep } from '../model/derive';
 import {
@@ -42,6 +42,19 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
   const pop = usePopover<string>();
   const steps = stepsOf(task);
   const [dragging, setDragging] = useState<string[] | null>(null);
+  // The dragged order until it is saved. Motion reports the drop a frame after the handle is let go, while the list
+  // already shows the new order; a key pressed in between saves it first, so the late drop must not save it again.
+  const pending = useRef<string[] | null>(null);
+  const drag = (order: string[]) => {
+    pending.current = order;
+    setDragging(order);
+  };
+  const drop = () => {
+    const order = pending.current;
+    pending.current = null;
+    setDragging(null);
+    if (order) commit((d, c) => reorderSteps(d, c, task.id, order));
+  };
   // The step last tapped keeps its buttons out on a phone: iOS does not focus a tapped button, so focus alone would
   // hide them between the touch and the click. It is set on click, once the tap is over, so no row moves under it.
   const [active, setActive] = useState<string | null>(null);
@@ -52,7 +65,7 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
   const kind = pop.open?.key.split(':')[0];
   return (
     <>
-      <Reorder.Group axis="y" as="div" className="step-list" values={ids} onReorder={setDragging}>
+      <Reorder.Group axis="y" as="div" className="step-list" values={ids} onReorder={drag}>
         {ids.map((sid, i) => {
           const s = byId.get(sid);
           return s ? (
@@ -68,10 +81,7 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
               last={i === ids.length - 1}
               onOpen={(k, el) => pop.toggle(`${k}:${s.id}`, el)}
               isOpen={(k) => pop.is(`${k}:${s.id}`)}
-              onDrop={() => {
-                if (dragging) commit((d, c) => reorderSteps(d, c, task.id, dragging));
-                setDragging(null);
-              }}
+              onDrop={drop}
             />
           ) : null;
         })}
@@ -225,6 +235,7 @@ function StepRow({
         onKeyDown={(e) => {
           if ((e.key === 'ArrowUp' && !first) || (e.key === 'ArrowDown' && !last)) {
             e.preventDefault();
+            onDrop(); // a drag just let go is saved first
             commit((d, c) => moveStep(d, c, task.id, step.id, e.key === 'ArrowUp' ? -1 : 1));
           }
         }}

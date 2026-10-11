@@ -121,6 +121,36 @@ test('the list can be sorted by hand by dragging', async ({ page }) => {
   await expect(page.locator('.list .tt')).toHaveText(['三', '二', '一']);
 });
 
+test('a key pressed as a drag is let go starts from the dragged order', async ({ page }) => {
+  await start(page);
+  await add(page, '一', '二', '三');
+  await page.getByRole('radio', { name: '手动' }).click();
+  const target = await page.getByRole('button', { name: /拖动排序.*: 三/ }).boundingBox();
+  const box = await page.getByRole('button', { name: /拖动排序.*: 一/ }).boundingBox();
+  const x = box!.x + box!.width / 2;
+  const top = target!.y - 8;
+  await page.mouse.move(x, box!.y + box!.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(x, box!.y + ((top - box!.y) * i) / 10);
+  await expect(page.locator('.list .tt')).toHaveText(['一', '三', '二']);
+  // Let go and press ↑ in one go, before the next frame, when the drop is reported.
+  await page.evaluate(
+    ({ x, y }) => {
+      const up = { bubbles: true, clientX: x, clientY: y, pointerType: 'mouse', isPrimary: true, button: 0 };
+      window.dispatchEvent(new PointerEvent('pointerup', up));
+      const handle = [...document.querySelectorAll('.list .handle')].find((b) => /: 二$/.test(b.ariaLabel ?? ''));
+      handle!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    },
+    { x, y: top },
+  );
+  await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
+  await page.waitForTimeout(400);
+  await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
+  await reloadSaved(page);
+  await page.getByRole('tab', { name: '清单' }).click();
+  await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
+});
+
 test('a linked task is listed right after the task it points to', async ({ page }) => {
   await start(page);
   await add(page, '论文', '重画图 3', '别的事 !');

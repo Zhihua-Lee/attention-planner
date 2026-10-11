@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.35 — 2026-10-11
+
+- **Fix: ↑/↓ right after a drag**: the order is saved a frame after a dragged task or step is let go; a key pressed in
+  that moment moved it within the old order, and then the drop put the dragged order back over it. The key now starts
+  from the order shown.
+
 ## 0.2.34 — 2026-10-11
 
 - **Fix: a step's text on a phone keeps its width**: a tapped step's buttons used to come out beside it and squeeze

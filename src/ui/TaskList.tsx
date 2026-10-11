@@ -34,6 +34,19 @@ export const TaskList = forwardRef<
   const [filter, setFilter] = useState<Filter>('all');
   const [showDone, setShowDone] = useState(false);
   const [dragging, setDragging] = useState<string[] | null>(null);
+  // The dragged order until it is saved. Motion reports the drop a frame after the handle is let go, while the list
+  // already shows the new order; a key pressed in between takes it over, so the late drop must not save it again.
+  const pending = useRef<string[] | null>(null);
+  const drag = (order: string[]) => {
+    pending.current = order;
+    setDragging(order);
+  };
+  const drop = () => {
+    const order = pending.current;
+    pending.current = null;
+    setDragging(null);
+    if (order) store.commit((d, c) => reorderTasks(d, c, order));
+  };
   const manual = doc.settings.listSort === 'manual';
   const rows = listTasks(doc, now, filter);
   const done = finishedTasks(doc).slice(0, 50);
@@ -87,11 +100,14 @@ export const TaskList = forwardRef<
   const ids = dragging ?? rows.map((x) => x.id);
   const byId = new Map(rows.map((x) => [x.id, x]));
   const move = (id: string, dir: -1 | 1) => {
-    const list = rows.map((x) => x.id);
+    // From the order shown, which right after a drag is the dragged one, not yet saved.
+    const list = [...(pending.current ?? rows.map((x) => x.id))];
     const i = list.indexOf(id);
     const j = i + dir;
-    if (j < 0 || j >= list.length) return;
-    [list[i], list[j]] = [list[j], list[i]];
+    if (j >= 0 && j < list.length) [list[i], list[j]] = [list[j], list[i]];
+    else if (!pending.current) return;
+    pending.current = null;
+    setDragging(null);
     store.commit((d, c) => reorderTasks(d, c, list));
   };
   const rowProps = (task: Task) => ({
@@ -195,7 +211,7 @@ export const TaskList = forwardRef<
           </div>
         )}
         {manual ? (
-          <Reorder.Group as="div" axis="y" values={ids} onReorder={setDragging}>
+          <Reorder.Group as="div" axis="y" values={ids} onReorder={drag}>
             {ids.map((id) => {
               const task = byId.get(id);
               return task ? (
@@ -203,10 +219,7 @@ export const TaskList = forwardRef<
                   key={id}
                   {...rowProps(task)}
                   onMove={(dir) => move(id, dir)}
-                  onDrop={() => {
-                    if (dragging) store.commit((d, c2) => reorderTasks(d, c2, dragging));
-                    setDragging(null);
-                  }}
+                  onDrop={drop}
                 />
               ) : null;
             })}
