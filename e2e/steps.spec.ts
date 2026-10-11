@@ -177,3 +177,19 @@ test('a step for today brings its task into today and comes first in NOW; its ti
   await page.getByRole('tab', { name: 'NOW' }).click();
   await expect(page.getByTestId('now-card')).toContainText('下一步：画图');
 });
+
+test('on a phone, the buttons of a tapped step come out under it and leave its text as wide as it was', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(!isMobile, 'the buttons sit beside the step on a computer');
+  await start(page);
+  await add(page, '写论文');
+  const detail = await openRow(page, '写论文');
+  await addSteps(detail, '改写消融小节的说明段落：把评估区间、filtering 方式和 UQ 设置的差异如实列出来');
+  const text = detail.locator('.step-text').first();
+  const before = (await text.boundingBox())!.width;
+  await text.click();
+  await expect(detail.getByRole('button', { name: /^截止: 改写/ })).toBeVisible();
+  expect((await text.boundingBox())!.width).toBe(before);
+});

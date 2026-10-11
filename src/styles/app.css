@@ -1715,9 +1715,18 @@ mark {
   .step-list .step-tools {
     display: none;
   }
-  .step-list .step.active .step-tools,
-  .step-list .step:focus-within .step-tools {
+  .step-list .step.active .step-tools {
     display: flex;
+  }
+  /* The text keeps the whole width; the buttons come out on a line of their own under it, so nothing rewraps. Only a
+     tap changes which step shows them (not focus leaving), so nothing below moves under a finger. */
+  .step-list .step-main {
+    grid-column: 3 / -1;
+  }
+  .step-list .step > .step-tools {
+    grid-row: 2;
+    grid-column: 3 / -1;
+    flex-wrap: wrap;
   }
   /* The buttons appearing can make the row taller; the box and the handle keep to the first line, so the tap that
      brought them out still lands on the box. */

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.34 — 2026-10-11
+
+- **Fix: a step's text on a phone keeps its width**: a tapped step's buttons used to come out beside it and squeeze
+  its text into a narrow column while editing; they now come out on a line of their own under the text.
+
 ## 0.2.33 — 2026-10-11
 
 - **Fix: a step's buttons on an iPhone**: tapping one did nothing, because iOS does not focus a tapped button, so the
