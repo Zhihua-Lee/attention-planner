@@ -215,12 +215,7 @@ export const TaskList = forwardRef<
             {ids.map((id) => {
               const task = byId.get(id);
               return task ? (
-                <DraggableRow
-                  key={id}
-                  {...rowProps(task)}
-                  onMove={(dir) => move(id, dir)}
-                  onDrop={drop}
-                />
+                <DraggableRow key={id} {...rowProps(task)} onMove={(dir) => move(id, dir)} onDrop={drop} />
               ) : null;
             })}
           </Reorder.Group>
