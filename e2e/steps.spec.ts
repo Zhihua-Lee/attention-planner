@@ -193,3 +193,22 @@ test('on a phone, the buttons of a tapped step come out under it and leave its t
   await expect(detail.getByRole('button', { name: /^截止: 改写/ })).toBeVisible();
   expect((await text.boundingBox())!.width).toBe(before);
 });
+
+test('checking every step completes the task only when Settings say so', async ({ page }) => {
+  await start(page);
+  await add(page, '报销');
+  let detail = await openRow(page, '报销');
+  await addSteps(detail, '填表');
+  await detail.getByRole('checkbox', { name: '填表' }).check();
+  await expect(detail.getByRole('button', { name: '完成', exact: true })).toBeVisible();
+  await detail.getByRole('checkbox', { name: '填表' }).uncheck();
+  await page.getByRole('button', { name: '设置' }).click();
+  const sheet = page.getByRole('dialog', { name: '设置' });
+  await sheet.getByRole('checkbox', { name: '自动完成任务' }).check();
+  await sheet.getByRole('button', { name: '完成' }).click();
+  detail = page.getByTestId('task-detail');
+  await detail.getByRole('checkbox', { name: '填表' }).click();
+  // Done, so it leaves the list for 已完成.
+  await expect(page.getByRole('button', { name: /已完成 1/ })).toBeVisible();
+  await expect(row(page, '报销')).toHaveCount(0);
+});

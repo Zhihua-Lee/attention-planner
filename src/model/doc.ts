@@ -178,11 +178,24 @@ export function toggleDay(doc: Doc, ctx: Ctx, id: string, day: Day): Doc {
   return addPlan(doc, ctx, id, { day });
 }
 
-/** Done for good, or (for a task that reopens) done for the current round. */
+/** Done for good, or (for a task that reopens) done for the current round — unless a step has come round again. */
 export function isFinished(t: Task, now: Date): boolean {
-  if (t.done) return true;
+  return (!!t.done || !!taskRound(t, now)?.done) && !stepBack(t, now);
+}
+
+/**
+ * A step on a rhythm of its own that has opened again since the task (or its round) was finished: it brings the task
+ * back until it is checked. A "new copy" task's next copy has the step instead.
+ */
+export function stepBack(t: Task, now: Date): Step | undefined {
+  if (t.repeat?.mode === 'copy') return undefined;
   const round = taskRound(t, now);
-  return !!round?.done;
+  const at = t.done ?? (round?.done ? live(t.rounds).find((r) => r.key === round.key)?.doneAt : undefined);
+  if (!at) return undefined;
+  return stepsOf(t).find((s) => {
+    const r = typeof s.repeat === 'object' ? stepRound(s, now) : null;
+    return !!r && !r.done && r.opensAt.toISOString() > at;
+  });
 }
 
 export const isSnoozed = (t: Task, today: Day) => !!t.snooze && (!t.snooze.until || t.snooze.until > today);
@@ -427,7 +440,10 @@ function checkPatch(t: Task, step: Step, checked: boolean, now: Date): Partial<S
   return { done: checked };
 }
 
-/** Check or uncheck a step; in a task that reopens, checking the last one finishes the round. */
+/**
+ * Check or uncheck a step. With "complete when all steps are checked" on, checking the last open one completes the task
+ * (or finishes its round); unchecking one in a finished task (or round) reopens it either way.
+ */
 export function toggleStep(doc: Doc, ctx: Ctx, id: string, stepId: string, checked: boolean): Doc {
   return edit(doc, ctx, (e) => {
     const t = e.task(id);
@@ -437,14 +453,24 @@ export function toggleStep(doc: Doc, ctx: Ctx, id: string, stepId: string, check
     const patch = checkPatch(t, step, checked, now);
     e.child(id, 'steps', (steps) => steps.map((s) => (s.id === stepId ? { ...s, ...patch, ds: e.s, s: e.s } : s)));
     const after = e.task(id);
-    const round = taskRound(after, now);
-    if (!round) return;
-    // The round is done when nothing in the task is left open: the steps that follow it, and also one-off steps and
-    // steps on their own rule. A task with no step that follows it never finishes by itself.
+    // Done when nothing in the task is left open: the steps that follow it, and also one-off steps and steps on their
+    // own rule. A task with no step that follows it never finishes by itself.
     const steps = stepsOf(after);
     const allDone = steps.some((s) => !s.repeat) && steps.every((s) => stepDone(after, s, now));
-    if (allDone && !round.done) finishRound(e, id, round.key);
-    if (!checked && round.done) reopenRound(e, id, round.key);
+    const auto = !!e.doc.settings.autoComplete;
+    if (after.repeat?.mode === 'reopen') {
+      const round = taskRound(after, now);
+      if (!round) return;
+      if (!checked && round.done) reopenRound(e, id, round.key);
+      else if (checked && allDone && auto && !round.done) finishRound(e, id, round.key);
+      return;
+    }
+    // Unchecking in a done copy would leave its next copy behind; it stays done.
+    if (!checked && after.done && after.repeat?.mode !== 'copy') e.set(id, 'done', undefined);
+    else if (checked && allDone && auto && !after.done) {
+      e.set(id, 'done', now.toISOString());
+      if (after.repeat?.mode === 'copy') spawnCopy(e, after);
+    }
   });
 }
 

@@ -203,6 +203,8 @@ test('a task that reopens finishes its round and comes back next time', async ({
   await detail.getByRole('button', { name: '四', exact: true }).click(); // Tuesday is already on
   await expect(detail.getByRole('button', { name: /每周二、四 · 原地重开/ })).toBeVisible();
   await detail.getByRole('checkbox', { name: '讲义' }).check();
+  // Checking every step finishes nothing by itself unless Settings say so; the round is finished by hand.
+  await detail.getByRole('button', { name: '完成本轮' }).click();
   await expect(detail.getByRole('button', { name: '重新打开本轮' })).toBeVisible();
   await page.getByRole('button', { name: '收起' }).click();
   await expect(row(page, '1560 备课')).toContainText('下一轮 后天');

@@ -280,7 +280,7 @@ export function createServer(c: ToolContext): McpServer {
         const hits = (t: Task) =>
           !q || [t.title, t.note ?? '', ...stepsOf(t).map((s) => s.text)].some((x) => x.toLowerCase().includes(q));
         rows = rows.filter(hits);
-        if (a.include_finished) rows = [...rows, ...finishedTasks(doc).filter(hits)];
+        if (a.include_finished) rows = [...rows, ...finishedTasks(doc, now).filter(hits)];
         const limit = a.limit ?? 30;
         return text({
           count: rows.length,

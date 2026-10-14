@@ -5,6 +5,7 @@ import {
   addPlan,
   addProject,
   complete,
+  isFinished,
   isSnoozed,
   live,
   planOf,
@@ -152,7 +153,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
             </span>
           ) : null}
           {/* The estimate decides how long a suggested time is; reserving never changes the estimate. */}
-          {still > 0 && !round?.done && !task.done && (
+          {still > 0 && !isFinished(task, now) && (
             <button
               className="link-btn"
               aria-expanded={pop.is('find')}
@@ -173,7 +174,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
           {round && (
             <span className="muted">
               {t('本轮', 'This round')} {round.key.length === 10 ? monthDay(round.key) : monthDay(dayOf(round.opensAt))}{' '}
-              · {round.done ? t('已完成', 'done') : t('进行中', 'open')}
+              · {isFinished(task, now) ? t('已完成', 'done') : t('进行中', 'open')}
               {round.nextAt ? ` · ${t('下次', 'next')} ${monthDay(dayOf(round.nextAt))}` : ''}
             </span>
           )}
@@ -290,7 +291,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
       )}
 
       <div className="detail-actions">
-        {round?.done || task.done ? (
+        {isFinished(task, now) ? (
           <button className="btn" onClick={() => commit((d, c) => uncomplete(d, c, id))}>
             {task.repeat?.mode === 'reopen' ? t('重新打开本轮', 'Reopen this round') : t('标为未完成', 'Mark not done')}
           </button>

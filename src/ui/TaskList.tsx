@@ -5,6 +5,7 @@ import { finishedTasks, listTasks, matches, openTasks, type Filter, queuePositio
 import { inRound, plannedOn, reorderTasks, setSettings, toggleDay } from '../model/doc';
 import {
   complete,
+  isFinished,
   isSnoozed,
   liveTasks,
   planOf,
@@ -49,7 +50,7 @@ export const TaskList = forwardRef<
   };
   const manual = doc.settings.listSort === 'manual';
   const rows = listTasks(doc, now, filter);
-  const done = finishedTasks(doc).slice(0, 50);
+  const done = finishedTasks(doc, now).slice(0, 50);
   const open = openTasks(doc, now);
   const count = (f: Filter) => open.filter((x) => matches(doc, x, f, now)).length;
   // "All" always; the rest as chosen in Settings. "Today" stays even when empty; the others show only when they have
@@ -231,7 +232,7 @@ export const TaskList = forwardRef<
         {done.length > 0 && (
           <>
             <button className="done-head" aria-expanded={showDone} onClick={() => setShowDone((v) => !v)}>
-              {showDone ? '▾' : '▸'} {t('已完成', 'Done')} {finishedTasks(doc).length}
+              {showDone ? '▾' : '▸'} {t('已完成', 'Done')} {finishedTasks(doc, now).length}
             </button>
             {showDone &&
               done.map((task) => (
@@ -274,7 +275,7 @@ function Row({
   const round = taskRound(task, now);
   const due = effectiveDue(task, now);
   const queued = queuePosition(store.get().doc, task, now);
-  const finished = !!task.done || !!round?.done;
+  const finished = isFinished(task, now);
   const snoozed = isSnoozed(task, today);
   const proposed = proposalsFor(store.get().doc, task.id, now).length > 0;
   const next = planOf(task).filter((p) => p.day >= today);
@@ -434,7 +435,7 @@ function Row({
                 {next.length > 1 && <span className="plus"> +{next.length - 1}</span>}
               </span>
             ) : null}
-            {round?.done && round.nextAt && (
+            {finished && round?.nextAt && (
               <span>
                 {t('下一轮', 'Next round')} {planLabel({ day: dayOf(round.nextAt) }, today, lang)}
               </span>

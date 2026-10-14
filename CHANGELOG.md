@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.36 — 2026-10-14
+
+- **Completing a task when every step is checked is a choice**: Settings → 步骤都勾完时 → 自动完成任务 (off by
+  default) — for every task alike; a task that reopens finishes its round. Before, a round finished by itself and a
+  one-off task never did. Unchecking a step of a finished task (or round) reopens it either way (a done "new copy" stays
+  done: its next copy exists).
+- **Fix: a step on its own rhythm brings a finished task back**: when such a step (马桶 · 1 week after done) comes
+  round again after the task or its round was finished, the task is unfinished again — in NOW, Today and reminders —
+  until that step is checked. Before, the task stayed done and the step never showed.
+
 ## 0.2.35 — 2026-10-11
 
 - **Fix: ↑/↓ right after a drag**: the order is saved a frame after a dragged task or step is let go; a key pressed in

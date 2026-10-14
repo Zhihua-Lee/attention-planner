@@ -488,6 +488,33 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </section>
               <section>
                 <div className="sec-title">
+                  <h3>{t('步骤都勾完时', 'When every step is checked')}</h3>
+                  <Info label={t('步骤都勾完时是什么', 'What happens when every step is checked')}>
+                    <p>
+                      {t(
+                        '勾上的话，任务的步骤全部勾完，任务就自动完成（原地重开的任务是完成这一轮）。不勾的话，任务留在清单里，等你自己点“完成”。',
+                        'When ticked, checking a task’s last open step completes the task (for a task that reopens, finishes this round). When not, the task stays in the list until you tap Done.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '无论勾不勾：在已完成的任务里取消勾选一步，任务回到未完成；按自己的节奏重复的步骤又到时间时，已完成的任务也会回到清单，勾掉这一步就又算完成。',
+                        'Either way, unchecking a step of a finished task brings it back, and so does a step on its own rhythm coming round again; checking that step finishes it again.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={!!s.autoComplete}
+                    onChange={(e) => set({ autoComplete: e.target.checked })}
+                  />
+                  {t('自动完成任务', 'Complete the task')}
+                </label>
+              </section>
+              <section>
+                <div className="sec-title">
                   <h3>{t('清单筛选', 'List filters')}</h3>
                   <Info label={t('清单筛选是什么', 'What list filters are')}>
                     <p>

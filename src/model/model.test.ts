@@ -11,6 +11,8 @@ import {
   moveStep,
   restore,
   setField,
+  setSettings,
+  stepBack,
   stepDone,
   stepsOf,
   taskRound,
@@ -29,6 +31,11 @@ const T0 = new Date(2026, 8, 29, 10, 0);
 const at = (day: string, time = '10:00') => new Date(`${day}T${time}:00`);
 const ctx = (now = T0, device = 'a'): Ctx => ({ now, device });
 const make = (title = 'x', extra = {}): [Doc, string] => addTask(emptyDoc(ctx()), ctx(), { title, ...extra });
+/** With "complete when all steps are checked" on. */
+const makeAuto = (title = 'x', extra = {}): [Doc, string] => {
+  const [d, id] = make(title, extra);
+  return [setSettings(d, ctx(), { autoComplete: true }), id];
+};
 
 describe('repeat rules', () => {
   const weekly: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2, 4], start: '2026-09-28' };
@@ -86,7 +93,7 @@ describe('tasks', () => {
   });
   it('a reopening task finishes its round when the last step is checked, then reopens next round', () => {
     const rule: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2, 4], start: '2026-09-28' };
-    let [d, id] = make('1560 prep', { repeat: { mode: 'reopen', rule } });
+    let [d, id] = makeAuto('1560 prep', { repeat: { mode: 'reopen', rule } });
     d = addStep(d, ctx(), id, 'Slides');
     d = addStep(d, ctx(), id, 'Quiz');
     const [s1, s2] = stepsOf(d.tasks[id]);
@@ -101,7 +108,7 @@ describe('tasks', () => {
   });
   it('a round is not finished while a one-off or own-rule step is still open', () => {
     const rule: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2], start: '2026-09-29' };
-    let [d, id] = make('TA list', { repeat: { mode: 'reopen', rule } });
+    let [d, id] = makeAuto('TA list', { repeat: { mode: 'reopen', rule } });
     d = addStep(d, ctx(), id, 'Grade');
     d = addStep(d, ctx(), id, 'Order books');
     d = addStep(d, ctx(), id, 'Weekly email');
@@ -117,13 +124,63 @@ describe('tasks', () => {
   });
   it('unchecking a step reopens a finished round', () => {
     const rule: RepeatRule = { freq: 'daily', every: 1, fromDone: false, start: '2026-09-28' };
-    let [d, id] = make('Daily', { repeat: { mode: 'reopen', rule } });
+    let [d, id] = makeAuto('Daily', { repeat: { mode: 'reopen', rule } });
     d = addStep(d, ctx(), id, 'One');
     const [s] = stepsOf(d.tasks[id]);
     d = toggleStep(d, ctx(), id, s.id, true);
     expect(isFinished(d.tasks[id], T0)).toBe(true);
     d = toggleStep(d, ctx(), id, s.id, false);
     expect(isFinished(d.tasks[id], T0)).toBe(false);
+  });
+  it('checking every step completes a task only when chosen in Settings; unchecking one reopens it', () => {
+    const rule: RepeatRule = { freq: 'daily', every: 1, fromDone: false, start: '2026-09-28' };
+    for (const auto of [false, true]) {
+      let [d, plain] = make('Report', { steps: ['Draft'] });
+      let reopen: string;
+      [d, reopen] = addTask(d, ctx(), { title: 'Daily', steps: ['One'], repeat: { mode: 'reopen', rule } });
+      d = setSettings(d, ctx(), { autoComplete: auto });
+      for (const id of [plain, reopen]) d = toggleStep(d, ctx(), id, stepsOf(d.tasks[id])[0].id, true);
+      expect(isFinished(d.tasks[plain], T0)).toBe(auto);
+      expect(isFinished(d.tasks[reopen], T0)).toBe(auto);
+    }
+    let [d, id] = make('Report', { steps: ['Draft'] });
+    d = complete(d, ctx(), id);
+    d = toggleStep(d, ctx(), id, stepsOf(d.tasks[id])[0].id, false);
+    expect(isFinished(d.tasks[id], T0)).toBe(false);
+  });
+  it('a step on its own rhythm that opens again brings a finished task, or a finished round, back until it is checked', () => {
+    const own: RepeatRule = { freq: 'weekly', every: 1, fromDone: true, start: '2026-09-29' };
+    let [d, id] = make('Chores', { steps: ['Toilet'] });
+    const [toilet] = stepsOf(d.tasks[id]);
+    d = updateStep(d, ctx(), id, toilet.id, { repeat: own });
+    d = toggleStep(d, ctx(), id, toilet.id, true);
+    d = complete(d, ctx(), id);
+    expect(isFinished(d.tasks[id], at('2026-10-05'))).toBe(true);
+    const week = at('2026-10-06', '11:00');
+    expect(isFinished(d.tasks[id], week)).toBe(false);
+    expect(stepBack(d.tasks[id], week)?.text).toBe('Toilet');
+    d = toggleStep(d, ctx(week), id, toilet.id, true);
+    expect(isFinished(d.tasks[id], week)).toBe(true);
+    // The same inside a weekly round that was finished on Tuesday.
+    const weekly: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2], start: '2026-09-29' };
+    let r: string;
+    [d, r] = addTask(d, ctx(), {
+      title: 'Weekly',
+      steps: ['Sweep', 'Toilet'],
+      repeat: { mode: 'reopen', rule: weekly },
+    });
+    const [, t2] = stepsOf(d.tasks[r]);
+    d = updateStep(d, ctx(at('2026-09-22')), r, t2.id, { repeat: { ...own, start: '2026-09-22' } });
+    d = toggleStep(d, ctx(at('2026-09-22')), r, t2.id, true); // a week ago
+    d = complete(d, ctx(), r);
+    expect(isFinished(d.tasks[r], T0)).toBe(true); // it opened again before the round was finished
+    const own2: RepeatRule = { freq: 'daily', every: 1, fromDone: true, start: '2026-09-29' };
+    d = updateStep(d, ctx(), r, t2.id, { repeat: own2 });
+    d = toggleStep(d, ctx(), r, t2.id, true);
+    d = complete(d, ctx(), r);
+    const later = at('2026-10-01', '11:00');
+    expect(taskRound(d.tasks[r], later)?.done).toBe(true);
+    expect(isFinished(d.tasks[r], later)).toBe(false);
   });
   it('a "new copy" task creates the next copy with shifted dates and reset steps', () => {
     const rule: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, start: '2026-09-29', count: 3 };

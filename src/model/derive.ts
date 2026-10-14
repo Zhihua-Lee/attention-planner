@@ -346,9 +346,9 @@ export function listTasks(doc: Doc, now: Date, f: Filter): Task[] {
   return out;
 }
 
-export const finishedTasks = (doc: Doc) =>
+export const finishedTasks = (doc: Doc, now: Date) =>
   liveTasks(doc)
-    .filter((t) => t.done)
+    .filter((t) => t.done && isFinished(t, now))
     .sort((a, b) => b.done!.localeCompare(a.done!));
 
 /** Steps progress for display, e.g. 1/3. */
