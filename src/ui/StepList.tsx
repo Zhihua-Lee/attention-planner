@@ -345,7 +345,10 @@ function StepRow({
             onClick={() => {
               commit((d, c) => promoteStep(d, c, task.id, step.id)[0]);
               toast(
-                t(`“${step.text}”成了独立的任务，关联在这里`, `“${step.text}” is now its own task, linked here`),
+                t(
+                  `“${step.text}”成了独立的任务，是这里的子任务`,
+                  `“${step.text}” is now its own task, a subtask of this one`,
+                ),
                 () => store.undo(),
               );
             }}

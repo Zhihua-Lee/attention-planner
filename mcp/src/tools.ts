@@ -64,7 +64,7 @@ const INSTRUCTIONS = `Attention Planner is one person's to-do list that plans it
 remembers, orders and reminds. Every unfinished task is in one list. A task may have a deadline (due), plans (a day, a
 part of a day, or a reserved time), an effort estimate, an "important" star, a snooze (until a day, with a reason),
 steps (each with its own deadline, estimate and repeat), a repeat (reopen in place, or a new copy each time), an area
-or project, and a link to another task it belongs with. Projects can be done one task after another. "what_now"
+or project, and a parent task (it is listed under it; subtasks nest). Projects can be done one task after another. "what_now"
 answers what to do at this moment and also returns the owner's long-term goal, when they wrote one: treat it as the
 longest-range context when you prioritise, plan or break tasks down, and say so when a proposal does not serve it.
 "find_time" finds free working time for a task. Days are YYYY-MM-DD and times HH:MM in the owner's
@@ -124,7 +124,7 @@ export function brief(doc: Doc, t: Task, now: Date) {
     area: groupName(doc, 'areas', t.areaId),
     project: groupName(doc, 'projects', t.projectId),
     waiting_in_project_queue: queuePosition(doc, t, now) > 0,
-    linked_to:
+    parent_task:
       t.linkTo && doc.tasks[t.linkTo] && !doc.tasks[t.linkTo].deleted
         ? { id: t.linkTo, title: doc.tasks[t.linkTo].title }
         : undefined,
@@ -167,7 +167,7 @@ export function full(doc: Doc, t: Task, now: Date, origin: string) {
         last_changed: `${s.s.at} by ${s.s.by}`,
       }),
     ),
-    linked_here: liveTasks(doc)
+    subtasks: liveTasks(doc)
       .filter((o) => o.linkTo === t.id)
       .map((o) => ({ id: o.id, title: o.title })),
     two_versions_of: t.conflicts && Object.keys(t.conflicts).length ? Object.keys(t.conflicts) : undefined,

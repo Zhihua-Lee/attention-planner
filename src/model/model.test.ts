@@ -7,6 +7,7 @@ import {
   complete,
   emptyDoc,
   isFinished,
+  isUnder,
   liveTasks,
   moveStep,
   restore,
@@ -251,13 +252,33 @@ describe('now and planning', () => {
     [d] = make('Small', { due: '2026-09-30', effort: 60 });
     expect(capacity(d, T0)).toBeNull();
   });
-  it('lists a linked task right after its target', () => {
+  it('lists a subtask right under its parent', () => {
     let d = emptyDoc(ctx());
     let parent: string;
     [d, parent] = addTask(d, ctx(), { title: 'Paper' });
     [d] = addTask(d, ctx(), { title: 'Unrelated', star: true });
     [d] = addTask(d, ctx(), { title: 'Figure 3', linkTo: parent });
     expect(listTasks(d, T0, 'all').map((t) => t.title)).toEqual(['Unrelated', 'Paper', 'Figure 3']);
+  });
+  it('subtasks nest at any depth, and a loop left by two devices still lists every task', () => {
+    let d = emptyDoc(ctx());
+    let paper: string, figures: string, fig3: string;
+    [d, paper] = addTask(d, ctx(), { title: 'Paper' });
+    [d, figures] = addTask(d, ctx(), { title: 'Figures', linkTo: paper });
+    [d] = addTask(d, ctx(), { title: 'Unrelated', star: true });
+    [d, fig3] = addTask(d, ctx(), { title: 'Figure 3', linkTo: figures });
+    [d] = addTask(d, ctx(), { title: 'Abstract', linkTo: paper });
+    expect(listTasks(d, T0, 'all').map((t) => t.title)).toEqual([
+      'Unrelated',
+      'Paper',
+      'Figures',
+      'Figure 3',
+      'Abstract',
+    ]);
+    expect(isUnder(d, fig3, paper)).toBe(true);
+    expect(isUnder(d, paper, fig3)).toBe(false);
+    d = setField(d, ctx(), paper, 'linkTo', fig3);
+    expect(listTasks(d, T0, 'all')).toHaveLength(5);
   });
   it('a planned day can carry several entries', () => {
     let [d, id] = make('Report');

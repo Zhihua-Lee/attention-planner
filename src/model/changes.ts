@@ -6,6 +6,7 @@ import {
   addStep,
   addTask,
   complete,
+  isUnder,
   planOf,
   promoteStep,
   removePlan,
@@ -176,7 +177,7 @@ export function findGroup(doc: Doc, kind: 'areas' | 'projects', ref: string) {
 /** Write a new task down; a new area or project name creates it. */
 export function addNewTask(doc: Doc, ctx: Ctx, c: NewTaskInput): [Doc, string] {
   if (c.link_to && (!doc.tasks[c.link_to] || doc.tasks[c.link_to].deleted))
-    throw new Error(`There is no task ${c.link_to} to link to.`);
+    throw new Error(`There is no task ${c.link_to} to put it under.`);
   let d = doc;
   let areaId: string | undefined;
   let projectId: string | undefined;
@@ -262,8 +263,9 @@ export function applyChange(doc: Doc, ctx: Ctx, c: Change): Doc {
       return updatePlan(doc, ctx, t.id, c.plan_id, patch);
     }
     case 'link':
-      if (c.to !== null && (c.to === t.id || !doc.tasks[c.to] || doc.tasks[c.to].deleted))
-        throw new Error(`Cannot link to ${c.to}.`);
+      if (c.to !== null && (!doc.tasks[c.to] || doc.tasks[c.to].deleted)) throw new Error(`There is no task ${c.to}.`);
+      if (c.to !== null && isUnder(doc, c.to, t.id))
+        throw new Error(`${c.to} is this task or one of its subtasks; a task cannot go under it.`);
       return setField(doc, ctx, t.id, 'linkTo', c.to ?? undefined);
     case 'set_repeat':
       return setField(
@@ -426,7 +428,7 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
           leadWords(c.repeat, t),
       c.area && t('区域：', 'area: ') + group('areas', c.area),
       c.project && t('项目：', 'project: ') + group('projects', c.project),
-      link && t(`关联到「${link}」`, `linked to “${link}”`),
+      link && t(`上级任务「${link}」`, `under “${link}”`),
       c.steps?.length && t('步骤：', 'steps: ') + c.steps.join(t('、', ', ')),
       c.note && t(`备注（${c.note.length} 字）：`, `note (${c.note.length} chars): `) + noteGist(c.note),
     ].filter(Boolean);
@@ -580,8 +582,8 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
     case 'link': {
       const target = c.to ? doc.tasks[c.to] : undefined;
       return c.to
-        ? t(`把 ${name} 关联到「${target?.title ?? c.to}」`, `Link ${name} to “${target?.title ?? c.to}”`)
-        : t(`取消 ${name} 的关联`, `Unlink ${name}`);
+        ? t(`把 ${name} 放到「${target?.title ?? c.to}」下面`, `Put ${name} under “${target?.title ?? c.to}”`)
+        : t(`${name} 不再有上级任务`, `${name} no longer has a parent task`);
     }
     case 'set_repeat':
       return c.repeat

@@ -133,7 +133,7 @@ describe('MCP tools', () => {
     const [p] = pendingProposals(doc, REAL);
     expect(p.summary).toBe('新建任务');
     expect(describeChange(doc, p.changes[0], (a: string) => a)).toBe(
-      '新建 「交表格」：截止：10/2（周五）；用时：2 小时；重要；区域：研究；关联到「交论文」；步骤：填数、签字',
+      '新建 「交表格」：截止：10/2（周五）；用时：2 小时；重要；区域：研究；上级任务「交论文」；步骤：填数、签字',
     );
     // Approved days later, it keeps the Friday it was given.
     const later: Ctx = { now: new Date(2026, 9, 1, 9), device: 'phone' };
@@ -329,11 +329,20 @@ describe('the full set of operations', () => {
       link_to: paper.id,
       repeat: { mode: 'reopen', rule: { freq: 'weekly', weekdays: [1, 3] } },
     });
-    expect(res.body.task).toMatchObject({ linked_to: { id: paper.id, title: '交论文' } });
+    expect(res.body.task).toMatchObject({ parent_task: { id: paper.id, title: '交论文' } });
     const fig = liveTasks(remote.doc!).find((x) => x.title === '画图')!;
     expect(fig.repeat).toMatchObject({ mode: 'reopen', rule: { freq: 'weekly', weekdays: [1, 3], every: 1 } });
     const back = await call('get_task', { id: paper.id });
-    expect(back.body.linked_here).toEqual([{ id: fig.id, title: '画图' }]);
+    expect(back.body.subtasks).toEqual([{ id: fig.id, title: '画图' }]);
+    // Not under itself or one of its own subtasks.
+    const loop = await call('propose_changes', {
+      summary: 'x',
+      changes: [{ type: 'link', task_id: paper.id, to: fig.id }],
+    });
+    expect(loop).toMatchObject({
+      error: true,
+      raw: `${fig.id} is this task or one of its subtasks; a task cannot go under it.`,
+    });
     expect((await call('add_task', { text: 'x', link_to: 'nope' })).error).toBe(true);
   });
 
@@ -365,7 +374,7 @@ describe('the full set of operations', () => {
       '调整 「交论文」 的步骤顺序：「画图」',
       '把 「交论文」 的步骤 「画图」 独立成任务',
       '把 「交论文」 的安排从 9/30（周三） 上午 改到 9/30（周三） 14:00，1 小时',
-      '把 「回邮件」 关联到「交论文」',
+      '把 「回邮件」 放到「交论文」下面',
       '「回邮件」 改为重复：每天，原地重开',
       '项目 「论文」：改名为「毕业论文」；按顺序做',
     ]);

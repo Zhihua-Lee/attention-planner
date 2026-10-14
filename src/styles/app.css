@@ -814,14 +814,15 @@ main {
 .row:first-child {
   border-top: 0;
 }
+/* a subtask, indented by its depth under listed parents (set as --depth) */
 .row.linked .row-main {
-  padding-left: 34px;
+  padding-left: calc(14px + 20px * var(--depth, 1));
   position: relative;
 }
 .row.linked .row-main::before {
   content: '';
   position: absolute;
-  left: 22px;
+  left: calc(2px + 20px * var(--depth, 1));
   top: 6px;
   bottom: 6px;
   border-left: 2px solid var(--line);

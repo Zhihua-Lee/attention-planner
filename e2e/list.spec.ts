@@ -151,16 +151,29 @@ test('a key pressed as a drag is let go starts from the dragged order', async ({
   await expect(page.locator('.list .tt')).toHaveText(['一', '二', '三']);
 });
 
-test('a linked task is listed right after the task it points to', async ({ page }) => {
+test('a subtask is listed under its parent task, at any depth, and cannot take its own subtask as parent', async ({
+  page,
+}) => {
   await start(page);
-  await add(page, '论文', '重画图 3', '别的事 !');
-  const detail = await openRow(page, '重画图 3');
+  await add(page, '论文', '重画图 3', '画坐标轴', '别的事 !');
+  const under = async (child: string, parent: string) => {
+    const detail = await openRow(page, child);
+    await detail.getByRole('button', { name: '无' }).click();
+    await page.getByRole('textbox', { name: '搜索任务' }).fill(parent);
+    await page.getByRole('dialog').getByRole('button', { name: parent }).click();
+    await page.getByRole('button', { name: '收起' }).click();
+    await expect(page.getByTestId('task-detail')).toHaveCount(0);
+  };
+  await under('重画图 3', '论文');
+  await under('画坐标轴', '重画图 3');
+  await expect(page.locator('.list > .row .tt')).toHaveText(['别的事', '论文', '重画图 3', '画坐标轴']);
+  await expect(row(page, '重画图 3')).toHaveAttribute('style', /--depth: 1/);
+  await expect(row(page, '画坐标轴')).toHaveAttribute('style', /--depth: 2/);
+  const detail = await openRow(page, '论文');
+  await expect(detail).toContainText('子任务：重画图 3');
   await detail.getByRole('button', { name: '无' }).click();
-  await page.getByRole('textbox', { name: '搜索任务' }).fill('论文');
-  await page.getByRole('dialog').getByRole('button', { name: '论文' }).click();
-  await page.getByRole('button', { name: '收起' }).click();
-  await expect(page.locator('.list > .row .tt')).toHaveText(['别的事', '论文', '重画图 3']);
-  await expect(row(page, '重画图 3')).toHaveClass(/linked/);
+  await page.getByRole('textbox', { name: '搜索任务' }).fill('画');
+  await expect(page.getByRole('dialog').getByRole('button', { name: '画坐标轴' })).toHaveCount(0);
 });
 
 test('a project done in order queues its later tasks', async ({ page }) => {

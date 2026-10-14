@@ -79,12 +79,12 @@ Things to ask:
 What should I do now? Plan my afternoon around my calendar.
 Break "submit the Lumen paper" into steps of under an hour, each with an estimate, and find time for the first one.
 From this meeting's notes, add the action items for me, due Friday.
-Link "Lumen submission" to the Research task and make the weekly lab notes reopen every Monday.
+Put "Lumen submission" under the Research task and make the weekly lab notes reopen every Monday.
 ```
 
 The tools: `what_now`, `list_tasks`, `get_task`, `agenda`, `find_time`, `list_areas_and_projects` (read);
-`add_task` (approved, or saved at once if you choose; with the app's quick words, links and repeats); `propose_changes` (fields, steps, plans,
-links, repeats, projects — approved in the app); `get_proposal`, `list_proposals`, `withdraw_proposal` (an AI takes back its own). Details in
+`add_task` (approved, or saved at once if you choose; with the app's quick words, a parent task and repeats); `propose_changes` (fields, steps, plans,
+parent tasks, repeats, projects — approved in the app); `get_proposal`, `list_proposals`, `withdraw_proposal` (an AI takes back its own). Details in
 [docs/ai-connections.md](docs/ai-connections.md).
 
 ## Highlights
@@ -157,12 +157,12 @@ hidden app folder in your own Drive. Reminders: Settings → Reminders.
 
 ## Getting started
 
-| Where    | Do                                                                                                                 |
-| -------- | ------------------------------------------------------------------------------------------------------------------ |
-| List     | Type a line and press Enter. Tap a title to open it in place; the circle completes it.                             |
-| NOW      | Do the one thing shown, or tap "another". Day / week switch the agenda; tap an item for details.                   |
-| A task   | Steps first, then deadline, when, effort (with Find time), repeat, snooze, area or project, link, note (Markdown). |
-| Settings | Working hours, capture chips, list filters, step buttons, reminders, calendars, sync, AI connections.              |
+| Where    | Do                                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| List     | Type a line and press Enter. Tap a title to open it in place; the circle completes it.                                    |
+| NOW      | Do the one thing shown, or tap "another". Day / week switch the agenda; tap an item for details.                          |
+| A task   | Steps first, then deadline, when, effort (with Find time), repeat, snooze, area or project, parent task, note (Markdown). |
+| Settings | Working hours, capture chips, list filters, step buttons, reminders, calendars, sync, AI connections.                     |
 
 More in the [user guide](docs/user-guide.md) (Chinese), [how the parts interact](docs/interactions.md) and
 [the design notes](docs/design.md).

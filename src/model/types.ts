@@ -103,7 +103,7 @@ export type Task = {
   projectId?: string;
   /** Place in the list when it is sorted by hand (smaller first). */
   rank?: number;
-  /** A pointer to another task; only affects how lists group them. */
+  /** The parent task: lists show this one under it (subtasks nest); nothing else follows from it. */
   linkTo?: string;
   repeat?: Repeat;
   plan: PlanEntry[];

@@ -178,6 +178,16 @@ export function toggleDay(doc: Doc, ctx: Ctx, id: string, day: Day): Doc {
   return addPlan(doc, ctx, id, { day });
 }
 
+/** Whether a task is `ancestor` itself or one of its subtasks, at any depth (a loop left by two devices ends the walk). */
+export function isUnder(doc: Doc, id: string, ancestor: string): boolean {
+  const seen = new Set<string>();
+  for (let cur: string | undefined = id; cur && !seen.has(cur); cur = doc.tasks[cur]?.linkTo) {
+    if (cur === ancestor) return true;
+    seen.add(cur);
+  }
+  return false;
+}
+
 /** Done for good, or (for a task that reopens) done for the current round — unless a step has come round again. */
 export function isFinished(t: Task, now: Date): boolean {
   return (!!t.done || !!taskRound(t, now)?.done) && !stepBack(t, now);

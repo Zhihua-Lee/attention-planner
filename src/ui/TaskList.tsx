@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, type PanInfo } from 'motion/react';
-import { forwardRef, useRef, useState } from 'react';
+import { forwardRef, useRef, useState, type CSSProperties } from 'react';
 import { addDays, dayOf } from '../model/dates';
 import { finishedTasks, listTasks, matches, openTasks, type Filter, queuePosition } from '../model/derive';
 import { inRound, plannedOn, reorderTasks, setSettings, toggleDay } from '../model/doc';
@@ -111,12 +111,21 @@ export const TaskList = forwardRef<
     setDragging(null);
     store.commit((d, c) => reorderTasks(d, c, list));
   };
+  // How deep a subtask sits under listed parents; the indent stops growing after three levels.
+  const listed = new Map(rows.map((r) => [r.id, r]));
+  const depth = (task: Task) => {
+    let n = 0;
+    const seen = new Set([task.id]);
+    for (let p = task.linkTo; p && listed.has(p) && !seen.has(p) && n < 3; p = listed.get(p)!.linkTo)
+      (seen.add(p), n++);
+    return n;
+  };
   const rowProps = (task: Task) => ({
     task,
     now,
     expanded: expanded === task.id,
     toggle: () => setExpanded(expanded === task.id ? null : task.id),
-    indent: !!task.linkTo && rows.some((r) => r.id === task.linkTo),
+    indent: depth(task),
   });
 
   return (
@@ -228,7 +237,7 @@ export const TaskList = forwardRef<
             ))}
           </AnimatePresence>
         )}
-        {manual && resting.map((task) => <Row key={task.id} {...rowProps(task)} indent={false} />)}
+        {manual && resting.map((task) => <Row key={task.id} {...rowProps(task)} indent={0} />)}
         {done.length > 0 && (
           <>
             <button className="done-head" aria-expanded={showDone} onClick={() => setShowDone((v) => !v)}>
@@ -242,7 +251,7 @@ export const TaskList = forwardRef<
                   now={now}
                   expanded={expanded === task.id}
                   toggle={() => setExpanded(expanded === task.id ? null : task.id)}
-                  indent={false}
+                  indent={0}
                 />
               ))}
           </>
@@ -265,7 +274,8 @@ function Row({
   now: Date;
   expanded: boolean;
   toggle: () => void;
-  indent: boolean;
+  /** Levels under listed parent tasks. */
+  indent: number;
   handle?: DragControls;
   onMove?: (dir: -1 | 1) => void;
 }) {
@@ -320,6 +330,7 @@ function Row({
     <motion.div
       layout="position"
       className={`row${snoozed || queued > 0 ? ' snoozed' : ''}${finished ? ' done' : ''}${completing ? ' completing' : ''}${indent ? ' linked' : ''}`}
+      style={indent ? ({ '--depth': indent } as CSSProperties) : undefined}
       data-task={task.id}
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}

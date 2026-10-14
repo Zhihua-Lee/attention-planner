@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { addDays, dayOf, isoWeekday, minutesOf, nowMinutes, timeOf } from '../model/dates';
 import { eventsOn } from '../model/derive';
-import { liveTasks, planOf } from '../model/doc';
+import { isUnder, liveTasks, planOf } from '../model/doc';
 import type { Day, Doc, Frequency, Part, PlanEntry, Repeat, RepeatRule, Task, Step } from '../model/types';
 import { duration, monthDay, relDay, weekdayName, weekdayShort, useT } from './text';
 
@@ -335,12 +335,13 @@ export function LinkPicker({
   const [q, setQ] = useState('');
   const hits = liveTasks(doc)
     .filter(
-      (x) => x.id !== self && !x.done && x.linkTo !== self && x.title.toLowerCase().includes(q.trim().toLowerCase()),
+      // Not itself or one of its own subtasks, which would make a loop.
+      (x) => !x.done && !isUnder(doc, x.id, self) && x.title.toLowerCase().includes(q.trim().toLowerCase()),
     )
     .slice(0, 8);
   return (
     <div className="menu">
-      <div className="menu-title">{t('关联到', 'Link to')}</div>
+      <div className="menu-title">{t('上级任务', 'Parent task')}</div>
       <div className="menu-row">
         <input
           data-autofocus
@@ -357,7 +358,7 @@ export function LinkPicker({
       ))}
       {value && (
         <button className="link-btn danger" onClick={() => onPick(undefined)}>
-          {t('取消关联', 'Unlink')}
+          {t('不放在任何任务下', 'No parent task')}
         </button>
       )}
     </div>

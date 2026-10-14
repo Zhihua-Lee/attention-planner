@@ -240,14 +240,14 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
           </button>
         </span>
 
-        <span className="lbl">{t('关联', 'Linked to')}</span>
+        <span className="lbl">{t('上级任务', 'Parent task')}</span>
         <span className="val">
           <button className="pill" aria-expanded={pop.is('link')} onClick={(e) => pop.toggle('link', e.currentTarget)}>
             {target && !target.deleted ? target.title : t('无', 'None')}
           </button>
           {linkedHere.length > 0 && (
             <span className="muted">
-              {t('关联到这里：', 'Linked here: ')}
+              {t('子任务：', 'Subtasks: ')}
               {linkedHere.map((x) => x.title).join('、')}
             </span>
           )}

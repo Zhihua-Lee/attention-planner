@@ -332,17 +332,21 @@ export function listTasks(doc: Doc, now: Date, f: Filter): Task[] {
         (effectiveDue(a, now)?.day ?? '9').localeCompare(effectiveDue(b, now)?.day ?? '9') ||
         b.created.localeCompare(a.created),
     );
-  // Group a task right after the task it links to, one level deep, when both are listed.
+  // A subtask goes right under its parent when both are listed, and its own subtasks under it, at any depth.
   const ids = new Set(rows.map((t) => t.id));
+  const under = new Map<string, Task[]>();
+  for (const t of rows) if (t.linkTo && ids.has(t.linkTo)) under.set(t.linkTo, [...(under.get(t.linkTo) ?? []), t]);
   const out: Task[] = [];
   const placed = new Set<string>();
-  for (const t of rows) {
-    if (placed.has(t.id) || (t.linkTo && ids.has(t.linkTo))) continue;
+  const place = (t: Task) => {
+    if (placed.has(t.id)) return;
     out.push(t);
     placed.add(t.id);
-    for (const c of rows) if (c.linkTo === t.id && !placed.has(c.id)) (out.push(c), placed.add(c.id));
-  }
-  for (const t of rows) if (!placed.has(t.id)) out.push(t);
+    for (const c of under.get(t.id) ?? []) place(c);
+  };
+  for (const t of rows) if (!t.linkTo || !ids.has(t.linkTo)) place(t);
+  // Tasks in a loop (two devices each moving one under the other) have no top; they still show.
+  for (const t of rows) place(t);
   return out;
 }
 

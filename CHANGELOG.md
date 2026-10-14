@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.37 — 2026-10-14
+
+- **关联 is now 上级任务, and subtasks nest**: a task can sit under a task that sits under another, at any depth; the
+  list shows each under its parent, indented one step per level (up to three), and a task's details list its
+  子任务. A task cannot go under itself or one of its own subtasks, in the app or from an AI. It still only arranges the
+  list: finishing a parent leaves its subtasks as they are.
+- The AI tools say parent and subtasks too: `get_task` gives `parent_task` and `subtasks` (before: `linked_to`,
+  `linked_here`); `link_to` and the `link` change keep their names.
+
 ## 0.2.36 — 2026-10-14
 
 - **Completing a task when every step is checked is a choice**: Settings → 步骤都勾完时 → 自动完成任务 (off by

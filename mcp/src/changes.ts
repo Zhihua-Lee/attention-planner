@@ -82,7 +82,9 @@ export const newTaskFields = {
     })
     .optional()
     .describe('When to do it: a day, optionally a part of the day or a reserved time.'),
-  link_to: taskId.optional().describe('Id of the task this one belongs with; the list shows it right after that task.'),
+  link_to: taskId
+    .optional()
+    .describe('Id of the parent task: the list shows this one under it. Subtasks can have subtasks of their own.'),
   repeat: repeatSchema.optional(),
 };
 
@@ -169,7 +171,7 @@ export const changeSchema = z.discriminatedUnion('type', [
       task_id: taskId,
       step_id: z.string().min(1).max(100),
     })
-    .describe('Turn a step into its own task, linked to this one (it keeps its deadline and estimate).'),
+    .describe('Turn a step into its own task, a subtask of this one (it keeps its deadline and estimate).'),
   z
     .object({
       type: z.literal('order_steps'),
@@ -194,7 +196,11 @@ export const changeSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('link'),
     task_id: taskId,
-    to: taskId.nullable().describe('The task this one belongs with (it is listed right after it); null unlinks.'),
+    to: taskId
+      .nullable()
+      .describe(
+        'The parent task: this one is listed under it (at any depth; not under itself or its own subtasks). null takes it out.',
+      ),
   }),
   z.object({
     type: z.literal('set_repeat'),
