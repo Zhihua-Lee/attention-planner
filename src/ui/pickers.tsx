@@ -241,78 +241,46 @@ export function EffortPicker({ value, onPick }: { value?: number; onPick: (m: nu
   );
 }
 
-/** Choose an area or project, or create one by typing its name. */
-export function GroupPicker({
+/** Choose an area, or create one by typing its name. */
+export function AreaPicker({
   doc,
   value,
   onPick,
   onCreate,
 }: {
   doc: Doc;
-  value: { areaId?: string; projectId?: string };
-  onPick: (v: { areaId?: string; projectId?: string }) => void;
-  onCreate: (kind: 'area' | 'project', name: string) => void;
+  value?: string;
+  onPick: (id: string | undefined) => void;
+  onCreate: (name: string) => void;
 }) {
   const { t } = useT();
   const [name, setName] = useState('');
   const areas = Object.values(doc.areas)
     .filter((a) => !a.deleted)
     .sort((a, b) => a.order - b.order);
-  const projects = Object.values(doc.projects)
-    .filter((p) => !p.deleted && !p.done)
-    .sort((a, b) => a.order - b.order);
   return (
     <div className="menu">
-      <div className="menu-title">{t('归属', 'Belongs to')}</div>
+      <div className="menu-title">{t('区域', 'Area')}</div>
       {areas.map((a) => (
-        <div key={a.id}>
-          <button
-            className={`menu-item${value.areaId === a.id && !value.projectId ? ' on' : ''}`}
-            onClick={() => onPick({ areaId: a.id })}
-          >
-            {a.name}
-          </button>
-          {projects
-            .filter((p) => p.areaId === a.id)
-            .map((p) => (
-              <button
-                key={p.id}
-                className={`menu-item indent${value.projectId === p.id ? ' on' : ''}`}
-                onClick={() => onPick({ projectId: p.id })}
-              >
-                {p.name}
-              </button>
-            ))}
-        </div>
+        <button key={a.id} className={`menu-item${value === a.id ? ' on' : ''}`} onClick={() => onPick(a.id)}>
+          {a.name}
+        </button>
       ))}
-      {projects
-        .filter((p) => !p.areaId || !doc.areas[p.areaId] || doc.areas[p.areaId].deleted)
-        .map((p) => (
-          <button
-            key={p.id}
-            className={`menu-item${value.projectId === p.id ? ' on' : ''}`}
-            onClick={() => onPick({ projectId: p.id })}
-          >
-            {p.name}
-          </button>
-        ))}
       <div className="menu-row">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={t('新的区域或项目', 'New area or project')}
-          aria-label={t('新的区域或项目', 'New area or project')}
+          onKeyDown={(e) => e.key === 'Enter' && name.trim() && onCreate(name)}
+          placeholder={t('新的区域', 'New area')}
+          aria-label={t('新的区域', 'New area')}
         />
-        <button className="opt" disabled={!name.trim()} onClick={() => onCreate('area', name)}>
-          {t('区域', 'Area')}
-        </button>
-        <button className="opt" disabled={!name.trim()} onClick={() => onCreate('project', name)}>
-          {t('项目', 'Project')}
+        <button className="opt" disabled={!name.trim()} onClick={() => onCreate(name)}>
+          {t('添加', 'Add')}
         </button>
       </div>
-      {(value.areaId || value.projectId) && (
-        <button className="link-btn danger" onClick={() => onPick({})}>
-          {t('不归属', 'None')}
+      {value && (
+        <button className="link-btn danger" onClick={() => onPick(undefined)}>
+          {t('不放在区域里', 'No area')}
         </button>
       )}
     </div>

@@ -26,7 +26,7 @@ minutes.
 
 ```
 src/model/        pure logic, no browser APIs
-  types.ts        the document: tasks, plan entries, steps, rounds, areas, projects, settings
+  types.ts        the document: tasks, plan entries, steps, rounds, areas, settings (projects only from before 0.2.39)
   doc.ts          every change (stamped), round logic, undo by restore
   repeat.ts       calendar and after-completion rules, rounds, next copy
   derive.ts       NOW candidates, free time, capacity check, list order, agenda

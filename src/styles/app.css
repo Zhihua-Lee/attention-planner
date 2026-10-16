@@ -2378,3 +2378,8 @@ mark {
 .step-tag.today {
   color: var(--accent);
 }
+
+/* "Next only" sits after the filters, set apart: it changes how the list shows, whichever filter is on */
+.filter.next-only {
+  margin-left: 8px;
+}

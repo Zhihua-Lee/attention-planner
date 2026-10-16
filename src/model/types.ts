@@ -100,6 +100,7 @@ export type Task = {
   /** Total estimated minutes. */
   effort?: number;
   areaId?: string;
+  /** Before 0.2.39 a task could be in a project; projects now become parent tasks (see `convertProjects`). */
   projectId?: string;
   /** Place in the list when it is sorted by hand (smaller first). */
   rank?: number;
@@ -122,13 +123,13 @@ export type Task = {
 };
 
 export type Area = { id: string; name: string; order: number; s: Stamp; deleted?: boolean };
+/** A project, from before 0.2.39: on load it becomes a parent task of the same name (see `convertProjects`). */
 export type Project = {
   id: string;
   name: string;
   areaId?: string;
   order: number;
   done?: string;
-  /** Tasks are done one after another, in the order they were added; only the first is suggested. */
   sequential?: boolean;
   s: Stamp;
   deleted?: boolean;
@@ -149,18 +150,8 @@ export type CalendarEvent = {
 
 export type StepTool = 'today' | 'due' | 'effort' | 'repeat' | 'promote';
 /** Filters that can be shown above the list ("all" is always there). */
-export type FilterChip = 'today' | 'soon' | 'due' | 'star' | 'new' | 'unplanned' | 'snoozed' | 'areas' | 'projects';
-export const FILTER_CHIPS: FilterChip[] = [
-  'today',
-  'soon',
-  'due',
-  'star',
-  'new',
-  'unplanned',
-  'snoozed',
-  'areas',
-  'projects',
-];
+export type FilterChip = 'today' | 'soon' | 'due' | 'star' | 'new' | 'unplanned' | 'snoozed' | 'areas';
+export const FILTER_CHIPS: FilterChip[] = ['today', 'soon', 'due', 'star', 'new', 'unplanned', 'snoozed', 'areas'];
 
 export type ChipKey = 'due' | 'plan' | 'effort' | 'star' | 'area' | 'repeat' | 'note';
 
@@ -175,6 +166,8 @@ export type Settings = {
   calendars?: { id: string; name: string; url: string }[];
   /** The list is ordered automatically, or by hand. */
   listSort?: 'smart' | 'manual';
+  /** The list shows, under each parent task, only its next unfinished subtask. */
+  nextOnly?: boolean;
   /** Reminder times: on a deadline's day, and minutes before a reserved time. */
   remind?: { dueAt?: Time; slotLead?: number };
   /** Buttons shown after each step (dragging and deleting are always there). */

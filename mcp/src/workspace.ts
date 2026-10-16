@@ -1,6 +1,6 @@
 import { calendarUrl } from '../../functions/ics';
 import { addDays } from '../../src/model/dates';
-import type { Ctx } from '../../src/model/doc';
+import { convertProjects, type Ctx } from '../../src/model/doc';
 import { parseIcs } from '../../src/model/ics';
 import { outlookEvents } from '../../src/model/outlook';
 import type { CalendarEvent, Day, Doc } from '../../src/model/types';
@@ -31,10 +31,11 @@ export class Workspace {
     return wallClock(this.timeZone, (this.options.clock ?? (() => new Date()))());
   }
 
+  /** The document, with projects from before 0.2.39 seen as the parent tasks the app turns them into. */
   async read(): Promise<Doc> {
     const { doc } = await this.remote.read();
     if (!doc) throw new Error(NO_DATA);
-    return doc;
+    return convertProjects(doc, { now: this.now(), device: this.options.device ?? 'ai' });
   }
 
   /** Apply `fn` to the latest document and save it. Returns what `fn` returned. */
@@ -44,7 +45,8 @@ export class Workspace {
       if (!doc) throw new Error(NO_DATA);
       const real = (this.options.clock ?? (() => new Date()))();
       const wall = wallClock(this.timeZone, real);
-      const [next, out] = fn(doc, { now: wall, device: this.options.device ?? 'ai' });
+      const ctx = { now: wall, device: this.options.device ?? 'ai' };
+      const [next, out] = fn(convertProjects(doc, ctx), ctx);
       if (next === doc) return out;
       try {
         await this.remote.write(realTimes(next, wall, real), version);

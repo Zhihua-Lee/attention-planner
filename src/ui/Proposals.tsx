@@ -70,10 +70,7 @@ function PreviewTask({ before, after, doc, now }: { before?: Task; after: Task; 
     const m = x && taskEffort(x);
     return m ? t('用时 ', '') + duration(m, lang) : '';
   };
-  const groupText = (x?: Task) =>
-    [x?.areaId && doc.areas[x.areaId]?.name, x?.projectId && doc.projects[x.projectId]?.name]
-      .filter(Boolean)
-      .join(' · ');
+  const groupText = (x?: Task) => (x?.areaId && doc.areas[x.areaId]?.name) || '';
   const repeatText = (x?: Task) => (x?.repeat ? `↻ ${ruleLabel(x.repeat.rule, lang)}` : '');
   const linkText = (x?: Task) => (x?.linkTo ? `→ ${doc.tasks[x.linkTo]?.title ?? ''}` : '');
   // A field shown only when there is something to show or it changed; the old value struck through before it.

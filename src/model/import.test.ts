@@ -88,6 +88,10 @@ describe('legacy import', () => {
   it('reports what it brought over', () => {
     expect(report).toEqual({ tasks: 6, done: 1, snoozed: 2, areas: 1, projects: 1, skipped: 1 });
   });
+  it('turns a project into a parent task of the same name, in its area', () => {
+    expect(doc.tasks.p1).toMatchObject({ title: '论文', areaId: 'a1' });
+    expect(Object.values(doc.projects).every((x) => x.deleted)).toBe(true);
+  });
   it('maps fields, arrangements and leftovers', () => {
     const t = doc.tasks.t1;
     expect(t).toMatchObject({
@@ -95,7 +99,7 @@ describe('legacy import', () => {
       star: true,
       due: '2026-10-02',
       effort: 360,
-      projectId: 'p1',
+      linkTo: 'p1',
       note: '图 3 要重画',
       legacy: { tags: ['#paper'], priority: 'high', status: 'next' },
     });

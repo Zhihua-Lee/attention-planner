@@ -153,24 +153,27 @@ export function importLegacy(doc: Doc, ctx: Ctx, data: unknown): [Doc, ImportRep
       e.doc.areas[id] = { id, name: String(a.name ?? a.title), order: Number(a.order) || report.areas, s };
       report.areas++;
     }
-    const projectIds = new Map<string, string>();
+    // A project becomes a parent task of the same name (and id), with its tasks under it.
+    const projects = new Map<string, Task>();
     for (const p of arr(src.projects).map(obj)) {
       if (!p || p.deletedAt || !str(p.title ?? p.name)) continue;
       const id = str(p.id) ?? newId();
-      projectIds.set(String(p.id), id);
-      if (e.doc.projects[id]) continue;
-      e.doc.projects[id] = {
+      const task: Task = {
         id,
-        name: String(p.title ?? p.name),
-        order: Number(p.order) || report.projects,
+        title: String(p.title ?? p.name).trim(),
+        created: str(p.createdAt) ?? ctx.now.toISOString(),
+        plan: [],
+        steps: [],
+        rounds: [],
+        fs: {},
         s,
-        ...(p.areaId && areaIds.has(String(p.areaId)) ? { areaId: areaIds.get(String(p.areaId)) } : {}),
-        ...(p.status === 'archived' || p.status === 'completed'
-          ? { done: str(p.updatedAt) ?? ctx.now.toISOString() }
-          : {}),
       };
-      report.projects++;
+      if (p.areaId && areaIds.has(String(p.areaId))) task.areaId = areaIds.get(String(p.areaId));
+      if (p.status === 'archived' || p.status === 'completed') task.done = str(p.updatedAt) ?? ctx.now.toISOString();
+      for (const f of TASK_FIELDS) task.fs[f] = s;
+      projects.set(String(p.id), task);
     }
+    const used = new Set<string>();
     const taskIds = new Set(arr(src.tasks).map((t) => String(obj(t)?.id)));
     for (const raw of arr(src.tasks)) {
       const t = obj(raw);
@@ -277,8 +280,12 @@ export function importLegacy(doc: Doc, ctx: Ctx, data: unknown): [Doc, ImportRep
         dueTime: due.time,
         effort: effortOf(t.timeEstimate),
         areaId: t.areaId && areaIds.has(String(t.areaId)) ? areaIds.get(String(t.areaId)) : undefined,
-        projectId: t.projectId && projectIds.has(String(t.projectId)) ? projectIds.get(String(t.projectId)) : undefined,
-        linkTo: str(t.parentTaskId) && taskIds.has(String(t.parentTaskId)) ? String(t.parentTaskId) : undefined,
+        linkTo:
+          str(t.parentTaskId) && taskIds.has(String(t.parentTaskId))
+            ? String(t.parentTaskId)
+            : t.projectId && projects.has(String(t.projectId))
+              ? (used.add(String(t.projectId)), projects.get(String(t.projectId))!.id)
+              : undefined,
         repeat,
       };
       for (const [k, v] of Object.entries(fields)) if (v !== undefined) Object.assign(task, { [k]: v });
@@ -288,6 +295,12 @@ export function importLegacy(doc: Doc, ctx: Ctx, data: unknown): [Doc, ImportRep
       report.tasks++;
       if (doneAt) report.done++;
       if (snooze) report.snoozed++;
+    }
+    for (const key of used) {
+      const task = projects.get(key)!;
+      if (e.doc.tasks[task.id]) continue;
+      e.doc.tasks[task.id] = task;
+      report.projects++;
     }
   });
   return [next, report];

@@ -2,7 +2,6 @@ import { dayOf, isoWeekday } from './dates';
 import {
   addArea,
   addPlan,
-  addProject,
   addStep,
   addTask,
   complete,
@@ -13,21 +12,20 @@ import {
   removeStep,
   reorderSteps,
   removeTask,
-  renameGroup,
+  renameArea,
   setField,
   stepsOf,
   taskEffort,
   toggleStep,
   uncomplete,
   updatePlan,
-  updateProject,
   updateStep,
   type Ctx,
 } from './doc';
 import type { Day, Doc, Part, Repeat, RepeatRule, Task, Time } from './types';
 
 /**
- * Changes to tasks, projects and areas as an AI proposes them (see mcp/src/changes.ts for their schema). The owner
+ * Changes to tasks and areas as an AI proposes them (see mcp/src/changes.ts for their schema). The owner
  * approves a list of them in the app; then they are applied here, with the same operations the app uses.
  */
 
@@ -54,7 +52,6 @@ export type NewTaskInput = {
   effort_minutes?: number;
   star?: boolean;
   area?: string;
-  project?: string;
   steps?: string[];
   plan?: { day: Day; part?: Part; start?: Time; minutes?: number };
   link_to?: string;
@@ -73,7 +70,6 @@ export type Change =
       effort_minutes?: number | null;
       star?: boolean;
       area?: string | null;
-      project?: string | null;
     }
   | { type: 'complete'; task_id: string }
   | { type: 'reopen'; task_id: string }
@@ -107,7 +103,6 @@ export type Change =
   | { type: 'link'; task_id: string; to: string | null }
   | { type: 'set_repeat'; task_id: string; repeat: RepeatInput | null }
   | { type: 'delete'; task_id: string }
-  | { type: 'update_project'; project: string; name?: string; one_after_another?: boolean }
   | { type: 'rename_area'; area: string; name: string };
 
 /** The task a change is about, if it is about one. */
@@ -147,13 +142,13 @@ export function toRepeat(r: RepeatInput, start: Day): Repeat {
   };
 }
 
-/** An area or project by id or by name (any case); a name that does not exist yet is created. */
-export function resolveGroup(doc: Doc, ctx: Ctx, kind: 'areas' | 'projects', ref: string): [Doc, string] {
-  const live = Object.values(doc[kind]).filter((g) => !g.deleted);
+/** An area by id or by name (any case); a name that does not exist yet is created. */
+export function resolveArea(doc: Doc, ctx: Ctx, ref: string): [Doc, string] {
+  const live = Object.values(doc.areas).filter((g) => !g.deleted);
   const hit =
     live.find((g) => g.id === ref) ?? live.find((g) => g.name.trim().toLowerCase() === ref.trim().toLowerCase());
   if (hit) return [doc, hit.id];
-  return kind === 'areas' ? addArea(doc, ctx, ref) : addProject(doc, ctx, ref);
+  return addArea(doc, ctx, ref);
 }
 
 /** A reserved time without a length takes the task's estimate, at most two hours (as in the app). */
@@ -165,24 +160,22 @@ const liveTask = (doc: Doc, id: string): Task => {
   return t;
 };
 
-/** An existing area or project by id or name; unlike `resolveGroup`, never creates one. */
-export function findGroup(doc: Doc, kind: 'areas' | 'projects', ref: string) {
-  const live = Object.values(doc[kind]).filter((g) => !g.deleted);
+/** An existing area by id or name; unlike `resolveArea`, never creates one. */
+export function findArea(doc: Doc, ref: string) {
+  const live = Object.values(doc.areas).filter((g) => !g.deleted);
   const hit =
     live.find((g) => g.id === ref) ?? live.find((g) => g.name.trim().toLowerCase() === ref.trim().toLowerCase());
-  if (!hit) throw new Error(`There is no ${kind === 'areas' ? 'area' : 'project'} "${ref}".`);
+  if (!hit) throw new Error(`There is no area "${ref}".`);
   return hit;
 }
 
-/** Write a new task down; a new area or project name creates it. */
+/** Write a new task down; a new area name creates it. */
 export function addNewTask(doc: Doc, ctx: Ctx, c: NewTaskInput): [Doc, string] {
   if (c.link_to && (!doc.tasks[c.link_to] || doc.tasks[c.link_to].deleted))
     throw new Error(`There is no task ${c.link_to} to put it under.`);
   let d = doc;
   let areaId: string | undefined;
-  let projectId: string | undefined;
-  if (c.area) [d, areaId] = resolveGroup(d, ctx, 'areas', c.area);
-  if (c.project) [d, projectId] = resolveGroup(d, ctx, 'projects', c.project);
+  if (c.area) [d, areaId] = resolveArea(d, ctx, c.area);
   const p = c.plan;
   return addTask(d, ctx, {
     title: c.title,
@@ -195,7 +188,6 @@ export function addNewTask(doc: Doc, ctx: Ctx, c: NewTaskInput): [Doc, string] {
     effort: c.effort_minutes,
     star: c.star || undefined,
     areaId,
-    projectId,
     steps: c.steps,
     plan: p
       ? [
@@ -215,14 +207,7 @@ export function addNewTask(doc: Doc, ctx: Ctx, c: NewTaskInput): [Doc, string] {
 /** Apply one change. Throws if the task, step, plan or group is gone. */
 export function applyChange(doc: Doc, ctx: Ctx, c: Change): Doc {
   if (c.type === 'add_task') return addNewTask(doc, ctx, c)[0];
-  if (c.type === 'update_project') {
-    const p = findGroup(doc, 'projects', c.project);
-    let d = doc;
-    if (c.name) d = renameGroup(d, ctx, 'projects', p.id, c.name);
-    if (c.one_after_another !== undefined) d = updateProject(d, ctx, p.id, { sequential: c.one_after_another });
-    return d;
-  }
-  if (c.type === 'rename_area') return renameGroup(doc, ctx, 'areas', findGroup(doc, 'areas', c.area).id, c.name);
+  if (c.type === 'rename_area') return renameArea(doc, ctx, findArea(doc, c.area).id, c.name);
   const t = liveTask(doc, c.task_id);
   const step = (id: string) => {
     if (!stepsOf(t).some((s) => s.id === id)) throw new Error(`There is no step ${id}.`);
@@ -283,18 +268,11 @@ export function applyChange(doc: Doc, ctx: Ctx, c: Change): Doc {
       if (c.due_time !== undefined) d = setField(d, ctx, t.id, 'dueTime', c.due_time ?? undefined);
       if (c.effort_minutes !== undefined) d = setField(d, ctx, t.id, 'effort', c.effort_minutes ?? undefined);
       if (c.star !== undefined) d = setField(d, ctx, t.id, 'star', c.star || undefined);
-      for (const [key, kind, field] of [
-        ['area', 'areas', 'areaId'],
-        ['project', 'projects', 'projectId'],
-      ] as const) {
-        const ref = c[key];
-        if (ref === undefined) continue;
-        if (ref === null || !ref.trim()) d = setField(d, ctx, t.id, field, undefined);
-        else {
-          let id: string;
-          [d, id] = resolveGroup(d, ctx, kind, ref);
-          d = setField(d, ctx, t.id, field, id);
-        }
+      if (c.area === null || (c.area !== undefined && !c.area.trim())) d = setField(d, ctx, t.id, 'areaId', undefined);
+      else if (c.area !== undefined) {
+        let id: string;
+        [d, id] = resolveArea(d, ctx, c.area);
+        d = setField(d, ctx, t.id, 'areaId', id);
       }
       return d;
     }
@@ -407,8 +385,7 @@ export function ruleWords(r: RuleInput, t: T): string {
  */
 export function describeChange(doc: Doc, c: Change, t: T): string {
   if (c.type === 'add_task') {
-    const group = (kind: 'areas' | 'projects', ref: string) =>
-      Object.values(doc[kind]).find((g) => !g.deleted && g.id === ref)?.name ?? ref;
+    const area = (ref: string) => Object.values(doc.areas).find((g) => !g.deleted && g.id === ref)?.name ?? ref;
     const link = c.link_to && (doc.tasks[c.link_to]?.title ?? c.link_to);
     const p = c.plan;
     const parts = [
@@ -426,8 +403,7 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
             ? t('，原地重开', ', reopens in place')
             : t('，新建一份', ', a new copy each time')) +
           leadWords(c.repeat, t),
-      c.area && t('区域：', 'area: ') + group('areas', c.area),
-      c.project && t('项目：', 'project: ') + group('projects', c.project),
+      c.area && t('区域：', 'area: ') + area(c.area),
       link && t(`上级任务「${link}」`, `under “${link}”`),
       c.steps?.length && t('步骤：', 'steps: ') + c.steps.join(t('、', ', ')),
       c.note && t(`备注（${c.note.length} 字）：`, `note (${c.note.length} chars): `) + noteGist(c.note),
@@ -436,16 +412,6 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
       t(`新建 「${c.title}」`, `Add “${c.title}”`) + (parts.length ? t('：', ': ') + parts.join(t('；', '; ')) : '')
     );
   }
-  if (c.type === 'update_project') {
-    const p = Object.values(doc.projects).find((g) => !g.deleted && (g.id === c.project || g.name === c.project));
-    const label = `「${p?.name ?? c.project}」`;
-    const parts = [
-      c.name && t(`改名为「${c.name}」`, `rename to “${c.name}”`),
-      c.one_after_another !== undefined &&
-        (c.one_after_another ? t('按顺序做', 'one task after another') : t('不再按顺序', 'not in order')),
-    ].filter(Boolean);
-    return t(`项目 ${label}：`, `Project ${label}: `) + parts.join(t('；', '; '));
-  }
   if (c.type === 'rename_area') {
     const a = Object.values(doc.areas).find((g) => !g.deleted && (g.id === c.area || g.name === c.area));
     return t(`区域「${a?.name ?? c.area}」改名为「${c.name}」`, `Rename area “${a?.name ?? c.area}” to “${c.name}”`);
@@ -453,7 +419,7 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
   const task = doc.tasks[c.task_id];
   if (!task || task.deleted) return t(`（任务已不存在：${c.task_id}）`, `(the task is gone: ${c.task_id})`);
   const name = `「${task.title}」`;
-  const groupName = (kind: 'areas' | 'projects', id?: string) => (id ? doc[kind][id]?.name : undefined);
+  const areaName = (id?: string) => (id ? doc.areas[id]?.name : undefined);
   const none = t('无', 'none');
   const arrow = (from: string | undefined, to: string | undefined) => `${from ?? none} → ${to ?? none}`;
   switch (c.type) {
@@ -481,10 +447,7 @@ export function describeChange(doc: Doc, c: Change, t: T): string {
             ),
         );
       if (c.star !== undefined) parts.push(c.star ? t('标为重要', 'Mark important') : t('取消重要', 'Not important'));
-      if (c.area !== undefined)
-        parts.push(t('区域：', 'Area: ') + arrow(groupName('areas', task.areaId), c.area ?? undefined));
-      if (c.project !== undefined)
-        parts.push(t('项目：', 'Project: ') + arrow(groupName('projects', task.projectId), c.project ?? undefined));
+      if (c.area !== undefined) parts.push(t('区域：', 'Area: ') + arrow(areaName(task.areaId), c.area ?? undefined));
       return `${t('修改', 'Edit')} ${name}：${parts.join('；') || t('（没有改动）', '(nothing)')}`;
     }
     case 'complete':

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, type PanInfo } from 'motion/react';
 import { forwardRef, useRef, useState, type CSSProperties } from 'react';
 import { addDays, dayOf } from '../model/dates';
-import { finishedTasks, listTasks, matches, openTasks, type Filter, queuePosition } from '../model/derive';
+import { finishedTasks, listTasks, matches, nextOnly, openTasks, type Filter } from '../model/derive';
 import { inRound, plannedOn, reorderTasks, setSettings, toggleDay } from '../model/doc';
 import {
   complete,
@@ -49,7 +49,11 @@ export const TaskList = forwardRef<
     if (order) store.commit((d, c) => reorderTasks(d, c, order));
   };
   const manual = doc.settings.listSort === 'manual';
-  const rows = listTasks(doc, now, filter);
+  const listedAll = listTasks(doc, now, filter);
+  // "Only the next one": under each parent task, its next unfinished subtask; the rest are counted on the parent.
+  const hasSubtasks = listedAll.some((x) => x.linkTo && listedAll.some((y) => y.id === x.linkTo));
+  const next = doc.settings.nextOnly ? nextOnly(listedAll) : null;
+  const rows = next ? next.rows : listedAll;
   const done = finishedTasks(doc, now).slice(0, 50);
   const open = openTasks(doc, now);
   const count = (f: Filter) => open.filter((x) => matches(doc, x, f, now)).length;
@@ -72,12 +76,6 @@ export const TaskList = forwardRef<
               .filter((x) => !x.deleted)
               .sort((x, y) => x.order - y.order)
               .map((x) => [`a:${x.id}`, x.name])
-          : []),
-        ...(shown.has('projects')
-          ? Object.values(doc.projects)
-              .filter((x) => !x.deleted && !x.done)
-              .sort((x, y) => x.order - y.order)
-              .map((x) => [`p:${x.id}`, x.name])
           : []),
       ] as [Filter, string][]
     ).filter(([k]) => filter === k || count(k) > 0),
@@ -126,6 +124,7 @@ export const TaskList = forwardRef<
     expanded: expanded === task.id,
     toggle: () => setExpanded(expanded === task.id ? null : task.id),
     indent: depth(task),
+    more: next?.hidden.get(task.id) ?? 0,
   });
 
   return (
@@ -191,6 +190,16 @@ export const TaskList = forwardRef<
               )}
             </span>
           ))}
+          {/* Not a filter but a way of showing: it goes with any of them. */}
+          {(hasSubtasks || doc.settings.nextOnly) && (
+            <button
+              className="filter next-only"
+              aria-pressed={!!doc.settings.nextOnly}
+              onClick={() => store.commit((d, c2) => setSettings(d, c2, { nextOnly: !doc.settings.nextOnly }))}
+            >
+              {t('只看下一个', 'Next only')}
+            </button>
+          )}
         </div>
         <div className="seg small" role="radiogroup" aria-label={t('排序', 'Order')}>
           <button
@@ -267,6 +276,7 @@ function Row({
   expanded,
   toggle,
   indent,
+  more = 0,
   handle,
   onMove,
 }: {
@@ -276,6 +286,8 @@ function Row({
   toggle: () => void;
   /** Levels under listed parent tasks. */
   indent: number;
+  /** Subtasks left out of sight by "only the next one". */
+  more?: number;
   handle?: DragControls;
   onMove?: (dir: -1 | 1) => void;
 }) {
@@ -284,7 +296,6 @@ function Row({
   const [completing, setCompleting] = useState(false);
   const round = taskRound(task, now);
   const due = effectiveDue(task, now);
-  const queued = queuePosition(store.get().doc, task, now);
   const finished = isFinished(task, now);
   const snoozed = isSnoozed(task, today);
   const proposed = proposalsFor(store.get().doc, task.id, now).length > 0;
@@ -329,7 +340,7 @@ function Row({
   return (
     <motion.div
       layout="position"
-      className={`row${snoozed || queued > 0 ? ' snoozed' : ''}${finished ? ' done' : ''}${completing ? ' completing' : ''}${indent ? ' linked' : ''}`}
+      className={`row${snoozed ? ' snoozed' : ''}${finished ? ' done' : ''}${completing ? ' completing' : ''}${indent ? ' linked' : ''}`}
       style={indent ? ({ '--depth': indent } as CSSProperties) : undefined}
       data-task={task.id}
       initial={{ opacity: 0, y: -6 }}
@@ -426,7 +437,7 @@ function Row({
           </button>
         ) : (
           <span className="meta">
-            {queued > 0 && <span>{t(`排队中 · 前面还有 ${queued} 个`, `Queued · ${queued} before it`)}</span>}
+            {more > 0 && <span>{t(`还有 ${more} 个子任务`, `${more} more subtasks`)}</span>}
             {(openConflict(task, 'note') || openConflict(task, 'title')) && (
               <span className="warn">{t('有两个版本', 'Two versions')}</span>
             )}

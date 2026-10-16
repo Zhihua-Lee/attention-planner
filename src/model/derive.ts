@@ -1,5 +1,6 @@
 import { addDays, dayOf, diffDays, isoWeekday, minutesOf, nowMinutes, PARTS, timeOf } from './dates';
 import {
+  areaOf,
   isFinished,
   isSnoozed,
   liveTasks,
@@ -24,19 +25,6 @@ export type Reason =
 
 export type Pick = { task: Task; reason: Reason };
 
-/**
- * In a project done one task after another, how many unfinished tasks come before this one (by when they were added).
- * 0 means it is the one to do now.
- */
-export function queuePosition(doc: Doc, t: Task, now: Date): number {
-  const p = t.projectId ? doc.projects[t.projectId] : undefined;
-  // Repeating tasks come round on their own schedule: they neither wait in the queue nor hold it up.
-  if (!p?.sequential || p.deleted || t.repeat || isFinished(t, now)) return 0;
-  return liveTasks(doc).filter(
-    (o) => o.projectId === t.projectId && o.id !== t.id && !o.repeat && !isFinished(o, now) && o.created < t.created,
-  ).length;
-}
-
 /** Snoozed and not yet due: a deadline that arrives (today or earlier) brings a snoozed task back. */
 export const isResting = (t: Task, now: Date) =>
   isSnoozed(t, dayOf(now)) && !((effectiveDue(t, now)?.day ?? '9') <= dayOf(now));
@@ -51,7 +39,7 @@ export const openTasks = (doc: Doc, now: Date) => liveTasks(doc).filter((t) => !
 export function nowCandidates(doc: Doc, now: Date): Pick[] {
   const today = dayOf(now);
   const m = nowMinutes(now);
-  const ready = openTasks(doc, now).filter((t) => !isResting(t, now) && queuePosition(doc, t, now) === 0);
+  const ready = openTasks(doc, now).filter((t) => !isResting(t, now));
   const out: Pick[] = [];
   const seen = new Set<string>();
   const push = (task: Task, reason: Reason) => {
@@ -214,8 +202,8 @@ export function findTimes(doc: Doc, t: Task, now: Date, limit = 3, step?: Step):
 
 /**
  * Tasks worth doing in a free time just tapped on the calendar, best first: the ones whose deadline comes soonest,
- * then those whose remaining time fits, then the important ones. Tasks that are done for now, resting or waiting in
- * a project's queue are left out, and so are tasks already fully reserved.
+ * then those whose remaining time fits, then the important ones. Tasks that are done for now or resting are left
+ * out, and so are tasks already fully reserved.
  */
 export function tasksForSlot(doc: Doc, now: Date, day: Day, minutes: number, limit = 3): Task[] {
   const due = (t: Task) => effectiveDue(t, now)?.day ?? '9999';
@@ -223,7 +211,7 @@ export function tasksForSlot(doc: Doc, now: Date, day: Day, minutes: number, lim
     openTasks(doc, now)
       // Snoozed past that day (and not due by then) is left out; a snooze that ends before it is not.
       .filter((t) => !(isSnoozed(t, day) && !(due(t) <= day)))
-      .filter((t) => queuePosition(doc, t, now) === 0 && stillToReserve(t) > 0)
+      .filter((t) => stillToReserve(t) > 0)
       .sort(
         (a, b) =>
           due(a).localeCompare(due(b)) ||
@@ -258,21 +246,20 @@ export function capacity(doc: Doc, now: Date): Shortfall | null {
 }
 
 /** All, today, new, due within a week, any deadline, snoozed, or one area (`a:<id>`) or project (`p:<id>`). */
-export type Filter =
-  'all' | 'today' | 'new' | 'soon' | 'due' | 'star' | 'unplanned' | 'snoozed' | `a:${string}` | `p:${string}`;
+export type Filter = 'all' | 'today' | 'new' | 'soon' | 'due' | 'star' | 'unplanned' | 'snoozed' | `a:${string}`;
 
 /** Not given any day: no deadline (a step's included), no arrangement, no repeat, not snoozed. */
 export const isUnplanned = (t: Task, now: Date) =>
   !effectiveDue(t, now) && !planOf(t).length && !t.repeat && !isSnoozed(t, dayOf(now));
 
-/** Recently captured and not yet given a day, deadline, repeat or place: the automatic "unsorted". */
+/** Recently captured and not yet given a day, deadline, repeat or place (an area or a parent task): "unsorted". */
 export const isNew = (t: Task, now: Date) =>
   (now.getTime() - new Date(t.created).getTime()) / 864e5 <= 7 &&
   !planOf(t).length &&
   !effectiveDue(t, now) &&
   !t.repeat &&
   !t.areaId &&
-  !t.projectId;
+  !t.linkTo;
 
 /**
  * Belongs to today: due today or overdue (a step's deadline counts), planned today, a round of a repeating task
@@ -291,11 +278,8 @@ export function isToday(t: Task, now: Date): boolean {
 
 export function matches(doc: Doc, t: Task, f: Filter, now: Date): boolean {
   const today = dayOf(now);
-  if (f.startsWith('a:')) {
-    const id = f.slice(2);
-    return t.areaId === id || (!!t.projectId && doc.projects[t.projectId]?.areaId === id);
-  }
-  if (f.startsWith('p:')) return t.projectId === f.slice(2);
+  // A subtask is in its parent's area unless it has one of its own.
+  if (f.startsWith('a:')) return areaOf(doc, t) === f.slice(2);
   switch (f) {
     case 'today':
       return isToday(t, now);
@@ -351,6 +335,31 @@ export function listTasks(doc: Doc, now: Date, f: Filter): Task[] {
   // Tasks in a loop (two devices each moving one under the other) have no top; they still show.
   for (const t of rows) place(t);
   return out;
+}
+
+/**
+ * "Only the next one": under each listed parent task, only its first listed subtask (the next one, in the list's
+ * order); the others, and what is under them, stay out of sight. Also says how many were left out under each parent.
+ */
+export function nextOnly(rows: Task[]): { rows: Task[]; hidden: Map<string, number> } {
+  const seen = new Set<string>();
+  const kept = new Set<string>();
+  const first = new Set<string>();
+  const hidden = new Map<string, number>();
+  const out: Task[] = [];
+  for (const t of rows) {
+    const p = t.linkTo && seen.has(t.linkTo) ? t.linkTo : undefined;
+    seen.add(t.id);
+    if (p && !kept.has(p)) continue;
+    if (p && first.has(p)) {
+      hidden.set(p, (hidden.get(p) ?? 0) + 1);
+      continue;
+    }
+    if (p) first.add(p);
+    out.push(t);
+    kept.add(t.id);
+  }
+  return { rows: out, hidden };
 }
 
 export const finishedTasks = (doc: Doc, now: Date) =>

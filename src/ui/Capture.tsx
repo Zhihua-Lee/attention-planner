@@ -1,11 +1,11 @@
 import { forwardRef, useState } from 'react';
 import { dayOf } from '../model/dates';
-import { addArea, addProject, addTask } from '../model/doc';
+import { addArea, addTask } from '../model/doc';
 import { parseCapture } from '../model/parse';
 import type { ChipKey, PlanEntry, Repeat } from '../model/types';
 import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
-import { DayOptions, EffortPicker, GroupPicker, PlanPicker } from './pickers';
+import { AreaPicker, DayOptions, EffortPicker, PlanPicker } from './pickers';
 import { duration, dueLabel, planLabel, ruleLabel, useT } from './text';
 
 type Manual = Partial<{
@@ -13,7 +13,7 @@ type Manual = Partial<{
   plan: Pick<PlanEntry, 'day' | 'part' | 'start' | 'minutes'> | null;
   effort: number | null;
   star: boolean;
-  group: { areaId?: string; projectId?: string };
+  areaId?: string;
   repeat: Repeat | null;
 }>;
 
@@ -37,7 +37,7 @@ export const Capture = forwardRef<HTMLInputElement>(function Capture(_, inputRef
   const plan = pick('plan', parsed.plan ?? null);
   const effort = pick('effort', parsed.effort ?? null);
   const star = pick('star', !!parsed.star);
-  const group = manual.group ?? {};
+  const areaId = manual.areaId;
   // A repeat in words: with a deadline each time is a new copy ("每周五交周报"); without, the task reopens ("每天看邮件").
   const said = typeof parsed.repeat === 'object' ? parsed.repeat : null;
   const repeat = pick(
@@ -61,8 +61,7 @@ export const Capture = forwardRef<HTMLInputElement>(function Capture(_, inputRef
         effort: effort ?? undefined,
         star: star || undefined,
         note: note?.trim() ? note : undefined,
-        areaId: group.areaId,
-        projectId: group.projectId,
+        areaId,
         repeat: repeat ?? undefined,
         plan: p ? [p] : [],
       })[0];
@@ -73,17 +72,13 @@ export const Capture = forwardRef<HTMLInputElement>(function Capture(_, inputRef
     setNote(null);
   };
 
-  const groupName = group.projectId
-    ? doc.projects[group.projectId]?.name
-    : group.areaId
-      ? doc.areas[group.areaId]?.name
-      : '';
+  const areaName = areaId ? doc.areas[areaId]?.name : '';
   const values: Record<ChipKey, string> = {
     due: due ? dueLabel(due, today, lang) : '',
     plan: plan ? planLabel(plan, today, lang) : '',
     effort: effort ? duration(effort, lang) : '',
     star: star ? '★' : '',
-    area: groupName ?? '',
+    area: areaName ?? '',
     repeat: repeat ? ruleLabel(repeat.rule, lang) : '',
     note: note !== null ? t('正文', 'Note') : '',
   };
@@ -107,7 +102,7 @@ export const Capture = forwardRef<HTMLInputElement>(function Capture(_, inputRef
     if (k === 'note') return setNote((n) => (n === null ? '' : null));
     if (values[k]) {
       // A second tap clears it.
-      return setManual((m) => ({ ...m, [k === 'area' ? 'group' : k]: k === 'area' ? {} : null }));
+      return setManual((m) => ({ ...m, [k === 'area' ? 'areaId' : k]: k === 'area' ? undefined : null }));
     }
     pop.toggle(k, el);
   };
@@ -196,18 +191,18 @@ export const Capture = forwardRef<HTMLInputElement>(function Capture(_, inputRef
           )}
           {pop.is('effort') && <EffortPicker value={effort ?? undefined} onPick={(m) => set({ effort: m ?? null })} />}
           {pop.is('area') && (
-            <GroupPicker
+            <AreaPicker
               doc={doc}
-              value={group}
-              onPick={(g) => set({ group: g })}
-              onCreate={(kind, name) => {
+              value={areaId}
+              onPick={(id) => set({ areaId: id })}
+              onCreate={(name) => {
                 let id = '';
                 store.commit((d, ctx) => {
-                  const [n, i] = kind === 'area' ? addArea(d, ctx, name) : addProject(d, ctx, name);
+                  const [n, i] = addArea(d, ctx, name);
                   id = i;
                   return n;
                 });
-                set({ group: kind === 'area' ? { areaId: id } : { projectId: id } });
+                set({ areaId: id });
               }}
             />
           )}

@@ -82,9 +82,9 @@ From this meeting's notes, add the action items for me, due Friday.
 Put "Lumen submission" under the Research task and make the weekly lab notes reopen every Monday.
 ```
 
-The tools: `what_now`, `list_tasks`, `get_task`, `agenda`, `find_time`, `list_areas_and_projects` (read);
+The tools: `what_now`, `list_tasks`, `get_task`, `agenda`, `find_time`, `list_areas` (read);
 `add_task` (approved, or saved at once if you choose; with the app's quick words, a parent task and repeats); `propose_changes` (fields, steps, plans,
-parent tasks, repeats, projects — approved in the app); `get_proposal`, `list_proposals`, `withdraw_proposal` (an AI takes back its own). Details in
+parent tasks, repeats, areas — approved in the app); `get_proposal`, `list_proposals`, `withdraw_proposal` (an AI takes back its own). Details in
 [docs/ai-connections.md](docs/ai-connections.md).
 
 ## Highlights
@@ -139,7 +139,7 @@ intention.
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Is there time?          | With estimates, every deadline is checked against the free working time before it.                                                                                                                                                       |
 | Snooze                  | Replaces "waiting", "someday" and "not before"; a deadline that arrives brings the task back.                                                                                                                                            |
-| Areas and projects      | Group the list; a project can go one task after another (repeating tasks stay out of the queue).                                                                                                                                         |
+| Areas and subtasks      | An area is a lasting part of life (Research, Home) with a filter of its own; a piece of work with an end is a task with subtasks, and “Next only” shows each parent with just its next one.                                              |
 | My Day and filters      | ☀ on a row (or `T`, or a swipe on a phone) adds it to today; yesterday’s leftovers are offered, never moved. Filters: today, due this week, with a deadline, important, new, unplanned, snoozed, each area and project — you pick which. |
 | Capture from anywhere   | `todo.onthat.top/?add=…` links and bookmarks, the Android share sheet, and a personal link for an iPhone Shortcut — so “Hey Siri, note it” works without opening the app.                                                                |
 | Search and keyboard     | `/` or `Ctrl+K` searches titles, notes and steps; `N` captures; `Ctrl+Z` undoes anything; `Ctrl+S` syncs.                                                                                                                                |
@@ -157,12 +157,12 @@ hidden app folder in your own Drive. Reminders: Settings → Reminders.
 
 ## Getting started
 
-| Where    | Do                                                                                                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| List     | Type a line and press Enter. Tap a title to open it in place; the circle completes it.                                    |
-| NOW      | Do the one thing shown, or tap "another". Day / week switch the agenda; tap an item for details.                          |
-| A task   | Steps first, then deadline, when, effort (with Find time), repeat, snooze, area or project, parent task, note (Markdown). |
-| Settings | Working hours, capture chips, list filters, step buttons, reminders, calendars, sync, AI connections.                     |
+| Where    | Do                                                                                                             |
+| -------- | -------------------------------------------------------------------------------------------------------------- |
+| List     | Type a line and press Enter. Tap a title to open it in place; the circle completes it.                         |
+| NOW      | Do the one thing shown, or tap "another". Day / week switch the agenda; tap an item for details.               |
+| A task   | Steps first, then deadline, when, effort (with Find time), repeat, snooze, area, parent task, note (Markdown). |
+| Settings | Working hours, capture chips, list filters, step buttons, reminders, calendars, sync, AI connections.          |
 
 More in the [user guide](docs/user-guide.md) (Chinese), [how the parts interact](docs/interactions.md) and
 [the design notes](docs/design.md).

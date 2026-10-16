@@ -3,7 +3,7 @@ import { dayOf, isTime } from '../model/dates';
 import {
   addArea,
   addPlan,
-  addProject,
+  areaOf,
   complete,
   isFinished,
   isSnoozed,
@@ -23,7 +23,7 @@ import { findTimes, stillToReserve, type Slot } from '../model/derive';
 import type { Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
-import { EffortPicker, GroupPicker, LinkPicker, PlanPicker, RepeatEditor, WhenPicker } from './pickers';
+import { AreaPicker, EffortPicker, LinkPicker, PlanPicker, RepeatEditor, WhenPicker } from './pickers';
 import { ConflictNotice } from './Conflict';
 import { NewStep } from './NewStep';
 import { ProposalNotice } from './Proposals';
@@ -57,11 +57,9 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   const round = taskRound(task, now);
   const done = plannedDone(task);
   const still = stillToReserve(task);
-  const group = task.projectId
-    ? doc.projects[task.projectId]?.name
-    : task.areaId
-      ? doc.areas[task.areaId]?.name
-      : undefined;
+  // A subtask without an area of its own is in its parent's.
+  const ownArea = task.areaId ? doc.areas[task.areaId]?.name : undefined;
+  const parentArea = ownArea ? undefined : doc.areas[areaOf(doc, task) ?? '']?.name;
   const target = task.linkTo ? doc.tasks[task.linkTo] : undefined;
   const linkedHere = Object.values(doc.tasks).filter((x) => !x.deleted && x.linkTo === id);
   const history = live(task.rounds)
@@ -229,14 +227,17 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
           )}
         </span>
 
-        <span className="lbl">{t('归属', 'Belongs to')}</span>
+        <span className="lbl">{t('区域', 'Area')}</span>
         <span className="val">
           <button
             className="pill"
             aria-expanded={pop.is('group')}
             onClick={(e) => pop.toggle('group', e.currentTarget)}
           >
-            {group ?? t('未分类', 'None')}
+            {ownArea ??
+              (parentArea
+                ? t(`${parentArea}（随上级任务）`, `${parentArea} (from the parent task)`)
+                : t('未分类', 'None'))}
           </button>
         </span>
 
@@ -374,17 +375,17 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
             />
           )}
           {pop.is('group') && (
-            <GroupPicker
+            <AreaPicker
               doc={doc}
-              value={{ areaId: task.areaId, projectId: task.projectId }}
-              onPick={(g) => {
-                commit((d, c) => setField(setField(d, c, id, 'areaId', g.areaId), c, id, 'projectId', g.projectId));
+              value={task.areaId}
+              onPick={(areaId) => {
+                commit((d, c) => setField(d, c, id, 'areaId', areaId));
                 pop.close();
               }}
-              onCreate={(kind, name) => {
+              onCreate={(name) => {
                 commit((d, c) => {
-                  const [n, gid] = kind === 'area' ? addArea(d, c, name) : addProject(d, c, name);
-                  return setField(n, c, id, kind === 'area' ? 'areaId' : 'projectId', gid);
+                  const [n, gid] = addArea(d, c, name);
+                  return setField(n, c, id, 'areaId', gid);
                 });
                 pop.close();
               }}

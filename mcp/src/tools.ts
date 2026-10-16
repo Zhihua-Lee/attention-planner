@@ -11,16 +11,17 @@ import {
   finishedTasks,
   listTasks,
   nowCandidates,
-  queuePosition,
   stepProgress,
   type Filter,
   type Reason,
 } from '../../src/model/derive';
 import {
+  areaOf,
   effectiveDue,
   inRounds,
   isFinished,
   isSnoozed,
+  isUnder,
   liveTasks,
   planOf,
   stepDone,
@@ -36,6 +37,7 @@ import {
   changeSchema,
   daySchema,
   describeChange,
+  findArea,
   fromRule,
   newTaskFields,
   repeatSchema,
@@ -64,7 +66,8 @@ const INSTRUCTIONS = `Attention Planner is one person's to-do list that plans it
 remembers, orders and reminds. Every unfinished task is in one list. A task may have a deadline (due), plans (a day, a
 part of a day, or a reserved time), an effort estimate, an "important" star, a snooze (until a day, with a reason),
 steps (each with its own deadline, estimate and repeat), a repeat (reopen in place, or a new copy each time), an area
-or project, and a parent task (it is listed under it; subtasks nest). Projects can be done one task after another. "what_now"
+(a lasting part of life or work), and a parent task (it is listed under it; subtasks nest: a task with subtasks is
+what other apps call a project). "what_now"
 answers what to do at this moment and also returns the owner's long-term goal, when they wrote one: treat it as the
 longest-range context when you prioritise, plan or break tasks down, and say so when a proposal does not serve it.
 "find_time" finds free working time for a task. Days are YYYY-MM-DD and times HH:MM in the owner's
@@ -102,8 +105,7 @@ function reasonWords(r: Reason): string {
   }
 }
 
-const groupName = (doc: Doc, kind: 'areas' | 'projects', id?: string) =>
-  id && !doc[kind][id]?.deleted ? doc[kind][id]?.name : undefined;
+const areaName = (doc: Doc, id?: string) => (id && !doc.areas[id]?.deleted ? doc.areas[id]?.name : undefined);
 
 /** A task in a list: enough to choose, without the note or each step. */
 export function brief(doc: Doc, t: Task, now: Date) {
@@ -121,9 +123,7 @@ export function brief(doc: Doc, t: Task, now: Date) {
     snoozed: isSnoozed(t, today)
       ? clean({ until: t.snooze?.until ?? 'further notice', reason: t.snooze?.reason })
       : undefined,
-    area: groupName(doc, 'areas', t.areaId),
-    project: groupName(doc, 'projects', t.projectId),
-    waiting_in_project_queue: queuePosition(doc, t, now) > 0,
+    area: areaName(doc, areaOf(doc, t)),
     parent_task:
       t.linkTo && doc.tasks[t.linkTo] && !doc.tasks[t.linkTo].deleted
         ? { id: t.linkTo, title: doc.tasks[t.linkTo].title }
@@ -244,11 +244,11 @@ export function createServer(c: ToolContext): McpServer {
     {
       title: 'List tasks',
       description:
-        'Unfinished tasks, in the order the app shows them. Narrow with a filter (today: due or planned today, overdue, open rounds of repeating tasks; soon: deadline within 7 days; due: any deadline; new: captured this week and not yet given a day; snoozed), an area or project, or words in the title, note or steps. With include_finished, finished tasks matching the words come after.',
+        'Unfinished tasks, in the order the app shows them. Narrow with a filter (today: due or planned today, overdue, open rounds of repeating tasks; soon: deadline within 7 days; due: any deadline; new: captured this week and not yet given a day; snoozed), an area (a subtask counts in the area of its parent), a parent task (everything under it), or words in the title, note or steps. With include_finished, finished tasks matching the words come after.',
       inputSchema: {
         filter: z.enum(FILTERS).optional(),
         area: z.string().max(100).optional().describe('Area name or id.'),
-        project: z.string().max(100).optional().describe('Project name or id.'),
+        under: z.string().max(100).optional().describe('Id of a task: only the tasks under it, at any depth.'),
         query: z.string().max(200).optional(),
         include_finished: z.boolean().optional(),
         limit: z.number().int().min(1).max(100).optional().describe('Default 30.'),
@@ -259,23 +259,19 @@ export function createServer(c: ToolContext): McpServer {
       async (a: {
         filter?: (typeof FILTERS)[number];
         area?: string;
-        project?: string;
+        under?: string;
         query?: string;
         include_finished?: boolean;
         limit?: number;
       }) => {
         const doc = await load();
         const now = ws.now();
-        const find = (kind: 'areas' | 'projects', ref: string) => {
-          const hit = Object.values(doc[kind]).find(
-            (g) => !g.deleted && (g.id === ref || g.name.toLowerCase() === ref.trim().toLowerCase()),
-          );
-          if (!hit) throw new Error(`There is no ${kind === 'areas' ? 'area' : 'project'} "${ref}".`);
-          return hit.id;
-        };
         let rows = listTasks(doc, now, (a.filter ?? 'all') as Filter);
-        if (a.area) rows = rows.filter((t) => listTasks(doc, now, `a:${find('areas', a.area!)}`).includes(t));
-        if (a.project) rows = rows.filter((t) => t.projectId === find('projects', a.project!));
+        if (a.area) rows = rows.filter((t) => listTasks(doc, now, `a:${findArea(doc, a.area!).id}`).includes(t));
+        if (a.under) {
+          if (!doc.tasks[a.under] || doc.tasks[a.under].deleted) throw new Error(`There is no task ${a.under}.`);
+          rows = rows.filter((t) => t.id !== a.under && isUnder(doc, t.id, a.under!));
+        }
         const q = a.query?.trim().toLowerCase();
         const hits = (t: Task) =>
           !q || [t.title, t.note ?? '', ...stepsOf(t).map((s) => s.text)].some((x) => x.toLowerCase().includes(q));
@@ -391,10 +387,11 @@ export function createServer(c: ToolContext): McpServer {
   );
 
   server.registerTool(
-    'list_areas_and_projects',
+    'list_areas',
     {
-      title: 'Areas and projects',
-      description: 'The areas (lasting parts of life or work) and projects (finite outcomes), with open task counts.',
+      title: 'Areas',
+      description:
+        'The areas (lasting parts of life or work, never finished), with open task counts (a subtask counts in the area of its parent).',
       inputSchema: {},
       annotations: read,
     },
@@ -410,18 +407,8 @@ export function createServer(c: ToolContext): McpServer {
         areas: live(doc.areas).map((g) => ({
           id: g.id,
           name: g.name,
-          open: open.filter((t) => t.areaId === g.id).length,
+          open: open.filter((t) => areaOf(doc, t) === g.id).length,
         })),
-        projects: live(doc.projects).map((g) =>
-          clean({
-            id: g.id,
-            name: g.name,
-            area: groupName(doc, 'areas', g.areaId),
-            one_after_another: !!g.sequential,
-            finished: !!g.done,
-            open: open.filter((t) => t.projectId === g.id).length,
-          }),
-        ),
       });
     }),
   );
@@ -512,7 +499,7 @@ export function createServer(c: ToolContext): McpServer {
     {
       title: 'Propose changes',
       description:
-        'Propose changes: add a task (add_task: the title as it should read, without quick words); for existing tasks edit fields, complete, reopen, snooze, plan / move a plan / unplan, add, check, edit, remove, promote or reorder steps, link to another task, set or stop a repeat, delete; and rename or order a project, or rename an area. Nothing changes until the owner approves all of them together at the review link this returns; show them the link. The whole list is checked first, so a wrong id is reported now. Use ids from list_tasks/get_task.',
+        'Propose changes: add a task (add_task: the title as it should read, without quick words); for existing tasks edit fields, complete, reopen, snooze, plan / move a plan / unplan, add, check, edit, remove, promote or reorder steps, put it under a parent task, set or stop a repeat, delete; and rename an area. Nothing changes until the owner approves all of them together at the review link this returns; show them the link. The whole list is checked first, so a wrong id is reported now. Use ids from list_tasks/get_task.',
       inputSchema: {
         summary: z.string().trim().min(1).max(300).describe('One line for the owner: what and why.'),
         changes: z.array(changeSchema).min(1).max(30),

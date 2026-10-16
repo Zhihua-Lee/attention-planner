@@ -6,7 +6,6 @@ import {
   type Day,
   type Doc,
   type PlanEntry,
-  type Project,
   type RepeatRule,
   type Round,
   type Settings,
@@ -626,16 +625,6 @@ export const addArea = (doc: Doc, ctx: Ctx, name: string): [Doc, string] => {
     id,
   ];
 };
-export const addProject = (doc: Doc, ctx: Ctx, name: string, areaId?: string): [Doc, string] => {
-  const id = newId();
-  return [
-    edit(doc, ctx, (e) => {
-      const order = Object.values(e.doc.projects).length;
-      e.doc.projects[id] = { id, name: name.trim(), areaId, order, s: e.s } satisfies Project;
-    }),
-    id,
-  ];
-};
 /** Put tasks in the order given (a drag in the list sorted by hand). */
 export const reorderTasks = (doc: Doc, ctx: Ctx, ids: string[]) =>
   edit(doc, ctx, (e) => {
@@ -644,28 +633,69 @@ export const reorderTasks = (doc: Doc, ctx: Ctx, ids: string[]) =>
     });
   });
 
-/** Change a project's settings (for now: whether its tasks go one after another). */
-export const updateProject = (doc: Doc, ctx: Ctx, id: string, patch: Partial<Pick<Project, 'sequential'>>) =>
+export const renameArea = (doc: Doc, ctx: Ctx, id: string, name: string) =>
   edit(doc, ctx, (e) => {
-    const p = e.doc.projects[id];
-    if (!p) return;
-    const next = { ...p, ...patch, s: e.s };
-    if (!next.sequential) delete next.sequential;
-    e.doc.projects[id] = next;
+    const g = e.doc.areas[id];
+    if (g) e.doc.areas[id] = { ...g, name: name.trim(), s: e.s };
+  });
+/** Delete an area; its tasks stay, with no area. */
+export const removeArea = (doc: Doc, ctx: Ctx, id: string) =>
+  edit(doc, ctx, (e) => {
+    const g = e.doc.areas[id];
+    if (g) e.doc.areas[id] = { ...g, deleted: true, s: e.s };
+    for (const t of liveTasks(e.doc)) if (t.areaId === id) e.set(t.id, 'areaId', undefined);
   });
 
-export const renameGroup = (doc: Doc, ctx: Ctx, kind: 'areas' | 'projects', id: string, name: string) =>
-  edit(doc, ctx, (e) => {
-    const g = e.doc[kind][id];
-    if (g) e.doc[kind][id] = { ...g, name: name.trim(), s: e.s } as never;
+/** The area a task is in: its own, or else the nearest parent task's. */
+export function areaOf(doc: Doc, t: Task): string | undefined {
+  const seen = new Set<string>();
+  for (let cur: Task | undefined = t; cur && !seen.has(cur.id); cur = cur.linkTo ? doc.tasks[cur.linkTo] : undefined) {
+    if (cur.areaId && doc.areas[cur.areaId] && !doc.areas[cur.areaId].deleted) return cur.areaId;
+    seen.add(cur.id);
+  }
+  return undefined;
+}
+
+/** Whether there are projects from before 0.2.39 left to turn into parent tasks. */
+export const hasProjects = (doc: Doc) =>
+  Object.values(doc.projects).some((p) => !p.deleted) || Object.values(doc.tasks).some((t) => t.projectId);
+
+/**
+ * Projects are gone since 0.2.39: a project with tasks becomes a parent task of the same name, in the project's area,
+ * and its tasks become its subtasks (a task that already had a parent keeps it). The new task takes the project's id,
+ * so two devices that convert the same project make the same task. It is done when all its tasks are.
+ */
+export function convertProjects(doc: Doc, ctx: Ctx): Doc {
+  if (!hasProjects(doc)) return doc;
+  return edit(doc, ctx, (e) => {
+    for (const p of Object.values(e.doc.projects)) {
+      const tasks = liveTasks(e.doc).filter((t) => t.projectId === p.id && t.id !== p.id);
+      if (!p.deleted && tasks.length && !e.doc.tasks[p.id]) {
+        const done = tasks.every((t) => t.done)
+          ? tasks
+              .map((t) => t.done!)
+              .sort()
+              .at(-1)
+          : undefined;
+        const created = tasks.map((t) => t.created).sort()[0];
+        const fs: Record<string, Stamp> = {};
+        const task: Task = { id: p.id, title: p.name, created, plan: [], steps: [], rounds: [], fs, s: e.s };
+        if (p.areaId) task.areaId = p.areaId;
+        if (done) task.done = done;
+        for (const f of TASK_FIELDS) fs[f] = e.s;
+        e.put(task);
+      }
+      const parent = e.doc.tasks[p.id];
+      for (const t of tasks) {
+        if (!t.linkTo && parent && !parent.deleted) e.set(t.id, 'linkTo', p.id);
+        e.set(t.id, 'projectId', undefined);
+      }
+      if (!p.deleted) e.doc.projects[p.id] = { ...p, deleted: true, s: e.s };
+    }
+    // A task in a project that no longer exists.
+    for (const t of liveTasks(e.doc)) if (t.projectId) e.set(t.id, 'projectId', undefined);
   });
-export const removeGroup = (doc: Doc, ctx: Ctx, kind: 'areas' | 'projects', id: string) =>
-  edit(doc, ctx, (e) => {
-    const g = e.doc[kind][id];
-    if (g) e.doc[kind][id] = { ...g, deleted: true, s: e.s } as never;
-    const field = kind === 'areas' ? 'areaId' : 'projectId';
-    for (const t of liveTasks(e.doc)) if (t[field] === id) e.set(t.id, field, undefined);
-  });
+}
 
 export const setSettings = (doc: Doc, ctx: Ctx, patch: Partial<Omit<Settings, 's'>>) =>
   edit(doc, ctx, (e) => {

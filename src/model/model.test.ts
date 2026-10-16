@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { addDays } from './dates';
 import {
+  addArea,
   addPlan,
   addStep,
   addTask,
   complete,
+  convertProjects,
   emptyDoc,
   isFinished,
   isUnder,
@@ -380,21 +382,67 @@ describe('steps with their own deadline, estimate and repeat', () => {
   });
 });
 
-describe('projects done in order', () => {
-  it('only the first unfinished task is suggested; the next one moves up when it is done', async () => {
-    const { addProject, updateProject } = await import('./doc');
-    const { queuePosition } = await import('./derive');
+describe('projects from before 0.2.39', () => {
+  const withProject = () => {
     let d = emptyDoc(ctx());
-    let p: string, a: string, b: string;
-    [d, p] = addProject(d, ctx(), 'Paper');
-    d = updateProject(d, ctx(), p, { sequential: true });
-    [d, a] = addTask(d, ctx(new Date(2026, 8, 29, 9)), { title: 'Collect data', projectId: p });
-    [d, b] = addTask(d, ctx(new Date(2026, 8, 29, 9, 30)), { title: 'Analyse', projectId: p, star: true });
-    expect(queuePosition(d, d.tasks[b], T0)).toBe(1);
-    expect(nowCandidates(d, T0).map((c) => c.task.title)).toEqual(['Collect data']);
-    d = complete(d, ctx(), a);
-    expect(queuePosition(d, d.tasks[b], T0)).toBe(0);
-    expect(nowCandidates(d, T0)[0].task.title).toBe('Analyse');
+    let area: string, a: string, b: string, c: string;
+    [d, area] = addArea(d, ctx(), 'Research');
+    d = {
+      ...d,
+      projects: { p1: { id: 'p1', name: 'Paper', areaId: area, order: 0, sequential: true, s: d.settings.s } },
+    };
+    [d, a] = addTask(d, ctx(), { title: 'Collect data', projectId: 'p1' });
+    [d, b] = addTask(d, ctx(), { title: 'Analyse', projectId: 'p1' });
+    [d, c] = addTask(d, ctx(), { title: 'Figure 3', projectId: 'p1', linkTo: b });
+    return { d, area, a, b, c };
+  };
+  it('a project becomes a parent task of the same name, in its area; its tasks become its subtasks', () => {
+    const { d, area, a, b, c } = withProject();
+    const next = convertProjects(d, ctx());
+    expect(next.tasks.p1).toMatchObject({ title: 'Paper', areaId: area });
+    expect(next.tasks.p1.done).toBeUndefined();
+    expect([a, b].map((id) => next.tasks[id].linkTo)).toEqual(['p1', 'p1']);
+    expect(next.tasks[c].linkTo).toBe(b); // it already had a parent
+    expect(liveTasks(next).every((t) => !t.projectId)).toBe(true);
+    expect(next.projects.p1.deleted).toBe(true);
+    expect(listTasks(next, T0, `a:${area}`).map((t) => t.title)).toEqual([
+      'Paper',
+      'Collect data',
+      'Analyse',
+      'Figure 3',
+    ]);
+    expect(convertProjects(next, ctx())).toBe(next);
+  });
+  it('two devices that convert the same project make the same task', () => {
+    const { d } = withProject();
+    const one = convertProjects(d, ctx(T0, 'a'));
+    const two = convertProjects(d, ctx(T0, 'b'));
+    expect(liveTasks(mergeDocs(one, two)).filter((t) => t.title === 'Paper')).toHaveLength(1);
+  });
+  it('a project whose tasks are all done becomes a done task; an empty one just goes', () => {
+    let { d, a, b, c } = withProject();
+    for (const id of [a, b, c]) d = complete(d, ctx(), id);
+    d = { ...d, projects: { ...d.projects, p2: { id: 'p2', name: 'Empty', order: 1, s: d.settings.s } } };
+    const next = convertProjects(d, ctx());
+    expect(next.tasks.p1.done).toBeTruthy();
+    expect(next.tasks.p2).toBeUndefined();
+    expect(next.projects.p2.deleted).toBe(true);
+  });
+});
+
+describe('only the next subtask', () => {
+  it('shows each parent with its next unfinished subtask and counts the rest', async () => {
+    const { nextOnly } = await import('./derive');
+    let d = emptyDoc(ctx());
+    let paper: string, figures: string;
+    [d, paper] = addTask(d, ctx(), { title: 'Paper' });
+    [d] = addTask(d, ctx(), { title: 'Abstract', linkTo: paper, due: '2026-10-01' });
+    [d, figures] = addTask(d, ctx(), { title: 'Figures', linkTo: paper, due: '2026-10-03' });
+    [d] = addTask(d, ctx(), { title: 'Figure 3', linkTo: figures });
+    [d] = addTask(d, ctx(), { title: 'Other' });
+    const { rows, hidden } = nextOnly(listTasks(d, T0, 'all'));
+    expect(rows.map((t) => t.title)).toEqual(['Paper', 'Abstract', 'Other']);
+    expect(hidden.get(paper)).toBe(1);
   });
 });
 
@@ -507,23 +555,6 @@ describe('how the parts of a task work together', () => {
     let [d] = make('Snoozed, due today', { due: '2026-09-29', snooze: { until: '2026-10-10' } });
     [d] = addTask(d, ctx(), { title: 'Snoozed, due later', due: '2026-10-08', snooze: { until: '2026-10-10' } });
     expect(nowCandidates(d, T0).map((p) => p.task.title)).toEqual(['Snoozed, due today']);
-  });
-
-  it('in a project done in order, repeating tasks neither wait nor hold the queue', async () => {
-    const { addProject, updateProject } = await import('./doc');
-    let d = emptyDoc(ctx());
-    let p: string;
-    [d, p] = addProject(d, ctx(), 'Course');
-    d = updateProject(d, ctx(), p, { sequential: true });
-    const add = (title: string, extra = {}, now = T0) =>
-      ([d] = addTask(d, ctx(now), { title, projectId: p, ...extra }));
-    add('Weekly notes', { repeat: { mode: 'reopen', rule: weeklyTue } }, at('2026-09-28'));
-    add('Experiment', {}, at('2026-09-28', '11:00'));
-    add('Report', {}, at('2026-09-28', '12:00'));
-    const titles = nowCandidates(d, T0).map((x) => x.task.title);
-    expect(titles).toContain('Weekly notes');
-    expect(titles).toContain('Experiment');
-    expect(titles).not.toContain('Report');
   });
 });
 

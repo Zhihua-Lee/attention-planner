@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.39 — 2026-10-16
+
+- **No more projects: a piece of work with an end is a task with subtasks.** Each project becomes a parent task of
+  the same name (in the project's area, done if all its tasks were), and its tasks become its subtasks; a task that
+  already had a parent keeps it. Two devices converting the same project make the same task. The previous app's
+  projects import the same way. 按顺序 is gone with them.
+- **Areas stay, for what is never finished** (Research, Home): Settings → 区域. A subtask without an area of its own
+  is in its parent's — under that area's filter, and shown as “随上级任务” in its details.
+- **只看下一个**: after the filters (when the list has subtasks), it shows each parent task with only its next unfinished
+  subtask — the first in the list's order — and “还有 N 个子任务” on the parent. It changes only how the list shows.
+- The AI tools follow: `list_areas` replaces `list_areas_and_projects`, `list_tasks` takes `under` (everything under a
+  task) instead of `project`, and `project` and `update_project` are gone from the changes.
+
 ## 0.2.38 — 2026-10-16
 
 - **Fix: a calendar subscription removed on one device stays gone on the others**: calendar events are kept per

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { emptyDoc, inRounds, restore, type Ctx } from '../model/doc';
+import { convertProjects, emptyDoc, hasProjects, inRounds, restore, type Ctx } from '../model/doc';
 import { importLegacy, type ImportReport } from '../model/legacyImport';
 import { mergeDocs } from '../model/merge';
 import type { CalendarEvent, Doc } from '../model/types';
@@ -102,6 +102,7 @@ export class Store {
     const doc = stored?.v === 1 ? stored : this.state.doc;
     this.set({ ready: true, doc });
     this.importPreviousApp();
+    this.convertProjects();
     this.schedulePush(1500);
     const broker = local.get('ap:broker');
     if (broker) this.connectBroker(broker);
@@ -142,6 +143,11 @@ export class Store {
   }
   clearImported() {
     this.set({ imported: undefined });
+  }
+
+  /** Projects are gone since 0.2.39: turn any left here (or arriving from a device not yet updated) into parent tasks. */
+  private convertProjects() {
+    if (hasProjects(this.state.doc)) this.commit(convertProjects, { undoable: false });
   }
 
   /** Apply a change. `undoable: false` is for changes that should not appear as an undo step. */
@@ -217,6 +223,7 @@ export class Store {
       const doc = this.state.doc === sent ? merged : mergeDocs(this.state.doc, merged);
       this.set({ doc, sync: { status: 'idle', lastAt: new Date().toISOString() } });
       this.scheduleSave();
+      this.convertProjects();
       void this.refreshCalendar();
       this.schedulePush();
     } catch (e) {

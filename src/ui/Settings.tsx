@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, dayOf } from '../model/dates';
-import { addArea, addProject, removeGroup, renameGroup, setSettings, updateProject } from '../model/doc';
+import { addArea, removeArea, renameArea, setSettings } from '../model/doc';
 import { parseIcs } from '../model/ics';
 import { importLegacy } from '../model/legacyImport';
 import { FILTER_CHIPS, type ChipKey } from '../model/types';
@@ -146,10 +146,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
       if (g.offsetTop - el.scrollTop <= 48) id = g.dataset.group!;
     setCurrent(atEnd ? SETTINGS_GROUPS[SETTINGS_GROUPS.length - 1][0] : id);
   };
-  const groups = [
-    ...Object.values(doc.areas).map((g) => ({ kind: 'areas' as const, g })),
-    ...Object.values(doc.projects).map((g) => ({ kind: 'projects' as const, g })),
-  ].filter((x) => !x.g.deleted);
+  const areas = Object.values(doc.areas)
+    .filter((g) => !g.deleted)
+    .sort((a, b) => a.order - b.order);
 
   return createPortal(
     <div className="scrim" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -536,7 +535,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       ['unplanned', t('未安排', 'Unplanned')],
                       ['snoozed', t('暂缓', 'Snoozed')],
                       ['areas', t('各区域', 'Each area')],
-                      ['projects', t('各项目', 'Each project')],
                     ] as const
                   ).map(([k, n]) => {
                     const on = s.filters ?? FILTER_CHIPS;
@@ -561,59 +559,38 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </section>
               <section>
                 <div className="sec-title">
-                  <h3>{t('区域与项目', 'Areas and projects')}</h3>
-                  <Info label={t('区域和项目有什么不同', 'Areas and projects')}>
-                    <ul>
-                      <li>
-                        {t(
-                          '区域：生活或工作里长期存在的一块，没有终点，比如“科研”“教学”“家务”。',
-                          'An area is a lasting part of life or work with no end, such as Research, Teaching or Home.',
-                        )}
-                      </li>
-                      <li>
-                        {t(
-                          '项目：有终点的一件大事，做完就结束，比如“投一篇论文”。',
-                          'A project is a larger piece of work that ends when it is done, such as submitting a paper.',
-                        )}
-                      </li>
-                    </ul>
+                  <h3>{t('区域', 'Areas')}</h3>
+                  <Info label={t('区域是什么', 'What areas are')}>
                     <p>
                       {t(
-                        '勾上“按顺序”，这个项目一次只推荐最前面那件没做完的任务，后面的先排队（重复的任务不排队）。删除区域或项目不会删掉里面的任务。',
-                        'With “In order”, a project offers only its earliest unfinished task and the rest wait their turn (repeating tasks never wait). Deleting an area or a project keeps its tasks.',
+                        '区域：生活或工作里长期存在、永远做不完的一块，比如“科研”“教学”“家务”。清单上方每个区域有一个筛选；子任务没设区域时，算在上级任务的区域里。',
+                        'An area is a lasting part of life or work that is never finished, such as Research, Teaching or Home. Each has a filter above the list; a subtask without one of its own is in its parent task’s area.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '有终点的一件大事（比如“投一篇论文”）就是一个任务：把各部分放到它下面当子任务。删除区域不会删掉里面的任务。',
+                        'A larger piece of work that ends (say, submitting a paper) is a task: put its parts under it as subtasks. Deleting an area keeps its tasks.',
                       )}
                     </p>
                   </Info>
                 </div>
                 <ul className="groups">
-                  {groups.map(({ kind, g }) => (
+                  {areas.map((g) => (
                     <li key={g.id}>
-                      <span className="muted">{kind === 'areas' ? t('区域', 'Area') : t('项目', 'Project')}</span>
                       <input
                         defaultValue={g.name}
                         aria-label={t('名称', 'Name')}
                         onBlur={(e) =>
                           e.target.value.trim() &&
                           e.target.value !== g.name &&
-                          store.commit((d, c) => renameGroup(d, c, kind, g.id, e.target.value))
+                          store.commit((d, c) => renameArea(d, c, g.id, e.target.value))
                         }
                       />
-                      {kind === 'projects' && (
-                        <label className="check-row small">
-                          <input
-                            type="checkbox"
-                            checked={!!(g as { sequential?: boolean }).sequential}
-                            onChange={(e) =>
-                              store.commit((d, c) => updateProject(d, c, g.id, { sequential: e.target.checked }))
-                            }
-                          />
-                          {t('按顺序', 'In order')}
-                        </label>
-                      )}
                       <button
                         className="mini"
                         aria-label={`${t('删除', 'Delete')}: ${g.name}`}
-                        onClick={() => store.commit((d, c) => removeGroup(d, c, kind, g.id))}
+                        onClick={() => store.commit((d, c) => removeArea(d, c, g.id))}
                       >
                         ×
                       </button>
@@ -624,8 +601,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   <input
                     value={newGroup}
                     onChange={(e) => setNewGroup(e.target.value)}
-                    placeholder={t('新的区域或项目', 'New area or project')}
-                    aria-label={t('新的区域或项目', 'New area or project')}
+                    placeholder={t('新的区域', 'New area')}
+                    aria-label={t('新的区域', 'New area')}
                   />
                   <button
                     className="btn"
@@ -633,13 +610,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     onClick={() => (store.commit((d, c) => addArea(d, c, newGroup)[0]), setNewGroup(''))}
                   >
                     {t('加区域', 'Add area')}
-                  </button>
-                  <button
-                    className="btn"
-                    disabled={!newGroup.trim()}
-                    onClick={() => (store.commit((d, c) => addProject(d, c, newGroup)[0]), setNewGroup(''))}
-                  >
-                    {t('加项目', 'Add project')}
                   </button>
                 </div>
               </section>
@@ -1125,8 +1095,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     <ul>
                       <li>
                         {t(
-                          '导出备份：把全部任务、区域、项目和设置存成一个文件（.json），自己留着以防万一。',
-                          'Export a backup: saves all tasks, areas, projects and settings in one file (.json) for you to keep.',
+                          '导出备份：把全部任务、区域和设置存成一个文件（.json），自己留着以防万一。',
+                          'Export a backup: saves all tasks, areas and settings in one file (.json) for you to keep.',
                         )}
                       </li>
                       <li>
@@ -1153,8 +1123,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
                           const r = report!;
                           toast(
                             t(
-                              `导入了 ${r.tasks} 个任务（已完成 ${r.done}，暂缓 ${r.snoozed}），${r.areas} 个区域，${r.projects} 个项目`,
-                              `Imported ${r.tasks} tasks (${r.done} done, ${r.snoozed} snoozed), ${r.areas} areas, ${r.projects} projects`,
+                              `导入了 ${r.tasks} 个任务（已完成 ${r.done}，暂缓 ${r.snoozed}），${r.areas} 个区域，${r.projects} 个项目（成了带子任务的任务）`,
+                              `Imported ${r.tasks} tasks (${r.done} done, ${r.snoozed} snoozed), ${r.areas} areas, ${r.projects} projects (now tasks with subtasks)`,
                             ),
                             () => store.undo(),
                           );

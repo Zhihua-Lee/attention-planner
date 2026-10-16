@@ -78,7 +78,7 @@ describe('MCP tools', () => {
       'find_time',
       'get_proposal',
       'get_task',
-      'list_areas_and_projects',
+      'list_areas',
       'list_proposals',
       'list_tasks',
       'propose_changes',
@@ -346,8 +346,8 @@ describe('the full set of operations', () => {
     expect((await call('add_task', { text: 'x', link_to: 'nope' })).error).toBe(true);
   });
 
-  it('proposes and applies step, plan, link, repeat and project changes, with words for each', async () => {
-    const { addStep, addPlan, addProject } = await import('../src/model/doc');
+  it('proposes and applies step, plan, link, repeat and area changes, with words for each', async () => {
+    const { addStep, addPlan, addArea } = await import('../src/model/doc');
     const remote = new MemoryRemote();
     let d = seed();
     const paper = liveTasks(d).find((x) => x.title === '交论文')!;
@@ -355,7 +355,7 @@ describe('the full set of operations', () => {
     d = addStep(d, wallCtx(), paper.id, '写摘要');
     d = addStep(d, wallCtx(), paper.id, '画图');
     d = addPlan(d, wallCtx(), paper.id, { day: '2026-09-30', part: 'am' });
-    [d] = addProject(d, wallCtx(), '论文');
+    [d] = addArea(d, wallCtx(), '论文');
     remote.doc = d;
     const [abstract, figure] = liveTasks(d).find((x) => x.id === paper.id)!.steps;
     const plan = d.tasks[paper.id].plan[0];
@@ -366,7 +366,7 @@ describe('the full set of operations', () => {
       { type: 'move_plan', task_id: paper.id, plan_id: plan.id, start: '14:00', minutes: 60 },
       { type: 'link', task_id: mail.id, to: paper.id },
       { type: 'set_repeat', task_id: mail.id, repeat: { mode: 'reopen', rule: { freq: 'daily' } } },
-      { type: 'update_project', project: '论文', name: '毕业论文', one_after_another: true },
+      { type: 'rename_area', area: '论文', name: '毕业论文' },
     ];
     const zh = (a: string) => a;
     expect(changes.map((c) => describeChange(d, c, zh))).toEqual([
@@ -376,7 +376,7 @@ describe('the full set of operations', () => {
       '把 「交论文」 的安排从 9/30（周三） 上午 改到 9/30（周三） 14:00，1 小时',
       '把 「回邮件」 放到「交论文」下面',
       '「回邮件」 改为重复：每天，原地重开',
-      '项目 「论文」：改名为「毕业论文」；按顺序做',
+      '区域「论文」改名为「毕业论文」',
     ]);
     const after = applyChanges(d, wallCtx(), changes);
     const p = after.tasks[paper.id];
@@ -389,7 +389,7 @@ describe('the full set of operations', () => {
       linkTo: paper.id,
       repeat: { mode: 'reopen', rule: { freq: 'daily' } },
     });
-    expect(Object.values(after.projects)[0]).toMatchObject({ name: '毕业论文', sequential: true });
+    expect(Object.values(after.areas)[0]).toMatchObject({ name: '毕业论文' });
     // A wrong id is reported when proposing, not on approval.
     const { call } = await connect(remote);
     const bad = await call('propose_changes', {

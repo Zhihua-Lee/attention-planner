@@ -8,11 +8,11 @@ export {
   changeTask,
   dayWords,
   describeChange,
-  findGroup,
+  findArea,
   fromRule,
   minutesWords,
   reservedMinutes,
-  resolveGroup,
+  resolveArea,
   ruleWords,
   toRepeat,
   toRule,
@@ -66,7 +66,6 @@ export const newTaskFields = {
   due_time: timeSchema.optional(),
   effort_minutes: z.number().int().min(1).max(10000).optional(),
   area: z.string().max(100).optional().describe('Name or id; a new name creates the area.'),
-  project: z.string().max(100).optional().describe('Name or id; a new name creates the project.'),
   steps: z.array(z.string().trim().min(1).max(2000)).max(50).optional(),
   plan: z
     .object({
@@ -89,8 +88,8 @@ export const newTaskFields = {
 };
 
 /**
- * One change, as the AI proposes it. The owner approves a list of them together. The first adds a task, the last two
- * change a project or an area, and the rest change one task.
+ * One change, as the AI proposes it. The owner approves a list of them together. The first adds a task, the last
+ * renames an area, and the rest change one task.
  */
 export const changeSchema = z.discriminatedUnion('type', [
   z
@@ -111,12 +110,6 @@ export const changeSchema = z.discriminatedUnion('type', [
     effort_minutes: z.number().int().min(1).max(10000).nullable().optional(),
     star: z.boolean().optional().describe('Important.'),
     area: z.string().max(100).nullable().optional().describe('Area name or id; a new name creates it; null clears.'),
-    project: z
-      .string()
-      .max(100)
-      .nullable()
-      .optional()
-      .describe('Project name or id; a new name creates it; null clears.'),
   }),
   z.object({ type: z.literal('complete'), task_id: taskId }),
   z.object({ type: z.literal('reopen'), task_id: taskId }),
@@ -208,12 +201,6 @@ export const changeSchema = z.discriminatedUnion('type', [
     repeat: repeatSchema.nullable().describe('null stops repeating.'),
   }),
   z.object({ type: z.literal('delete'), task_id: taskId }),
-  z.object({
-    type: z.literal('update_project'),
-    project: groupRef.describe('Project name or id.'),
-    name: z.string().trim().min(1).max(100).optional(),
-    one_after_another: z.boolean().optional().describe('Only the earliest unfinished one-off task is suggested.'),
-  }),
   z.object({
     type: z.literal('rename_area'),
     area: groupRef.describe('Area name or id.'),

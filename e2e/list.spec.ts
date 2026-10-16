@@ -74,8 +74,8 @@ test('filters follow the tasks: today includes repeating work; empty ones hide; 
   await page.getByRole('button', { name: /^全部/ }).click();
   const d2 = await openRow(page, '交表格');
   await d2.getByRole('button', { name: '未分类' }).click();
-  await page.getByRole('textbox', { name: '新的区域或项目' }).fill('研究');
-  await page.getByRole('dialog').getByRole('button', { name: '区域' }).click();
+  await page.getByRole('textbox', { name: '新的区域' }).fill('研究');
+  await page.getByRole('dialog').getByRole('button', { name: '添加' }).click();
   await expect(d2.getByRole('button', { name: '研究' })).toBeVisible();
   await page.getByRole('button', { name: '收起' }).click();
   await page.locator('.filters').getByRole('button', { name: /^研究/ }).click();
@@ -176,24 +176,36 @@ test('a subtask is listed under its parent task, at any depth, and cannot take i
   await expect(page.getByRole('dialog').getByRole('button', { name: '画坐标轴' })).toHaveCount(0);
 });
 
-test('a project done in order queues its later tasks', async ({ page }) => {
+test('“only the next one” shows each parent task with its next subtask; a subtask is in its parent’s area', async ({
+  page,
+}) => {
   await start(page);
-  await add(page, '收数据', '分析 !');
-  for (const title of ['收数据', '分析']) {
-    const detail = await openRow(page, title);
-    await detail.getByRole('button', { name: '未分类' }).click();
-    if (title === '收数据') {
-      await page.getByRole('textbox', { name: '新的区域或项目' }).fill('论文');
-      await page.getByRole('dialog').getByRole('button', { name: '项目' }).click();
-    } else await page.getByRole('dialog').getByRole('button', { name: '论文' }).click();
+  await add(page, '别的事', '论文', '写摘要', '画图');
+  for (const child of ['写摘要', '画图']) {
+    const detail = await openRow(page, child);
+    await detail.getByRole('button', { name: '无' }).click();
+    await page.getByRole('textbox', { name: '搜索任务' }).fill('论文');
+    await page.getByRole('dialog').getByRole('button', { name: '论文' }).click();
     await page.getByRole('button', { name: '收起' }).click();
+    await expect(page.getByTestId('task-detail')).toHaveCount(0);
   }
-  await page.getByRole('button', { name: '设置' }).click();
-  await page.getByRole('dialog', { name: '设置' }).getByRole('checkbox', { name: '按顺序' }).check();
-  await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
-  await expect(row(page, '分析')).toContainText('排队中 · 前面还有 1 个');
-  await page.getByRole('tab', { name: 'NOW' }).click();
-  await expect(page.getByTestId('now-card').getByRole('heading')).toHaveText('收数据');
+  await page.getByRole('button', { name: '只看下一个' }).click();
+  // Newest first: 画图 is the next one under 论文.
+  await expect(page.locator('.list > .row .tt')).toHaveText(['论文', '画图', '别的事']);
+  await expect(row(page, '论文')).toContainText('还有 1 个子任务');
+  await page.getByRole('button', { name: '只看下一个' }).click();
+  await expect(page.locator('.list > .row .tt')).toHaveText(['论文', '画图', '写摘要', '别的事']);
+  // An area on the parent: the subtasks show under its filter too.
+  const detail = await openRow(page, '论文');
+  await detail.getByRole('button', { name: '未分类' }).click();
+  await page.getByRole('textbox', { name: '新的区域' }).fill('研究');
+  await page.getByRole('dialog').getByRole('button', { name: '添加' }).click();
+  await page.getByRole('button', { name: '收起' }).click();
+  await expect(page.getByTestId('task-detail')).toHaveCount(0);
+  await page.locator('.filters').getByRole('button', { name: /^研究/ }).click();
+  await expect(page.locator('.list > .row .tt')).toHaveText(['论文', '画图', '写摘要']);
+  const sub = await openRow(page, '画图');
+  await expect(sub.getByRole('button', { name: '研究（随上级任务）' })).toBeVisible();
 });
 
 test('the note keeps its place and height when it switches to editing', async ({ page }) => {
