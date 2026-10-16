@@ -447,8 +447,20 @@ describe('calendar events by source', () => {
       'TA Meeting:outlook',
     ]);
     // The same meeting from the Outlook export and a subscription to that calendar is listed once.
-    const doc = { ...emptyDoc(ctx()), events: [...next, ev('dup', 'TA Meeting', '09:30', 'sub:y')] };
+    const base = emptyDoc(ctx());
+    const subs = [
+      { id: 'x', name: 'Seminars', url: 'https://x.test/a.ics' },
+      { id: 'y', name: 'Dept', url: 'https://x.test/b.ics' },
+    ];
+    const doc = {
+      ...base,
+      settings: { ...base.settings, calendars: subs },
+      events: [...next, ev('dup', 'TA Meeting', '09:30', 'sub:y')],
+    };
     expect(eventsOn(doc, '2026-09-28').map((e) => e.title)).toEqual(['Imported', 'Research', 'Seminar', 'TA Meeting']);
+    // A subscription removed on another device: its events stay in this device's copy but are no longer shown.
+    const gone = { ...doc, settings: { ...doc.settings, calendars: subs.slice(1) } };
+    expect(eventsOn(gone, '2026-09-28').map((e) => e.title)).toEqual(['Imported', 'Research', 'TA Meeting']);
   });
 });
 

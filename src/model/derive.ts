@@ -99,12 +99,15 @@ export function replaceEvents(
 
 /**
  * Timed events on a day (all-day ones are left out unless asked for: they are not busy time). The same event from two
- * sources (say the Outlook export and a subscription to that calendar) is shown once.
+ * sources (say the Outlook export and a subscription to that calendar) is shown once. Events are kept per device, so
+ * a subscription removed on another device leaves its events here: they are left out once it is gone from Settings.
  */
 export const eventsOn = (doc: Doc, day: Day, withAllDay = false): CalendarEvent[] => {
   const seen = new Set<string>();
+  const subs = new Set((doc.settings.calendars ?? []).map((c) => `sub:${c.id}`));
   return (doc.events ?? [])
     .filter((e) => e.day === day && (withAllDay || !e.allDay))
+    .filter((e) => !e.source?.startsWith('sub:') || subs.has(e.source))
     .filter((e) => {
       const key = `${e.title.trim()}|${e.allDay ? 'all' : `${e.start}-${e.end}`}`;
       return !seen.has(key) && !!seen.add(key);

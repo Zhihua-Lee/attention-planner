@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.38 — 2026-10-16
+
+- **Fix: a calendar subscription removed on one device stays gone on the others**: calendar events are kept per
+  device, and removing a subscription only cleared its events on the device where it was removed; another device kept
+  showing them. Events from a subscription no longer in Settings are now left out everywhere.
+
 ## 0.2.37 — 2026-10-14
 
 - **关联 is now 上级任务, and subtasks nest**: a task can sit under a task that sits under another, at any depth; the
