@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.41 — 2026-10-16
+
+- **Areas stand out when grouped**: each section's header is a tinted band with a bar on its left and the area's name
+  in the heading type, and a strip of the page's colour separates one section from the next.
+
 ## 0.2.40 — 2026-10-16
 
 - **按区域分组**: in 全部, after the filters, it shows the list in sections by area (in the areas' order, no area

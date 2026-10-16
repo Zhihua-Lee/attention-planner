@@ -2384,20 +2384,31 @@ mark {
   margin-left: 8px;
 }
 
-/* "By area": a header per area that folds its section */
+/* "By area": a header per area that folds its section; a band of the page's colour sets sections apart */
 .area-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   width: 100%;
   text-align: left;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--bg);
-  border-top: 1px solid var(--line);
-}
-.area-sec:first-child .area-head {
-  border-top: 0;
+  padding: 10px 14px 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
 }
 .area-head .count {
+  font-family: var(--font-body);
+  font-size: 12px;
   font-weight: 400;
+  color: var(--muted);
+}
+.area-sec + .area-sec {
+  border-top: 8px solid var(--bg);
+}
+.area-sec > .row:first-of-type,
+.area-sec > div > .row:first-child {
+  border-top: 0;
 }
