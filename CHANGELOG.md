@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.40 — 2026-10-16
+
+- **按区域分组**: in 全部, after the filters, it shows the list in sections by area (in the areas' order, no area
+  last), each keeping the list's order; a subtask goes with its parent's area. Tap an area's header to fold it; a
+  folded one stays folded on that device. Sorted by hand, a task drags within its section. It changes only how the
+  list shows: in one list the most urgent comes first, across areas.
+
 ## 0.2.39 — 2026-10-16
 
 - **No more projects: a piece of work with an end is a task with subtasks.** Each project becomes a parent task of

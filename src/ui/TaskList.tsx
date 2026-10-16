@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, type PanInfo } from 'motion/react';
 import { forwardRef, useRef, useState, type CSSProperties } from 'react';
 import { addDays, dayOf } from '../model/dates';
-import { finishedTasks, listTasks, matches, nextOnly, openTasks, type Filter } from '../model/derive';
+import { byArea, finishedTasks, listTasks, matches, nextOnly, openTasks, type Filter } from '../model/derive';
 import { inRound, plannedOn, reorderTasks, setSettings, toggleDay } from '../model/doc';
 import {
   complete,
@@ -16,7 +16,7 @@ import {
   openConflict,
 } from '../model/doc';
 import { FILTER_CHIPS, type Task } from '../model/types';
-import { store, useStore } from '../store/store';
+import { local, store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
 import { Capture } from './Capture';
 import { proposalsFor } from '../model/proposals';
@@ -54,6 +54,21 @@ export const TaskList = forwardRef<
   const hasSubtasks = listedAll.some((x) => x.linkTo && listedAll.some((y) => y.id === x.linkTo));
   const next = doc.settings.nextOnly ? nextOnly(listedAll) : null;
   const rows = next ? next.rows : listedAll;
+  // "By area": "All" in sections, one per area; a section folded on this device stays folded.
+  const grouped = !!doc.settings.groupByArea && filter === 'all';
+  const hasAreas = Object.values(doc.areas).some((a) => !a.deleted);
+  const [folded, setFolded] = useState<string[]>(() => {
+    try {
+      return JSON.parse(local.get('ap:folded-areas') ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  });
+  const fold = (key: string) => {
+    const next = folded.includes(key) ? folded.filter((k) => k !== key) : [...folded, key];
+    setFolded(next);
+    local.set('ap:folded-areas', JSON.stringify(next));
+  };
   const done = finishedTasks(doc, now).slice(0, 50);
   const open = openTasks(doc, now);
   const count = (f: Filter) => open.filter((x) => matches(doc, x, f, now)).length;
@@ -109,21 +124,21 @@ export const TaskList = forwardRef<
     setDragging(null);
     store.commit((d, c) => reorderTasks(d, c, list));
   };
-  // How deep a subtask sits under listed parents; the indent stops growing after three levels.
+  // How deep a subtask sits under listed parents (in its section, when grouped); the indent stops after three levels.
   const listed = new Map(rows.map((r) => [r.id, r]));
-  const depth = (task: Task) => {
+  const depth = (task: Task, within = listed) => {
     let n = 0;
     const seen = new Set([task.id]);
-    for (let p = task.linkTo; p && listed.has(p) && !seen.has(p) && n < 3; p = listed.get(p)!.linkTo)
+    for (let p = task.linkTo; p && within.has(p) && !seen.has(p) && n < 3; p = within.get(p)!.linkTo)
       (seen.add(p), n++);
     return n;
   };
-  const rowProps = (task: Task) => ({
+  const rowProps = (task: Task, within?: Map<string, Task>) => ({
     task,
     now,
     expanded: expanded === task.id,
     toggle: () => setExpanded(expanded === task.id ? null : task.id),
-    indent: depth(task),
+    indent: depth(task, within),
     more: next?.hidden.get(task.id) ?? 0,
   });
 
@@ -190,14 +205,23 @@ export const TaskList = forwardRef<
               )}
             </span>
           ))}
-          {/* Not a filter but a way of showing: it goes with any of them. */}
+          {/* Not filters but ways of showing, set apart: they go with any filter. */}
           {(hasSubtasks || doc.settings.nextOnly) && (
             <button
-              className="filter next-only"
+              className="filter view"
               aria-pressed={!!doc.settings.nextOnly}
               onClick={() => store.commit((d, c2) => setSettings(d, c2, { nextOnly: !doc.settings.nextOnly }))}
             >
               {t('只看下一个', 'Next only')}
+            </button>
+          )}
+          {filter === 'all' && (hasAreas || doc.settings.groupByArea) && (
+            <button
+              className="filter view"
+              aria-pressed={!!doc.settings.groupByArea}
+              onClick={() => store.commit((d, c2) => setSettings(d, c2, { groupByArea: !doc.settings.groupByArea }))}
+            >
+              {t('按区域分组', 'By area')}
             </button>
           )}
         </div>
@@ -229,7 +253,50 @@ export const TaskList = forwardRef<
               : t('这里没有任务。', 'Nothing here.')}
           </div>
         )}
-        {manual ? (
+        {grouped ? (
+          byArea(doc, manual ? ids.map((id) => byId.get(id)!).filter(Boolean) : [...rows, ...resting]).map((sec) => {
+            const key = sec.areaId ?? 'none';
+            const unfolded = !folded.includes(key);
+            const within = new Map(sec.rows.map((r) => [r.id, r]));
+            const secIds = sec.rows.map((r) => r.id);
+            return (
+              <div key={key} className="area-sec">
+                <button className="area-head" aria-expanded={unfolded} onClick={() => fold(key)}>
+                  {unfolded ? '▾' : '▸'} {sec.areaId ? doc.areas[sec.areaId].name : t('没有区域', 'No area')}{' '}
+                  <span className="count">{sec.rows.length}</span>
+                </button>
+                {unfolded &&
+                  (manual ? (
+                    // Dragging stays within a section; the whole list keeps one order.
+                    <Reorder.Group
+                      as="div"
+                      axis="y"
+                      values={secIds}
+                      onReorder={(order) => {
+                        let i = 0;
+                        drag(ids.map((id) => (within.has(id) ? order[i++] : id)));
+                      }}
+                    >
+                      {sec.rows.map((task) => (
+                        <DraggableRow
+                          key={task.id}
+                          {...rowProps(task, within)}
+                          onMove={(dir) => move(task.id, dir)}
+                          onDrop={drop}
+                        />
+                      ))}
+                    </Reorder.Group>
+                  ) : (
+                    <AnimatePresence initial={false}>
+                      {sec.rows.map((task) => (
+                        <Row key={task.id} {...rowProps(task, within)} />
+                      ))}
+                    </AnimatePresence>
+                  ))}
+              </div>
+            );
+          })
+        ) : manual ? (
           <Reorder.Group as="div" axis="y" values={ids} onReorder={drag}>
             {ids.map((id) => {
               const task = byId.get(id);

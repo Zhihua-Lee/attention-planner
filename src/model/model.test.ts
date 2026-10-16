@@ -430,6 +430,26 @@ describe('projects from before 0.2.39', () => {
   });
 });
 
+describe('by area', () => {
+  it('splits the list into sections in the areas’ order, no area last; a subtask goes by its parent’s area', async () => {
+    const { byArea } = await import('./derive');
+    let d = emptyDoc(ctx());
+    let research: string, home: string, paper: string;
+    [d, research] = addArea(d, ctx(), 'Research');
+    [d, home] = addArea(d, ctx(), 'Home');
+    [d, paper] = addTask(d, ctx(), { title: 'Paper', areaId: research, due: '2026-10-05' });
+    [d] = addTask(d, ctx(), { title: 'Figures', linkTo: paper });
+    [d] = addTask(d, ctx(), { title: 'Laundry', areaId: home });
+    [d] = addTask(d, ctx(), { title: 'Mail', due: '2026-09-29' });
+    const secs = byArea(d, listTasks(d, T0, 'all'));
+    expect(secs.map((x) => [x.areaId, x.rows.map((t) => t.title)])).toEqual([
+      [research, ['Paper', 'Figures']],
+      [home, ['Laundry']],
+      [undefined, ['Mail']],
+    ]);
+  });
+});
+
 describe('only the next subtask', () => {
   it('shows each parent with its next unfinished subtask and counts the rest', async () => {
     const { nextOnly } = await import('./derive');

@@ -39,7 +39,8 @@ export type State = {
 
 /** Where the previous app kept its data in this browser (same origin once the domain moves here). */
 export const LEGACY_KEY = 'attention-planner-data-v2';
-const local = {
+/** localStorage, for per-device conveniences; it may refuse. */
+export const local = {
   get: (k: string) => {
     try {
       return localStorage.getItem(k);

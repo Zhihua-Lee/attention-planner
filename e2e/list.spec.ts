@@ -208,6 +208,28 @@ test('“only the next one” shows each parent task with its next subtask; a su
   await expect(sub.getByRole('button', { name: '研究（随上级任务）' })).toBeVisible();
 });
 
+test('“by area” shows “All” in sections that fold, and a folded one stays folded', async ({ page }) => {
+  await start(page);
+  await add(page, '回邮件 !', '投稿');
+  const detail = await openRow(page, '投稿');
+  await detail.getByRole('button', { name: '未分类' }).click();
+  await page.getByRole('textbox', { name: '新的区域' }).fill('科研');
+  await page.getByRole('dialog').getByRole('button', { name: '添加' }).click();
+  await page.getByRole('button', { name: '收起' }).click();
+  await expect(page.getByTestId('task-detail')).toHaveCount(0);
+  await page.getByRole('button', { name: '按区域分组' }).click();
+  await expect(page.locator('.area-head')).toHaveText(['▾ 科研 1', '▾ 没有区域 1']);
+  await expect(page.locator('.list .row .tt')).toHaveText(['投稿', '回邮件']);
+  await page.locator('.area-head', { hasText: '科研' }).click();
+  await expect(page.locator('.list .row .tt')).toHaveText(['回邮件']);
+  await reloadSaved(page);
+  await page.getByRole('tab', { name: '清单' }).click();
+  await expect(page.locator('.area-head').first()).toHaveText('▸ 科研 1');
+  await expect(page.locator('.list .row .tt')).toHaveText(['回邮件']);
+  await page.getByRole('button', { name: '按区域分组' }).click();
+  await expect(page.locator('.list .row .tt')).toHaveText(['回邮件', '投稿']);
+});
+
 test('the note keeps its place and height when it switches to editing', async ({ page }) => {
   await start(page);
   await add(page, '写引言');

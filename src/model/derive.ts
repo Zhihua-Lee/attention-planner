@@ -338,6 +338,20 @@ export function listTasks(doc: Doc, now: Date, f: Filter): Task[] {
 }
 
 /**
+ * The list in sections by area, in the areas' order, with the tasks in no area last; each keeps the list's order. A
+ * subtask goes by its area: its own, or else its parent's.
+ */
+export function byArea(doc: Doc, rows: Task[]): { areaId?: string; rows: Task[] }[] {
+  const areas = Object.values(doc.areas)
+    .filter((a) => !a.deleted)
+    .sort((a, b) => a.order - b.order);
+  const of = new Map(rows.map((t) => [t.id, areaOf(doc, t)]));
+  return [...areas.map((a) => a.id), undefined]
+    .map((areaId) => ({ areaId, rows: rows.filter((t) => of.get(t.id) === areaId) }))
+    .filter((s) => s.rows.length > 0);
+}
+
+/**
  * "Only the next one": under each listed parent task, only its first listed subtask (the next one, in the list's
  * order); the others, and what is under them, stay out of sight. Also says how many were left out under each parent.
  */

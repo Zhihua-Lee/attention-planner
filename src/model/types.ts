@@ -168,6 +168,8 @@ export type Settings = {
   listSort?: 'smart' | 'manual';
   /** The list shows, under each parent task, only its next unfinished subtask. */
   nextOnly?: boolean;
+  /** "All" is shown in sections by area, each in the list's own order (folding one is kept per device). */
+  groupByArea?: boolean;
   /** Reminder times: on a deadline's day, and minutes before a reserved time. */
   remind?: { dueAt?: Time; slotLead?: number };
   /** Buttons shown after each step (dragging and deleting are always there). */

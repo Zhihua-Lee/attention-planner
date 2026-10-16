@@ -2379,7 +2379,25 @@ mark {
   color: var(--accent);
 }
 
-/* "Next only" sits after the filters, set apart: it changes how the list shows, whichever filter is on */
-.filter.next-only {
+/* "Next only" and "By area" sit after the filters, set apart: they change how the list shows, whichever filter is on */
+.filter-wrap + .filter.view {
   margin-left: 8px;
+}
+
+/* "By area": a header per area that folds its section */
+.area-head {
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.area-sec:first-child .area-head {
+  border-top: 0;
+}
+.area-head .count {
+  font-weight: 400;
 }
