@@ -88,6 +88,26 @@ export function App() {
     );
   };
 
+  // A click outside the open task closes it, as a click on it opened it. Not a click that only closes a menu, nor one
+  // on what floats above the list (menus, dialogs, toasts), on the top bar's tools (settings, search, undo), or on
+  // another task (that one handles itself).
+  useEffect(() => {
+    if (!expanded) return;
+    let floating = false;
+    const down = () => (floating = !!document.querySelector('.pop, [role="dialog"]'));
+    const click = (e: MouseEvent) => {
+      const el = e.target as Element;
+      if (floating || !el.isConnected || el.closest('[data-task], [role="dialog"], .toast, .scrim, .top-right')) return;
+      setExpanded(null);
+    };
+    document.addEventListener('pointerdown', down, true);
+    document.addEventListener('click', click);
+    return () => {
+      document.removeEventListener('pointerdown', down, true);
+      document.removeEventListener('click', click);
+    };
+  }, [expanded]);
+
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const typing =

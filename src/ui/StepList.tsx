@@ -60,11 +60,14 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
   useEffect(() => {
     const first = steps.findIndex((s) => !stepDone(task, s, now));
     if (!doc.settings.skipDoneSteps || first <= 0) return;
-    // After the details have opened, so the step is where it will stay; a jump, not a glide (a smooth scroll is
-    // dropped when anything else scrolls meanwhile).
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // After the details have opened, so the step is where it will stay.
     const timer = setTimeout(
-      // In this list: a task just closed may still be fading out with the same steps.
-      () => listRef.current?.querySelector(`[data-step="${steps[first].id}"]`)?.scrollIntoView({ block: 'center' }),
+      () =>
+        // In this list: a task just closed may still be fading out with the same steps.
+        listRef.current
+          ?.querySelector(`[data-step="${steps[first].id}"]`)
+          ?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }),
       250,
     );
     return () => clearTimeout(timer);

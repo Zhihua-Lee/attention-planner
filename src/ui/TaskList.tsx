@@ -464,6 +464,8 @@ function Row({
             e.preventDefault();
           }
         }}
+        // An open task's top line closes it where nothing else is: the space around the box, the name and "close".
+        onClick={(e) => expanded && e.target === e.currentTarget && toggle()}
       >
         {handle && (
           <button

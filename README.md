@@ -157,12 +157,12 @@ hidden app folder in your own Drive. Reminders: Settings → Reminders.
 
 ## Getting started
 
-| Where    | Do                                                                                                             |
-| -------- | -------------------------------------------------------------------------------------------------------------- |
-| List     | Type a line and press Enter. Tap a title to open it in place; the circle completes it.                         |
-| NOW      | Do the one thing shown, or tap "another". Day / week switch the agenda; tap an item for details.               |
-| A task   | Steps first, then deadline, when, effort (with Find time), repeat, snooze, area, parent task, note (Markdown). |
-| Settings | Working hours, capture chips, list filters, step buttons, reminders, calendars, sync, AI connections.          |
+| Where    | Do                                                                                                                |
+| -------- | ----------------------------------------------------------------------------------------------------------------- |
+| List     | Type a line and press Enter. Tap a title to open it in place, tap elsewhere to close it; the circle completes it. |
+| NOW      | Do the one thing shown, or tap "another". Day / week switch the agenda; tap an item for details.                  |
+| A task   | Steps first, then deadline, when, effort (with Find time), repeat, snooze, area, parent task, note (Markdown).    |
+| Settings | Working hours, capture chips, list filters, step buttons, reminders, calendars, sync, AI connections.             |
 
 More in the [user guide](docs/user-guide.md) (Chinese), [how the parts interact](docs/interactions.md) and
 [the design notes](docs/design.md).

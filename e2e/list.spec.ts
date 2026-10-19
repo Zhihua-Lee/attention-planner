@@ -294,3 +294,26 @@ test('add to today from a row (☀ or T); yesterday’s plans are offered; Today
   await page.getByRole('button', { name: '“今天”包括什么' }).click();
   await expect(page.getByRole('dialog', { name: '“今天”包括什么' })).toContainText('今天截止或已经逾期的');
 });
+
+test('an open task closes on a click outside it, on the blank of its top line, or with Escape', async ({ page }) => {
+  await start(page);
+  await add(page, '写报告', '别的事');
+  await openRow(page, '写报告');
+  // A menu inside it closes first; the task stays open.
+  await page.getByTestId('task-detail').getByRole('button', { name: '未填' }).click();
+  await page.locator('.list-bar').click({ position: { x: 2, y: 2 } });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('task-detail')).toHaveCount(1);
+  await page.locator('.list-bar').click({ position: { x: 2, y: 2 } });
+  await expect(page.getByTestId('task-detail')).toHaveCount(0);
+  await openRow(page, '写报告');
+  // The open task's row shows its name in a box, so it is found by its details.
+  await page
+    .locator('[data-task]', { has: page.getByTestId('task-detail') })
+    .locator('.row-main')
+    .click({ position: { x: 4, y: 4 } });
+  await expect(page.getByTestId('task-detail')).toHaveCount(0);
+  await openRow(page, '写报告');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('task-detail')).toHaveCount(0);
+});

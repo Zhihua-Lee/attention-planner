@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.44 — 2026-10-18
+
+- **An open task closes the way it opened**: a click anywhere outside it closes it, and so does a click on the blank
+  of its top line (as well as Esc and 收起). A click that only closes a menu inside it leaves it open; the top bar's
+  tools, dialogs and toasts never close it, and a click on another task opens that one.
+- **Going to the first open step glides again**: the jump came from finding the steps of a task still closing; it now
+  looks only in the task just opened and scrolls smoothly (at once with reduced motion).
+
 ## 0.2.43 — 2026-10-18
 
 - **A folded area keeps its look**: the line a folded section becomes names the area in the rail's type (the accent
