@@ -2384,31 +2384,59 @@ mark {
   margin-left: 8px;
 }
 
-/* "By area": a header per area that folds its section; a band of the page's colour sets sections apart */
-.area-head {
+/* "By area": each area runs down the left of its tasks as a narrow rail with its name; tap it to fold */
+.area-sec {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  padding: 10px 14px 8px;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ink);
-  background: var(--accent-soft);
-  border-left: 3px solid var(--accent);
-}
-.area-head .count {
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--muted);
+  align-items: stretch;
 }
 .area-sec + .area-sec {
-  border-top: 8px solid var(--bg);
+  border-top: 4px solid var(--bg);
 }
-.area-sec > .row:first-of-type,
-.area-sec > div > .row:first-child {
+.area-rail {
+  flex: none;
+  width: 26px;
+  padding: 10px 0;
+  display: flex;
+  justify-content: center;
+  background: var(--accent-soft);
+  border-right: 2px solid var(--accent);
+  color: var(--accent);
+}
+.area-rail:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.area-name {
+  position: sticky;
+  top: 12px;
+  align-self: flex-start;
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  max-height: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.area-sec.folded .area-name {
+  display: none;
+}
+.area-body {
+  flex: 1;
+  min-width: 0;
+}
+.area-rows,
+.area-summary {
+  overflow: hidden;
+}
+.area-rows > div > .row:first-child,
+.area-rows > .row:first-child {
   border-top: 0;
+}
+.area-summary button {
+  width: 100%;
+  text-align: left;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--muted);
 }

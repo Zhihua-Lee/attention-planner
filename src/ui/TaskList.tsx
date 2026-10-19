@@ -259,40 +259,70 @@ export const TaskList = forwardRef<
             const unfolded = !folded.includes(key);
             const within = new Map(sec.rows.map((r) => [r.id, r]));
             const secIds = sec.rows.map((r) => r.id);
+            const name = sec.areaId ? doc.areas[sec.areaId].name : t('没有区域', 'No area');
+            // The area runs down the left of its tasks; folding it collapses the tasks into one line, in one motion
+            // (the rows stay mounted, so none of them animates out on its own).
             return (
-              <div key={key} className="area-sec">
-                <button className="area-head" aria-expanded={unfolded} onClick={() => fold(key)}>
-                  {unfolded ? '▾' : '▸'} {sec.areaId ? doc.areas[sec.areaId].name : t('没有区域', 'No area')}{' '}
-                  <span className="count">{sec.rows.length}</span>
+              <div key={key} className={`area-sec${unfolded ? '' : ' folded'}`}>
+                <button
+                  className="area-rail"
+                  aria-expanded={unfolded}
+                  aria-label={t(`${name}，${sec.rows.length} 个任务`, `${name}, ${sec.rows.length} tasks`)}
+                  title={unfolded ? t('收起', 'Fold') : t('展开', 'Unfold')}
+                  onClick={() => fold(key)}
+                >
+                  <span className="area-name" aria-hidden="true">
+                    {name}
+                  </span>
                 </button>
-                {unfolded &&
-                  (manual ? (
-                    // Dragging stays within a section; the whole list keeps one order.
-                    <Reorder.Group
-                      as="div"
-                      axis="y"
-                      values={secIds}
-                      onReorder={(order) => {
-                        let i = 0;
-                        drag(ids.map((id) => (within.has(id) ? order[i++] : id)));
-                      }}
-                    >
-                      {sec.rows.map((task) => (
-                        <DraggableRow
-                          key={task.id}
-                          {...rowProps(task, within)}
-                          onMove={(dir) => move(task.id, dir)}
-                          onDrop={drop}
-                        />
-                      ))}
-                    </Reorder.Group>
-                  ) : (
-                    <AnimatePresence initial={false}>
-                      {sec.rows.map((task) => (
-                        <Row key={task.id} {...rowProps(task, within)} />
-                      ))}
-                    </AnimatePresence>
-                  ))}
+                <div className="area-body">
+                  <motion.div
+                    className="area-summary"
+                    initial={false}
+                    animate={{ height: unfolded ? 0 : 'auto', opacity: unfolded ? 0 : 1 }}
+                    transition={{ duration: 0.24, ease }}
+                    aria-hidden={unfolded}
+                  >
+                    <button tabIndex={unfolded ? -1 : 0} onClick={() => fold(key)}>
+                      {name} · {t(`${sec.rows.length} 个已收起`, `${sec.rows.length} folded`)}
+                    </button>
+                  </motion.div>
+                  <motion.div
+                    className="area-rows"
+                    initial={false}
+                    animate={{ height: unfolded ? 'auto' : 0, opacity: unfolded ? 1 : 0 }}
+                    transition={{ duration: 0.24, ease }}
+                    inert={!unfolded}
+                  >
+                    {manual ? (
+                      // Dragging stays within a section; the whole list keeps one order.
+                      <Reorder.Group
+                        as="div"
+                        axis="y"
+                        values={secIds}
+                        onReorder={(order) => {
+                          let i = 0;
+                          drag(ids.map((id) => (within.has(id) ? order[i++] : id)));
+                        }}
+                      >
+                        {sec.rows.map((task) => (
+                          <DraggableRow
+                            key={task.id}
+                            {...rowProps(task, within)}
+                            onMove={(dir) => move(task.id, dir)}
+                            onDrop={drop}
+                          />
+                        ))}
+                      </Reorder.Group>
+                    ) : (
+                      <AnimatePresence initial={false}>
+                        {sec.rows.map((task) => (
+                          <Row key={task.id} {...rowProps(task, within)} />
+                        ))}
+                      </AnimatePresence>
+                    )}
+                  </motion.div>
+                </div>
               </div>
             );
           })

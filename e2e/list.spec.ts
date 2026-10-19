@@ -218,14 +218,17 @@ test('“by area” shows “All” in sections that fold, and a folded one stay
   await page.getByRole('button', { name: '收起' }).click();
   await expect(page.getByTestId('task-detail')).toHaveCount(0);
   await page.getByRole('button', { name: '按区域分组' }).click();
-  await expect(page.locator('.area-head')).toHaveText(['▾ 科研 1', '▾ 没有区域 1']);
+  // Each area runs down the left of its tasks.
+  await expect(page.locator('.area-name')).toHaveText(['科研', '没有区域']);
   await expect(page.locator('.list .row .tt')).toHaveText(['投稿', '回邮件']);
-  await page.locator('.area-head', { hasText: '科研' }).click();
-  await expect(page.locator('.list .row .tt')).toHaveText(['回邮件']);
+  const open = '.area-sec:not(.folded) .row .tt';
+  await page.getByRole('button', { name: '科研，1 个任务' }).click();
+  await expect(page.getByRole('button', { name: '科研 · 1 个已收起' })).toBeVisible();
+  await expect(page.locator(open)).toHaveText(['回邮件']);
   await reloadSaved(page);
   await page.getByRole('tab', { name: '清单' }).click();
-  await expect(page.locator('.area-head').first()).toHaveText('▸ 科研 1');
-  await expect(page.locator('.list .row .tt')).toHaveText(['回邮件']);
+  await expect(page.getByRole('button', { name: '科研，1 个任务' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator(open)).toHaveText(['回邮件']);
   await page.getByRole('button', { name: '按区域分组' }).click();
   await expect(page.locator('.list .row .tt')).toHaveText(['回邮件', '投稿']);
 });

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.42 — 2026-10-18
+
+- **An area runs down the left of its tasks**: in 按区域分组 the area is a narrow rail with its name written down it,
+  beside its tasks, instead of a row of its own among them. Tap the rail to fold the section into one line
+  (“科研 · 2 个已收起”), and tap that line or the rail to open it again.
+- **Fix: folding moves as one**: the section's tasks now fold and unfold together with the rows after them, instead of
+  each task fading out while the rows below slid up on their own.
+
 ## 0.2.41 — 2026-10-16
 
 - **Areas stand out when grouped**: each section's header is a tinted band with a bar on its left and the area's name
