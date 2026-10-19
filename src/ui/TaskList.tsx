@@ -284,7 +284,8 @@ export const TaskList = forwardRef<
                     aria-hidden={unfolded}
                   >
                     <button tabIndex={unfolded ? -1 : 0} onClick={() => fold(key)}>
-                      {name} · {t(`${sec.rows.length} 个已收起`, `${sec.rows.length} folded`)}
+                      <span className="area-label">{name}</span>{' '}
+                      <span className="count">· {t(`${sec.rows.length} 个已收起`, `${sec.rows.length} folded`)}</span>
                     </button>
                   </motion.div>
                   <motion.div

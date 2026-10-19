@@ -2405,14 +2405,19 @@ mark {
 .area-rail:hover {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
+/* the area's name, on the rail and on a folded section's line alike */
+.area-name,
+.area-label {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
 .area-name {
   position: sticky;
   top: 12px;
   align-self: flex-start;
   writing-mode: vertical-rl;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
   max-height: 100%;
   overflow: hidden;
   white-space: nowrap;
@@ -2438,5 +2443,8 @@ mark {
   text-align: left;
   padding: 7px 12px;
   font-size: 13px;
+}
+.area-summary .count {
   color: var(--muted);
+  font-size: 12px;
 }

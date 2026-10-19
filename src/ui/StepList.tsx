@@ -1,5 +1,5 @@
 import { Reorder, useDragControls } from 'motion/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { dayOf } from '../model/dates';
 import { findTimes, stillToReserveStep } from '../model/derive';
 import {
@@ -55,6 +55,21 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
     setDragging(null);
     if (order) commit((d, c) => reorderSteps(d, c, task.id, order));
   };
+  const listRef = useRef<HTMLDivElement>(null);
+  // Opening the task (this list mounts with it) scrolls past the checked steps to the first open one, if so chosen.
+  useEffect(() => {
+    const first = steps.findIndex((s) => !stepDone(task, s, now));
+    if (!doc.settings.skipDoneSteps || first <= 0) return;
+    // After the details have opened, so the step is where it will stay; a jump, not a glide (a smooth scroll is
+    // dropped when anything else scrolls meanwhile).
+    const timer = setTimeout(
+      // In this list: a task just closed may still be fading out with the same steps.
+      () => listRef.current?.querySelector(`[data-step="${steps[first].id}"]`)?.scrollIntoView({ block: 'center' }),
+      250,
+    );
+    return () => clearTimeout(timer);
+    // Once, on opening: checking a step later must not move the page.
+  }, []);
   // The step last tapped keeps its buttons out on a phone: iOS does not focus a tapped button, so focus alone would
   // hide them between the touch and the click. It is set on click, once the tap is over, so no row moves under it.
   const [active, setActive] = useState<string | null>(null);
@@ -65,7 +80,7 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
   const kind = pop.open?.key.split(':')[0];
   return (
     <>
-      <Reorder.Group axis="y" as="div" className="step-list" values={ids} onReorder={drag}>
+      <Reorder.Group ref={listRef} axis="y" as="div" className="step-list" values={ids} onReorder={drag}>
         {ids.map((sid, i) => {
           const s = byId.get(sid);
           return s ? (
@@ -223,6 +238,7 @@ function StepRow({
       value={step.id}
       as="div"
       className={`step${checked ? ' done' : ''}${active ? ' active' : ''}`}
+      data-step={step.id}
       onClick={onActive}
       dragListener={false}
       dragControls={controls}

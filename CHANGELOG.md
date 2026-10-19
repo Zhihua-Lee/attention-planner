@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.43 — 2026-10-18
+
+- **A folded area keeps its look**: the line a folded section becomes names the area in the rail's type (the accent
+  colour, bold, spaced), with the count after it in grey.
+- **跳到第一个没勾的步骤** (Settings → 打开任务时, off by default): opening a task jumps past the steps already checked
+  to the first one that is not.
+
 ## 0.2.42 — 2026-10-18
 
 - **An area runs down the left of its tasks**: in 按区域分组 the area is a narrow rail with its name written down it,

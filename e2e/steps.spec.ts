@@ -212,3 +212,19 @@ test('checking every step completes the task only when Settings say so', async (
   await expect(page.getByRole('button', { name: /已完成 1/ })).toBeVisible();
   await expect(row(page, '报销')).toHaveCount(0);
 });
+
+test('with the setting on, opening a task scrolls past its checked steps to the first open one', async ({ page }) => {
+  await start(page);
+  await add(page, '长清单');
+  let detail = await openRow(page, '长清单');
+  for (let i = 1; i <= 30; i++) await addSteps(detail, `第 ${i} 步`);
+  for (let i = 1; i <= 25; i++) await detail.getByRole('checkbox', { name: `第 ${i} 步`, exact: true }).check();
+  await page.getByRole('button', { name: '设置' }).click();
+  const sheet = page.getByRole('dialog', { name: '设置' });
+  await sheet.getByRole('checkbox', { name: '跳到第一个没勾的步骤' }).check();
+  await sheet.getByRole('button', { name: '完成' }).click();
+  await page.getByRole('button', { name: '收起' }).click();
+  await expect(page.getByTestId('task-detail')).toHaveCount(0);
+  detail = await openRow(page, '长清单');
+  await expect(detail.getByRole('checkbox', { name: '第 26 步', exact: true })).toBeInViewport();
+});

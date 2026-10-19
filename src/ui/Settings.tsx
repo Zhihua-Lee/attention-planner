@@ -514,6 +514,27 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </section>
               <section>
                 <div className="sec-title">
+                  <h3>{t('打开任务时', 'Opening a task')}</h3>
+                  <Info label={t('打开任务时是什么', 'What happens when a task opens')}>
+                    <p>
+                      {t(
+                        '勾上的话，打开一个任务时，页面会自动滚过前面已经勾掉的步骤，停在第一个还没勾的步骤上。步骤很多、做了一半的任务用得上。',
+                        'When ticked, opening a task scrolls past the steps already checked to the first one that is not. Handy for long tasks done halfway.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={!!s.skipDoneSteps}
+                    onChange={(e) => set({ skipDoneSteps: e.target.checked })}
+                  />
+                  {t('跳到第一个没勾的步骤', 'Go to the first open step')}
+                </label>
+              </section>
+              <section>
+                <div className="sec-title">
                   <h3>{t('清单筛选', 'List filters')}</h3>
                   <Info label={t('清单筛选是什么', 'What list filters are')}>
                     <p>
