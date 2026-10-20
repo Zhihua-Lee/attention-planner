@@ -317,3 +317,43 @@ test('an open task closes on a click outside it, on the blank of its top line, o
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('task-detail')).toHaveCount(0);
 });
+
+test('“by area”: while a long section scrolls past, its name stays near the middle of the screen', async ({ page }) => {
+  await start(page);
+  await add(page, ...Array.from({ length: 24 }, (_, i) => `任务 ${i + 1}`));
+  await page.getByRole('button', { name: '设置' }).click();
+  const sheet = page.getByRole('dialog', { name: '设置' });
+  await sheet.getByRole('textbox', { name: '新的区域' }).fill('科研');
+  await sheet.getByRole('button', { name: '加区域' }).click();
+  await sheet.getByRole('button', { name: '完成' }).click();
+  // Put them all in it, through the stored document, then group.
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((ok) => {
+      const r = indexedDB.open('attention-planner', 1);
+      r.onsuccess = () => ok(r.result);
+    });
+    const doc = await new Promise<{ tasks: Record<string, { areaId?: string }>; areas: Record<string, unknown> }>(
+      (ok) => {
+        const r = db.transaction('kv').objectStore('kv').get('doc');
+        r.onsuccess = () => ok(r.result);
+      },
+    );
+    const area = Object.keys(doc.areas)[0];
+    for (const t of Object.values(doc.tasks)) t.areaId = area;
+    await new Promise((ok) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(doc, 'doc');
+      tx.oncomplete = ok;
+    });
+  });
+  await page.reload();
+  await page.getByRole('tab', { name: '清单' }).click();
+  await page.getByRole('button', { name: '按区域分组' }).click();
+  const middle = (page.viewportSize()?.height ?? 800) / 2;
+  for (const y of [300, 700]) {
+    await page.evaluate((to) => window.scrollTo(0, to), y);
+    await page.waitForTimeout(100);
+    const box = (await page.locator('.area-name').first().boundingBox())!;
+    expect(Math.abs(box.y + box.height / 2 - middle)).toBeLessThan(60);
+  }
+});

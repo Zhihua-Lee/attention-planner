@@ -806,7 +806,8 @@ main {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 14px;
-  overflow: hidden;
+  /* clip, not hidden: hidden would make the list its own scroller and stop an area's name from staying in view */
+  overflow: clip;
 }
 .row {
   border-top: 1px solid var(--line);
@@ -2413,10 +2414,13 @@ mark {
   font-weight: 700;
   letter-spacing: 0.08em;
 }
+/* The name sits mid-way down its section and, while the section runs past the screen, stays near the middle of the
+   screen (a band of 6em around it) instead of scrolling away. */
 .area-name {
   position: sticky;
-  top: 12px;
-  align-self: flex-start;
+  top: calc(50% - 3em);
+  bottom: calc(50% - 3em);
+  align-self: center;
   writing-mode: vertical-rl;
   max-height: 100%;
   overflow: hidden;

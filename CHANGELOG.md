@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.45 — 2026-10-20
+
+- **An area's name stays in view**: in 按区域分组 the name on the rail sits mid-way down its section and, while a long
+  section scrolls past, stays near the middle of the screen, so the area is never out of sight. (The list's rounded
+  frame now clips with `overflow: clip`, which, unlike `hidden`, lets the name stay put.)
+
 ## 0.2.44 — 2026-10-18
 
 - **An open task closes the way it opened**: a click anywhere outside it closes it, and so does a click on the blank
