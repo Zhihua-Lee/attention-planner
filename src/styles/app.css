@@ -127,6 +127,10 @@ select,
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Switching full width widens the whole page as one, so nothing slides inside a frame that already moved. */
+  transition:
+    max-width 0.3s var(--ease),
+    padding-inline 0.3s var(--ease);
 }
 .app.loading {
   min-height: 100vh;

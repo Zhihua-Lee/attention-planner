@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.48 — 2026-10-20
+
+- **Switching full width moves as one**: the page now widens (and narrows) smoothly as a whole, so the rows no longer
+  slide sideways on their own inside a frame that had already jumped to its new width. At once with reduced motion.
+
 ## 0.2.47 — 2026-10-20
 
 - **Fix: full width fills the screen's height**: with 全宽 on, the day's timeline on NOW takes the height left below the

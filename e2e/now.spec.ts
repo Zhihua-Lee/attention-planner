@@ -161,7 +161,10 @@ test('full width can be switched on for reading on a large screen', async ({ pag
   const narrow = (await app.boundingBox())!.width;
   await page.getByRole('button', { name: '全宽' }).click();
   await expect(page.getByRole('button', { name: '全宽' })).toHaveAttribute('aria-pressed', 'true');
-  expect((await app.boundingBox())!.width).toBeGreaterThan(narrow + 100);
+  // The page widens as one (at once with reduced motion).
+  await expect.poll(async () => (await app.boundingBox())!.width).toBeGreaterThan(narrow + 100);
+  if (info.project.name !== 'reduced-motion')
+    expect(await app.evaluate((el) => getComputedStyle(el).transitionProperty)).toContain('max-width');
   await reloadSaved(page);
   await expect(page.getByRole('button', { name: '全宽' })).toHaveAttribute('aria-pressed', 'true');
   // The day's timeline takes the height that is left: on a tall screen and on a short one, NOW ends at the bottom.
