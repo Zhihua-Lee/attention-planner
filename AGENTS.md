@@ -34,8 +34,9 @@ propose changes the owner approves in the app. One owner's data, synced through 
 - Dev: `npm run dev`
 - Check: `npx prettier --check .`, `npx tsc -b`, `npx tsc -p mcp/tsconfig.json`, `npx tsc -p broker/tsconfig.json`,
   `npx vitest run`, `npm run build` then `npm run test:ui` (Playwright against `vite preview --port 4173`)
-- Deploy (after CI): `npx wrangler pages deploy dist --project-name attention-planner-next --branch main
---commit-hash <sha>`; Workers: `npx wrangler deploy --config mcp/wrangler.jsonc` (and `broker/wrangler.jsonc`)
+- Deploy the PWA (after CI):
+  `npx wrangler pages deploy dist --project-name attention-planner-next --branch main --commit-hash <sha>`
+- Deploy a Worker: `npx wrangler deploy --config mcp/wrangler.jsonc` (or `broker/wrangler.jsonc`)
 - After a Pages deploy, verify on the `*.pages.dev` URL; on todo.onthat.top read only `index.html` at first (a new
   `/assets/*` fetched there too early can be cached wrongly).
 
