@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.49 — 2026-10-20
+
+- **Local paths in a note open**: a full path such as D:\notes\plan.md (or one with spaces in backticks) is a link.
+  A click copies the path; on a Windows computer with the new open-link helper (`tools/open-link`) and 设置 → 本地路径 ticked, it opens the folder in Explorer, or a .md, .txt, .pdf or picture in its usual app, and only inside the
+  folders allowed at install. The connected AI is now asked to put where a task came from and the full paths of the
+  folders and files it needs into the note.
+
 ## 0.2.48 — 2026-10-20
 
 - **Switching full width moves as one**: the page now widens (and narrows) smoothly as a whole, so the rows no longer

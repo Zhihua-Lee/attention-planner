@@ -29,6 +29,7 @@ import { NewStep } from './NewStep';
 import { ProposalNotice } from './Proposals';
 import { StepList } from './StepList';
 import { duration, monthDay, planLabel, ruleLabel, useT } from './text';
+import { onNoteClick } from './localPaths';
 import { noteHtml } from './markdown';
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
@@ -259,7 +260,7 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
           tabIndex={0}
           aria-label={t('编辑正文', 'Edit note')}
           onClick={(e) => {
-            if ((e.target as HTMLElement).closest('a')) return;
+            if ((e.target as HTMLElement).closest('a')) return onNoteClick(e, t);
             setNoteHeight(e.currentTarget.offsetHeight);
             setEditingNote(true);
           }}

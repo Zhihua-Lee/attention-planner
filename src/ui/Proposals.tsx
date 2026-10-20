@@ -6,6 +6,7 @@ import { decideProposal, pendingProposals, proposalsFor } from '../model/proposa
 import type { Doc, Proposal, Step, Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
+import { onNoteClick } from './localPaths';
 import { noteHtml } from './markdown';
 import { dueLabel, duration, planLabel, ruleLabel, useT } from './text';
 
@@ -240,7 +241,12 @@ function PreviewNote({ html, changed }: { html: string; changed: boolean }) {
   }, [long]);
   return (
     <div className={`pv-note${changed ? ' chg' : ''}${open || long === false ? ' open' : ''}`}>
-      <div ref={ref} className="note-view" dangerouslySetInnerHTML={{ __html: html }} />
+      <div
+        ref={ref}
+        className="note-view"
+        onClick={(e) => onNoteClick(e, t)}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
       {long && (
         <button type="button" className="link-btn" onClick={() => setOpen((v) => !v)}>
           {open ? t('收起', 'Less') : t('展开全文', 'Show all')}

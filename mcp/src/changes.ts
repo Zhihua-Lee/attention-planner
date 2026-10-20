@@ -61,7 +61,13 @@ const groupRef = z.string().min(1).max(100);
 
 /** The details of a new task (add_task's, without the quick words). */
 export const newTaskFields = {
-  note: z.string().max(20000).optional().describe('Markdown; references and links go here.'),
+  note: z
+    .string()
+    .max(20000)
+    .optional()
+    .describe(
+      'Markdown: where the task came from (a link) and the local folders or files to work in (full paths in backticks, `D:\\notes\\plan.md`).',
+    ),
   due: daySchema.optional(),
   due_time: timeSchema.optional(),
   effort_minutes: z.number().int().min(1).max(10000).optional(),

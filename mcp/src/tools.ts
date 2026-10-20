@@ -78,7 +78,10 @@ returns, and do not claim a change is made until get_proposal says so. A new tas
 unless the owner chose to have new tasks saved at once; its result says which. list_proposals shows what is still
 waiting (look before proposing again); withdraw_proposal takes back one of yours. get_task includes the task's
 history (when each step was checked, when it was done, moved or snoozed, and what was planned then): use it to learn
-when and how long the owner actually does such things before you suggest a time.`;
+when and how long the owner actually does such things before you suggest a time. A note is Markdown: when you add a
+task or write its note, put in what the owner needs to start without looking around: a link to where it came from (a
+web page, an issue, a document), and the full path of the local folder or file to work in, in backticks
+(\`D:\\notes\\plan.md\`); the app turns such a path into a link that opens it on the owner's computer.`;
 
 /** Words for the AI are in English (the owner reads the same things in their language in the app). */
 const en = (_zh: string, english: string) => english;

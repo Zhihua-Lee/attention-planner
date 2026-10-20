@@ -56,6 +56,39 @@ test('the note renders Markdown and edits on click', async ({ page }) => {
   await expect(detail.locator('.note-view li')).toHaveText('例题');
 });
 
+test('a local path in the note is a link: copied, or opened where this device can', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await start(page);
+  await add(page, '整理笔记');
+  const detail = await openRow(page, '整理笔记');
+  await detail.getByRole('button', { name: '编辑正文' }).click();
+  await detail.getByRole('textbox', { name: '正文' }).fill('先看 D:\\笔记\\.ai\\计划.md，再整理 `D:\\my notes`');
+  await detail.getByRole('textbox', { name: '正文' }).blur();
+  const links = detail.locator('.note-view a');
+  await expect(links).toHaveText(['D:\\笔记\\.ai\\计划.md', 'D:\\my notes']);
+  await expect(links.first()).toHaveAttribute('href', /^ap-open:D%3A%5C/);
+
+  // Without the helper the browser cannot open it, so a click copies the path and the note stays as it is.
+  await links.nth(1).click();
+  await expect(page.locator('.toast')).toContainText('已复制路径：D:\\my notes');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('D:\\my notes');
+  await expect(detail.getByRole('textbox', { name: '正文' })).toHaveCount(0);
+
+  // With the helper, the click is left to the browser, which hands the link to it.
+  await page.getByRole('button', { name: '设置' }).click();
+  const sheet = page.getByRole('dialog', { name: '设置' });
+  await sheet.getByRole('checkbox', { name: '这台设备点路径直接打开' }).check();
+  await sheet.getByRole('button', { name: '完成' }).click();
+  await page.evaluate(() =>
+    window.addEventListener('click', (e) => {
+      (window as unknown as { left: boolean }).left = !e.defaultPrevented;
+      e.preventDefault(); // the test browser has no helper to hand it to
+    }),
+  );
+  await detail.locator('.note-view a').first().click();
+  expect(await page.evaluate(() => (window as unknown as { left: boolean }).left)).toBe(true);
+});
+
 test('filters follow the tasks: today includes repeating work; empty ones hide; areas are chips', async ({ page }) => {
   await start(page);
   await page.getByRole('tab', { name: '清单' }).click();

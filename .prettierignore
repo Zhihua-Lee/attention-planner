@@ -4,3 +4,6 @@ playwright-report
 test-results
 package-lock.json
 docs/verification
+
+# JScript (ES3) for Windows Script Host: Prettier would add trailing commas it cannot read
+tools/open-link/open-link.js

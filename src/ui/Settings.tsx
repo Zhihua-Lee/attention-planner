@@ -8,8 +8,9 @@ import { FILTER_CHIPS, type ChipKey } from '../model/types';
 import { brokerStatus, trimSlash } from '../store/drive';
 import { disablePush, enablePush, pushState, testPush, type PushState } from '../store/push';
 import { reminderPrefs } from '../model/reminders';
-import { store, useStore } from '../store/store';
+import { local, store, useStore } from '../store/store';
 import { Info, toast } from './common';
+import { OPEN_PATHS } from './localPaths';
 import { DEFAULT_STEP_TOOLS } from './StepList';
 import { useT, weekdayShort } from './text';
 
@@ -531,6 +532,42 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     onChange={(e) => set({ skipDoneSteps: e.target.checked })}
                   />
                   {t('跳到第一个没勾的步骤', 'Go to the first open step')}
+                </label>
+              </section>
+              <section>
+                <div className="sec-title">
+                  <h3>{t('本地路径', 'Local paths')}</h3>
+                  <Info label={t('本地路径怎么打开', 'How local paths open')}>
+                    <p>
+                      {t(
+                        '正文里的 D:\\笔记\\计划.md 这样的路径会变成链接。有空格的路径放在反引号里：`D:\\portable apps\\笔记`。',
+                        'A path such as D:\\notes\\plan.md in a note becomes a link. Put a path with spaces in backticks: `D:\\portable apps\\notes`.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '浏览器自己打不开本地文件，点一下只会复制路径。在 Windows 电脑上装好 open-link 小程序，再勾上这里，点了就直接打开：文件夹在资源管理器里打开，.md、.txt、.pdf 和图片用默认程序打开。只打开安装时允许的文件夹里的内容。每台设备分别设置。',
+                        'A browser cannot open local files itself, so a click copies the path. With the open-link helper installed on a Windows computer and this ticked, a click opens it: a folder in Explorer, a .md, .txt, .pdf or picture in its usual app. Only what is inside the folders allowed at install is opened. Set on each device.',
+                      )}
+                    </p>
+                    <p>
+                      <a
+                        href="https://github.com/Zhihua-Lee/attention-planner/blob/main/docs/user-guide.md#本地路径"
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {t('怎么安装', 'How to install it')}
+                      </a>
+                    </p>
+                  </Info>
+                </div>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    defaultChecked={local.get(OPEN_PATHS) === '1'}
+                    onChange={(e) => local.set(OPEN_PATHS, e.target.checked ? '1' : '0')}
+                  />
+                  {t('这台设备点路径直接打开', 'Open paths on this device')}
                 </label>
               </section>
               <section>
