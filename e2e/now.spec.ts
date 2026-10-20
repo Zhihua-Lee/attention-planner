@@ -214,7 +214,8 @@ test('a task that reopens finishes its round and comes back next time', async ({
   await expect(row(page, '1560 备课')).not.toHaveClass(/done/);
   const again = await openRow(page, '1560 备课');
   await expect(again.getByRole('checkbox', { name: '讲义' })).not.toBeChecked();
-  await expect(again.locator('.history')).toContainText('完成历史 · 1');
+  // The history keeps the round: the check, then finishing it.
+  await expect(again.getByTestId('history').locator('summary')).toHaveText('历史 · 2');
 });
 
 test('a "new copy" task creates the next one when completed', async ({ page }) => {

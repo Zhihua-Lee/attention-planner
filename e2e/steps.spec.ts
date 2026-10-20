@@ -228,3 +228,25 @@ test('with the setting on, opening a task scrolls past its checked steps to the 
   detail = await openRow(page, '长清单');
   await expect(detail.getByRole('checkbox', { name: '第 26 步', exact: true })).toBeInViewport();
 });
+
+test('a task keeps a history of its checks; undo takes an entry back', async ({ page }) => {
+  await start(page);
+  await add(page, '洗衣服 晚上');
+  let detail = await openRow(page, '洗衣服');
+  await addSteps(detail, '洗', '晾');
+  await expect(detail.getByTestId('history')).toHaveCount(0);
+  await detail.getByRole('checkbox', { name: '洗', exact: true }).check();
+  const history = detail.getByTestId('history');
+  await expect(history.locator('summary')).toHaveText('历史 · 1');
+  await history.locator('summary').click();
+  await expect(history).toContainText('勾选「洗」 · 原定晚上');
+  await detail.getByRole('checkbox', { name: '晾', exact: true }).check();
+  await expect(history.locator('summary')).toHaveText('历史 · 2');
+  await page.getByRole('button', { name: '撤销（Ctrl+Z）' }).click();
+  await expect(history.locator('summary')).toHaveText('历史 · 1');
+  await expect(history).not.toContainText('「晾」');
+  await reloadSaved(page);
+  await toList(page);
+  detail = await openRow(page, '洗衣服');
+  await expect(detail.getByTestId('history').locator('summary')).toHaveText('历史 · 1');
+});

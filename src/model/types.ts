@@ -1,4 +1,5 @@
 import type { Change } from './changes';
+import type { LogEntry } from './history';
 
 /** A local calendar day, `YYYY-MM-DD`. */
 export type Day = string;
@@ -110,6 +111,8 @@ export type Task = {
   plan: PlanEntry[];
   steps: Step[];
   rounds: Round[];
+  /** What was done to it and when (see `logChanges`); kept on every device, merged as a union. */
+  log?: LogEntry[];
   /** For text fields: the stamp of the version each edit replaced, to tell concurrent edits from later ones. */
   fb?: Partial<Record<TextField, Stamp>>;
   /** The other side of a concurrent text edit, kept until you choose; ignored once the field changes again. */

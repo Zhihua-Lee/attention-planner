@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { convertProjects, emptyDoc, hasProjects, inRounds, restore, type Ctx } from '../model/doc';
 import { importLegacy, type ImportReport } from '../model/legacyImport';
+import { logChanges, voidSince } from '../model/history';
 import { mergeDocs } from '../model/merge';
 import type { CalendarEvent, Doc } from '../model/types';
 import {
@@ -151,11 +152,16 @@ export class Store {
     if (hasProjects(this.state.doc)) this.commit(convertProjects, { undoable: false });
   }
 
-  /** Apply a change. `undoable: false` is for changes that should not appear as an undo step. */
-  commit(fn: (doc: Doc, ctx: Ctx) => Doc, { undoable = true } = {}) {
+  /**
+   * Apply a change and note in each task's history what it did. `undoable: false` is for changes that should not
+   * appear as an undo step; `ai` names the AI whose proposal this applies.
+   */
+  commit(fn: (doc: Doc, ctx: Ctx) => Doc, { undoable = true, ai }: { undoable?: boolean; ai?: string } = {}) {
     const before = this.state.doc;
-    const doc = fn(before, this.ctx());
-    if (doc === before) return;
+    const ctx = this.ctx();
+    const changed = fn(before, ctx);
+    if (changed === before) return;
+    const doc = logChanges(before, changed, ctx, ai);
     if (undoable) {
       this.undoStack.push(before);
       if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
@@ -175,7 +181,8 @@ export class Store {
   undo() {
     const snapshot = this.undoStack.pop();
     if (!snapshot) return false;
-    this.set({ doc: restore(this.state.doc, snapshot, this.ctx()), canUndo: this.undoStack.length > 0 });
+    const doc = voidSince(restore(this.state.doc, snapshot, this.ctx()), snapshot, this.device);
+    this.set({ doc, canUndo: this.undoStack.length > 0 });
     this.scheduleSave();
     this.scheduleSync(2000);
     return true;

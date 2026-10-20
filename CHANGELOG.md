@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.46 — 2026-10-20
+
+- **Each task keeps a history**: under the note, 历史 lists by day what was done to the task: steps checked and
+  unchecked, done and reopened, deadline changes, plans added, moved or removed, minutes worked, snoozes. A check or a
+  completion notes what was planned for that day and the deadline then (“原定晚上 · 截止 10/2”); changes from an
+  approved proposal name the AI. Undo takes its entries back. Histories from all devices merge entry by entry (the
+  newest 200 per task are kept); finished rounds and completions from before still show.
+- **AI assistants read it**: `get_task` returns the task's recent history in the owner's time, so an AI can see when
+  and how long such things actually get done before it suggests a time.
+
 ## 0.2.45 — 2026-10-20
 
 - **An area's name stays in view**: in 按区域分组 the name on the rail sits mid-way down its section and, while a long

@@ -1114,10 +1114,23 @@ main {
 .history summary {
   cursor: pointer;
 }
-.history span {
-  display: block;
+.history-day {
+  margin-top: 6px;
+}
+.history-date {
+  font-weight: 600;
+}
+.history-entry {
+  display: flex;
+  gap: 8px;
+  color: var(--ink);
+}
+.history-time {
+  flex: none;
   font-family: var(--font-mono);
   font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
 }
 .repeat-editor {
   display: flex;

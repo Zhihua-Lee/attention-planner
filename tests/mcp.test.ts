@@ -98,6 +98,27 @@ describe('MCP tools', () => {
     expect((await call('get_task', { id: 'nope' })).error).toBe(true);
   });
 
+  it('get_task shows the history in the owner’s time, newest first', async () => {
+    const { complete, setField } = await import('../src/model/doc');
+    const { logChanges } = await import('../src/model/history');
+    let d = seed();
+    const mail = liveTasks(d).find((x) => x.title === '回邮件')!;
+    // The app writes real instants: 19:30 and 21:05 in Chicago.
+    const app = (iso: string): Ctx => ({ now: new Date(iso), device: 'phone' });
+    const c1 = app('2026-09-30T00:30:00.000Z');
+    d = logChanges(d, setField(d, c1, mail.id, 'due', '2026-10-02'), c1);
+    const c2 = app('2026-09-30T02:05:00.000Z');
+    d = logChanges(d, complete(d, c2, mail.id), c2, 'Claude');
+    const remote = new MemoryRemote();
+    remote.doc = d;
+    const { call } = await connect(remote);
+    const res = await call('get_task', { id: mail.id });
+    expect(res.body.history).toEqual([
+      { at: '2026-09-29 21:05 (Tue)', what: 'done', due_then: '2026-10-02', proposed_by: 'Claude' },
+      { at: '2026-09-29 19:30 (Tue)', what: 'due', day: '2026-10-02' },
+    ]);
+  });
+
   it('adds a task at once, with the app’s quick words, in the owner’s time, stamped with the real instant', async () => {
     const remote = new MemoryRemote();
     remote.doc = direct(seed());

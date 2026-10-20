@@ -29,6 +29,7 @@ import {
   stepsOf,
   taskEffort,
 } from '../../src/model/doc';
+import { historyOf } from '../../src/model/history';
 import { parseCapture } from '../../src/model/parse';
 import type { CalendarEvent, Doc, Task } from '../../src/model/types';
 import {
@@ -47,6 +48,7 @@ import {
 } from './changes';
 import { addProposal, pendingProposals, withdrawProposal } from '../../src/model/proposals';
 import { isExpired, randomId, type ProposalStore } from './proposals';
+import { wallClock } from './clock';
 import type { Workspace } from './workspace';
 
 export type ToolContext = {
@@ -74,7 +76,9 @@ longest-range context when you prioritise, plan or break tasks down, and say so 
 time zone. Changes are proposals: the owner approves them in the app, so give them the review link that propose_changes
 returns, and do not claim a change is made until get_proposal says so. A new task from add_task is a proposal too,
 unless the owner chose to have new tasks saved at once; its result says which. list_proposals shows what is still
-waiting (look before proposing again); withdraw_proposal takes back one of yours.`;
+waiting (look before proposing again); withdraw_proposal takes back one of yours. get_task includes the task's
+history (when each step was checked, when it was done, moved or snoozed, and what was planned then): use it to learn
+when and how long the owner actually does such things before you suggest a time.`;
 
 /** Words for the AI are in English (the owner reads the same things in their language in the app). */
 const en = (_zh: string, english: string) => english;
@@ -143,7 +147,17 @@ export function brief(doc: Doc, t: Task, now: Date) {
 }
 
 /** One task in full. */
-export function full(doc: Doc, t: Task, now: Date, origin: string) {
+/** When something happened, in the owner's time. */
+const whenWords = (at: string, timeZone: string) => {
+  const w = wallClock(timeZone, new Date(at));
+  const day = dayOf(w);
+  return `${day} ${timeOf(nowMinutes(w))} (${WEEK[isoWeekday(day) - 1]})`;
+};
+
+/** The most recent history entries the AI is shown. */
+const HISTORY_SHOWN = 40;
+
+export function full(doc: Doc, t: Task, now: Date, origin: string, timeZone = 'UTC') {
   return clean({
     ...brief(doc, t, now),
     note: t.note,
@@ -170,6 +184,26 @@ export function full(doc: Doc, t: Task, now: Date, origin: string) {
     subtasks: liveTasks(doc)
       .filter((o) => o.linkTo === t.id)
       .map((o) => ({ id: o.id, title: o.title })),
+    history: historyOf(t)
+      .slice(0, HISTORY_SHOWN)
+      .map((x) =>
+        clean({
+          at: whenWords(x.at, timeZone),
+          what: x.kind,
+          step: x.step?.text,
+          day: x.day,
+          time: x.time,
+          part: x.part,
+          start: x.start,
+          minutes: x.minutes,
+          from_day: x.from,
+          until: x.until,
+          reason: x.reason,
+          planned_then: x.planned,
+          due_then: x.dueThen,
+          proposed_by: x.ai,
+        }),
+      ),
     two_versions_of: t.conflicts && Object.keys(t.conflicts).length ? Object.keys(t.conflicts) : undefined,
     link: `${origin}/?open=${encodeURIComponent(t.id)}`,
   });
@@ -291,7 +325,8 @@ export function createServer(c: ToolContext): McpServer {
     'get_task',
     {
       title: 'Get a task',
-      description: 'One task in full: note, steps (with ids), plans (with ids), and a link that opens it in the app.',
+      description:
+        'One task in full: note, steps (with ids), plans (with ids), its history (newest first), and a link that opens it in the app.',
       inputSchema: { id: z.string().min(1).max(100) },
       annotations: read,
     },
@@ -299,7 +334,7 @@ export function createServer(c: ToolContext): McpServer {
       const doc = await load();
       const t = doc.tasks[id];
       if (!t || t.deleted) throw new Error(`There is no task ${id}.`);
-      return text(full(doc, t, ws.now(), c.origin));
+      return text(full(doc, t, ws.now(), c.origin, ws.timeZone));
     }),
   );
 
@@ -489,7 +524,10 @@ export function createServer(c: ToolContext): McpServer {
           const [next, id] = addNewTask(doc, ctx, task);
           return [next, { id, doc: next, now: ctx.now }] as const;
         });
-        return text({ saved: true, task: full(result.doc, result.doc.tasks[result.id], result.now, c.origin) });
+        return text({
+          saved: true,
+          task: full(result.doc, result.doc.tasks[result.id], result.now, c.origin, ws.timeZone),
+        });
       },
     ),
   );

@@ -1,4 +1,5 @@
 import { cmpStamp } from './doc';
+import { mergeLog } from './history';
 import { TASK_FIELDS, TEXT_FIELDS, type Doc, type Stamp, type Step, type Task } from './types';
 
 type Stamped = { s: Stamp };
@@ -78,6 +79,9 @@ export function mergeTask(a: Task, b: Task): Task {
   out.plan = mergeList(a.plan, b.plan, (x) => x.id);
   out.steps = mergeList(a.steps, b.steps, (x) => x.id, mergeStep);
   out.rounds = mergeList(a.rounds, b.rounds, (x) => x.key);
+  const log = mergeLog(a.log, b.log);
+  if (log?.length) out.log = log;
+  else delete out.log;
   out.s = cmpStamp(a.s, b.s) >= 0 ? a.s : b.s;
   return out;
 }

@@ -7,7 +7,6 @@ import {
   complete,
   isFinished,
   isSnoozed,
-  live,
   planOf,
   remainingEffort,
   removePlan,
@@ -25,6 +24,7 @@ import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
 import { AreaPicker, EffortPicker, LinkPicker, PlanPicker, RepeatEditor, WhenPicker } from './pickers';
 import { ConflictNotice } from './Conflict';
+import { History } from './History';
 import { NewStep } from './NewStep';
 import { ProposalNotice } from './Proposals';
 import { StepList } from './StepList';
@@ -62,9 +62,6 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
   const parentArea = ownArea ? undefined : doc.areas[areaOf(doc, task) ?? '']?.name;
   const target = task.linkTo ? doc.tasks[task.linkTo] : undefined;
   const linkedHere = Object.values(doc.tasks).filter((x) => !x.deleted && x.linkTo === id);
-  const history = live(task.rounds)
-    .sort((a, b) => b.doneAt.localeCompare(a.doneAt))
-    .slice(0, 8);
 
   return (
     <div className="detail" data-testid="task-detail">
@@ -177,18 +174,6 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
             </span>
           )}
           {showRepeat && <RepeatEditor task={task} today={today} onChange={(r) => set('repeat', r)} />}
-          {history.length > 0 && (
-            <details className="history">
-              <summary>
-                {t('完成历史', 'History')} · {history.length}
-              </summary>
-              {history.map((r) => (
-                <span key={r.key}>
-                  {monthDay(dayOf(new Date(r.doneAt)))} {new Date(r.doneAt).toTimeString().slice(0, 5)}
-                </span>
-              ))}
-            </details>
-          )}
         </span>
 
         <span className="lbl">{t('其他', 'More')}</span>
@@ -290,6 +275,8 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
           }}
         />
       )}
+
+      <History task={task} />
 
       <div className="detail-actions">
         {isFinished(task, now) ? (

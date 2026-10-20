@@ -11,7 +11,7 @@ import { dueLabel, duration, planLabel, ruleLabel, useT } from './text';
 
 /** Approve or reject a whole proposal; both are ordinary edits, so they sync and can be undone. */
 function decide(p: Proposal, approve: boolean, t: ReturnType<typeof useT>['t']) {
-  store.commit((d, c) => decideProposal(d, c, p.id, approve));
+  store.commit((d, c) => decideProposal(d, c, p.id, approve), { ai: p.client });
   const after = store.get().doc.proposals?.[p.id];
   if (after?.status === 'failed') toast(t(`没能套用：${after.error}`, `Could not apply: ${after.error}`));
   else toast(approve ? t('已批准并套用', 'Approved and applied') : t('已拒绝', 'Rejected'), () => store.undo());
