@@ -50,6 +50,11 @@ Since most AI assistants take voice, the whole chain can run without typing: the
 conversation, calls the MCP tools, and the action items arrive in your list already broken into steps, with deadlines
 and estimates — waiting for one tap.
 
+**From notes to next steps.** Knowledge can flow the same way. A Markdown knowledge base, such as
+[Marklore](https://github.com/Zhihua-Lee/marklore), holds methods, reading notes and plans that seldom turn into
+action on their own. An AI that reads a note can bring it here as tasks broken into steps you can do, so knowledge
+that sat still becomes the next thing to do.
+
 **Yours, and private.** Data lives on your devices and in your own Google Drive's hidden app folder. Edits from two
 devices merge field by field; concurrent edits to the same text keep both versions until you choose. The push service
 only ever sees an opaque id and a time.
