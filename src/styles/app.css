@@ -1864,6 +1864,10 @@ mark {
   overflow-wrap: anywhere;
   user-select: all;
 }
+.install-where {
+  margin: 0;
+  font-size: 12px;
+}
 .sub-row .muted {
   flex: 1;
   min-width: 0;

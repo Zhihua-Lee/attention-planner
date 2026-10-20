@@ -106,6 +106,7 @@ test('the folders you work in are listed in Settings, with the install command f
   await expect(sheet.locator('.sub-row').first()).toContainText('论文和数据');
   const command = 'powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Roots "E:\\research;D:\\my notes"';
   await expect(sheet.getByLabel('安装命令')).toHaveText(command);
+  await expect(sheet.locator('.install-where')).toContainText('tools\\open-link');
   await sheet.getByRole('button', { name: '复制安装命令' }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command);
 

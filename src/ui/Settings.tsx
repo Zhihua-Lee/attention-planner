@@ -640,6 +640,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       </button>
                     </div>
                   )}
+                  {(s.folders ?? []).length > 0 && (
+                    <p className="muted install-where">
+                      {t(
+                        '在 PowerShell 里先进入 open-link 文件夹（cd 到 tools\\open-link），再粘贴运行。',
+                        'In PowerShell, go into the open-link folder first (cd to tools\\open-link), then paste it.',
+                      )}
+                    </p>
+                  )}
                 </div>
               </section>
               <section>

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.53 — 2026-10-20
+
+- **Where to run the install command**: under the copied install command, 设置 → 本地路径 now says to run it inside the
+  `toolsopen-link` folder.
+
 ## 0.2.52 — 2026-10-20
 
 - **Fix: installing in place**: without `-Dir`, the open-link installer stopped with "The path is not of a legal
