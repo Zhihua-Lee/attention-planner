@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.51 — 2026-10-20
+
+- **Fix: installing for a whole drive**: the copied install command wrote a drive as `"D:\"`, which Windows reads as
+  an escaped quote, so the install stopped with "Not a folder". A drive is now written as `"D:"`, and the installer
+  also accepts the old form. An install in place no longer leaves its folder list for git to pick up.
+
 ## 0.2.50 — 2026-10-20
 
 - **Your folders, set by you**: 设置 → 本地路径 now lists the folders you work in, each with what it holds, and syncs.

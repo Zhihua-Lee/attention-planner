@@ -10,3 +10,5 @@ test-results/
 *.tsbuildinfo
 .wrangler/
 .dev.vars
+# the open-link helper's allowed folders, written by an in-place install
+tools/open-link/roots.txt

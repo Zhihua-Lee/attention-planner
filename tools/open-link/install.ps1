@@ -14,7 +14,7 @@ $ErrorActionPreference = 'Stop'
 
 $Dir = [IO.Path]::GetFullPath($Dir)
 $roots = foreach ($r in ($Roots -split ';' | Where-Object { $_.Trim() })) {
-  $r = $r.Trim()
+  $r = $r.Trim().Trim('"') # "D:\" on a command line arrives as D:"
   if ($r -match '^[A-Za-z]:$') { $r += '\' }
   if (-not (Test-Path -LiteralPath $r -PathType Container)) { throw "Not a folder: $r" }
   [IO.Path]::GetFullPath($r)

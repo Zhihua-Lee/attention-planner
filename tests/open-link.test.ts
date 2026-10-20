@@ -54,5 +54,6 @@ describe('open-link helper', () => {
     expect(installCommand([{ path: 'E:\\research' }, { path: 'D:\\my notes' }])).toBe(
       'powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Roots "E:\\research;D:\\my notes"',
     );
+    expect(installCommand([{ path: 'D:\\' }])).toMatch(/-Roots "D:"$/); // "D:\" would escape the quote
   });
 });

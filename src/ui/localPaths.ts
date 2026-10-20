@@ -19,6 +19,7 @@ export function onNoteClick(e: MouseEvent, t: T) {
   ) ?? toast(path);
 }
 
-/** The command that installs the open-link helper for these folders, run in the helper's own folder. */
+/** The command that installs the open-link helper for these folders, run in the helper's own folder. A drive is
+ * written without its backslash: Windows reads `"D:\"` as an escaped quote. */
 export const installCommand = (folders: { path: string }[]) =>
-  `powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Roots "${folders.map((f) => f.path).join(';')}"`;
+  `powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Roots "${folders.map((f) => f.path.replace(/\\+$/, '')).join(';')}"`;
