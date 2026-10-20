@@ -1866,8 +1866,23 @@ mark {
   max-width: 1400px;
   padding-inline: clamp(16px, 3vw, 40px);
 }
-.app.wide .day-scroll {
-  max-height: clamp(260px, 64dvh, 760px);
+/* The day's timeline takes the height that is left, so NOW ends at the bottom of the screen, whatever its height. */
+@media (min-width: 721px) {
+  .app.wide:has(.day-scroll) {
+    min-height: 100dvh;
+  }
+  .app.wide:has(.day-scroll) main,
+  .app.wide main > .stack:has(.day-scroll),
+  .app.wide .agenda:has(> .day-scroll) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .app.wide .day-scroll {
+    flex: 1 1 0;
+    min-height: 260px;
+    max-height: none;
+  }
 }
 @media (max-width: 720px) {
   .wide-btn {

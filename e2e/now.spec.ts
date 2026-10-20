@@ -164,6 +164,17 @@ test('full width can be switched on for reading on a large screen', async ({ pag
   expect((await app.boundingBox())!.width).toBeGreaterThan(narrow + 100);
   await reloadSaved(page);
   await expect(page.getByRole('button', { name: '全宽' })).toHaveAttribute('aria-pressed', 'true');
+  // The day's timeline takes the height that is left: on a tall screen and on a short one, NOW ends at the bottom.
+  for (const height of [1400, 760]) {
+    await page.setViewportSize({ width: 1600, height });
+    await expect
+      .poll(
+        async () =>
+          (await page.locator('.agenda').boundingBox())!.y + (await page.locator('.agenda').boundingBox())!.height,
+      )
+      .toBeGreaterThan(height - 60);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(height + 1);
+  }
 });
 
 test('reserving a new task warns about an overlap but still reserves it', async ({ page }) => {

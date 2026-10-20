@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.47 — 2026-10-20
+
+- **Fix: full width fills the screen's height**: with 全宽 on, the day's timeline on NOW takes the height left below the
+  card, so NOW ends at the bottom of a tall screen instead of stopping at a fixed height, and fits a short one without
+  the page scrolling.
+
 ## 0.2.46 — 2026-10-20
 
 - **Each task keeps a history**: under the note, 历史 lists by day what was done to the task: steps checked and
