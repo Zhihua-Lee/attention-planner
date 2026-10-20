@@ -10,7 +10,7 @@ import { disablePush, enablePush, pushState, testPush, type PushState } from '..
 import { reminderPrefs } from '../model/reminders';
 import { local, store, useStore } from '../store/store';
 import { Info, toast } from './common';
-import { OPEN_PATHS } from './localPaths';
+import { installCommand, OPEN_PATHS } from './localPaths';
 import { DEFAULT_STEP_TOOLS } from './StepList';
 import { useT, weekdayShort } from './text';
 
@@ -67,6 +67,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
       () => toast(text),
     );
   const [subName, setSubName] = useState('');
+  const [folderPath, setFolderPath] = useState('');
+  const [folderAbout, setFolderAbout] = useState('');
   const [subUrl, setSubUrl] = useState('');
   const [push, setPush] = useState<PushState | 'busy'>('off');
   useEffect(() => {
@@ -540,14 +542,20 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   <Info label={t('本地路径怎么打开', 'How local paths open')}>
                     <p>
                       {t(
-                        '正文里的 D:\\笔记\\计划.md 这样的路径会变成链接。有空格的路径放在反引号里：`D:\\portable apps\\笔记`。',
-                        'A path such as D:\\notes\\plan.md in a note becomes a link. Put a path with spaces in backticks: `D:\\portable apps\\notes`.',
+                        '正文里的完整路径（如 E:\\笔记\\计划.md）会变成链接。有空格的路径放在反引号里：`E:\\my notes\\计划.md`。',
+                        'A full path in a note (such as E:\\notes\\plan.md) becomes a link. Put a path with spaces in backticks: `E:\\my notes\\plan.md`.',
                       )}
                     </p>
                     <p>
                       {t(
-                        '浏览器自己打不开本地文件，点一下只会复制路径。在 Windows 电脑上装好 open-link 小程序，再勾上这里，点了就直接打开：文件夹在资源管理器里打开，.md、.txt、.pdf 和图片用默认程序打开。只打开安装时允许的文件夹里的内容。每台设备分别设置。',
-                        'A browser cannot open local files itself, so a click copies the path. With the open-link helper installed on a Windows computer and this ticked, a click opens it: a folder in Explorer, a .md, .txt, .pdf or picture in its usual app. Only what is inside the folders allowed at install is opened. Set on each device.',
+                        '下面列出你常用的文件夹，写上放的是什么。连接的 AI 会看到它们，把要用的文件夹和文件写进任务正文。这个列表会同步。',
+                        'List the folders you work in below, with what each holds. A connected AI sees them and writes the folders and files to work in into a task’s note. The list syncs.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '浏览器自己打不开本地文件，点一下只会复制路径。在 Windows 电脑上用下面的安装命令装好 open-link 小程序，再勾上“这台设备点路径直接打开”，点了就直接打开：文件夹在资源管理器里打开，.md、.txt、.pdf 和图片用默认程序打开。只打开安装时列出的文件夹里的内容；改了列表，再运行一次安装命令。',
+                        'A browser cannot open local files itself, so a click copies the path. Install the open-link helper on a Windows computer with the command below and tick “Open paths on this device”, and a click opens it: a folder in Explorer, a .md, .txt, .pdf or picture in its usual app. Only what is inside the folders listed at install is opened; after changing the list, run the command again.',
                       )}
                     </p>
                     <p>
@@ -569,6 +577,70 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   />
                   {t('这台设备点路径直接打开', 'Open paths on this device')}
                 </label>
+                <div className="subs">
+                  {(s.folders ?? []).map((f) => (
+                    <div key={f.path} className="sub-row">
+                      <span className="sub-name">{f.path}</span>
+                      <span className="muted">{f.about}</span>
+                      <button
+                        className="mini"
+                        aria-label={`${t('移除文件夹', 'Remove folder')}: ${f.path}`}
+                        onClick={() => set({ folders: (s.folders ?? []).filter((x) => x.path !== f.path) })}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <div className="inline">
+                    <input
+                      className="grow"
+                      value={folderPath}
+                      onChange={(e) => setFolderPath(e.target.value)}
+                      placeholder={t('文件夹，如 E:\\研究', 'Folder, e.g. E:\\research')}
+                      aria-label={t('文件夹路径', 'Folder path')}
+                    />
+                    <input
+                      className="grow"
+                      value={folderAbout}
+                      onChange={(e) => setFolderAbout(e.target.value)}
+                      placeholder={t('放的是什么', 'What it holds')}
+                      aria-label={t('文件夹用途', 'What the folder holds')}
+                    />
+                    <button
+                      className="btn"
+                      disabled={!/^[A-Za-z]:[\\/]/.test(folderPath.trim())}
+                      onClick={() => {
+                        const path = folderPath
+                          .trim()
+                          .replace(/\//g, '\\')
+                          .replace(/(.{3,}?)\\+$/, '$1');
+                        const about = folderAbout.trim() || undefined;
+                        set({ folders: [...(s.folders ?? []).filter((x) => x.path !== path), { path, about }] });
+                        setFolderPath('');
+                        setFolderAbout('');
+                      }}
+                    >
+                      {t('添加', 'Add')}
+                    </button>
+                  </div>
+                  {(s.folders ?? []).length > 0 && (
+                    <div className="inline">
+                      <code className="grow install-cmd" aria-label={t('安装命令', 'Install command')}>
+                        {installCommand(s.folders!)}
+                      </code>
+                      <button
+                        className="btn"
+                        onClick={() =>
+                          void navigator.clipboard
+                            ?.writeText(installCommand(s.folders!))
+                            .then(() => toast(t('已复制安装命令', 'Install command copied')))
+                        }
+                      >
+                        {t('复制安装命令', 'Copy install command')}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </section>
               <section>
                 <div className="sec-title">

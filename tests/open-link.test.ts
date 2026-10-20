@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { installCommand } from '../src/ui/localPaths';
 import { openUrl } from '../src/ui/markdown';
 import helper from '../tools/open-link/open-link.js?raw';
 
@@ -47,5 +48,11 @@ describe('open-link helper', () => {
     expect(decide('file:///D:/notes', ['D:\\'], kindOf).error).toBeDefined();
     expect(decide('ap-open:%E0%A4%A', ['D:\\'], kindOf).error).toBeDefined();
     expect(decide('ap-open://D%3A%5Cnotes', ['D:\\'], kindOf).open).toBe('D:\\notes');
+  });
+
+  it('is installed for the folders listed in Settings', () => {
+    expect(installCommand([{ path: 'E:\\research' }, { path: 'D:\\my notes' }])).toBe(
+      'powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Roots "E:\\research;D:\\my notes"',
+    );
   });
 });

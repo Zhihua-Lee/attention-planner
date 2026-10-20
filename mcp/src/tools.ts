@@ -80,8 +80,10 @@ waiting (look before proposing again); withdraw_proposal takes back one of yours
 history (when each step was checked, when it was done, moved or snoozed, and what was planned then): use it to learn
 when and how long the owner actually does such things before you suggest a time. A note is Markdown: when you add a
 task or write its note, put in what the owner needs to start without looking around: a link to where it came from (a
-web page, an issue, a document), and the full path of the local folder or file to work in, in backticks
-(\`D:\\notes\\plan.md\`); the app turns such a path into a link that opens it on the owner's computer.`;
+web page, an issue, a document), and the full path of the local folder or file to work in, in backticks; the app
+turns such a path into a link that opens it on the owner's computer. "what_now" also returns local_folders, the
+folders the owner works in and what each holds: write paths inside them (only those open with a click), and do not
+guess paths the owner has not given you or you have not seen.`;
 
 /** Words for the AI are in English (the owner reads the same things in their language in the app). */
 const en = (_zh: string, english: string) => english;
@@ -245,7 +247,7 @@ export function createServer(c: ToolContext): McpServer {
     {
       title: 'What to do now',
       description:
-        'The task to do at this moment and why, a few alternatives, the current and next calendar event, and a warning if a deadline will not fit.',
+        "The task to do at this moment and why, a few alternatives, the current and next calendar event, and a warning if a deadline will not fit; also the owner's long-term goal and the local folders they work in.",
       inputSchema: {},
       annotations: read,
     },
@@ -263,6 +265,7 @@ export function createServer(c: ToolContext): McpServer {
       return text(
         clean({
           long_term_goal: doc.settings.goal?.trim() || undefined,
+          local_folders: doc.settings.folders?.map((f) => clean({ path: f.path, holds: f.about })),
           now: `${today} ${timeOf(m)} (${WEEK[isoWeekday(today) - 1]}, ${ws.timeZone})`,
           in_event_now: current && eventWords(current),
           next_event: next && eventWords(next),

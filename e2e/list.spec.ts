@@ -89,6 +89,30 @@ test('a local path in the note is a link: copied, or opened where this device ca
   expect(await page.evaluate(() => (window as unknown as { left: boolean }).left)).toBe(true);
 });
 
+test('the folders you work in are listed in Settings, with the install command for them', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await start(page);
+  await page.getByRole('button', { name: '设置' }).click();
+  const sheet = page.getByRole('dialog', { name: '设置' });
+  const add = sheet.getByRole('button', { name: '添加', exact: true });
+  await sheet.getByRole('textbox', { name: '文件夹路径' }).fill('研究');
+  await expect(add).toBeDisabled(); // not a full path
+  await sheet.getByRole('textbox', { name: '文件夹路径' }).fill('E:/research/');
+  await sheet.getByRole('textbox', { name: '文件夹用途' }).fill('论文和数据');
+  await add.click();
+  await sheet.getByRole('textbox', { name: '文件夹路径' }).fill('D:\\my notes');
+  await add.click();
+  await expect(sheet.locator('.sub-row .sub-name')).toHaveText(['E:\\research', 'D:\\my notes']);
+  await expect(sheet.locator('.sub-row').first()).toContainText('论文和数据');
+  const command = 'powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Roots "E:\\research;D:\\my notes"';
+  await expect(sheet.getByLabel('安装命令')).toHaveText(command);
+  await sheet.getByRole('button', { name: '复制安装命令' }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command);
+
+  await sheet.getByRole('button', { name: '移除文件夹: D:\\my notes' }).click();
+  await expect(sheet.locator('.sub-row .sub-name')).toHaveText(['E:\\research']);
+});
+
 test('filters follow the tasks: today includes repeating work; empty ones hide; areas are chips', async ({ page }) => {
   await start(page);
   await page.getByRole('tab', { name: '清单' }).click();

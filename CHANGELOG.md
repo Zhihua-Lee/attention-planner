@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.50 — 2026-10-20
+
+- **Your folders, set by you**: 设置 → 本地路径 now lists the folders you work in, each with what it holds, and syncs.
+  The connected AI reads them (`what_now` returns `local_folders`) and writes paths inside them instead of following a
+  built-in example. The install command for the open-link helper is made from the same list (复制安装命令), and the
+  helper now runs from wherever you put it.
+
 ## 0.2.49 — 2026-10-20
 
 - **Local paths in a note open**: a full path such as D:\notes\plan.md (or one with spaces in backticks) is a link.

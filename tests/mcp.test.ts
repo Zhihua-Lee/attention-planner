@@ -470,6 +470,22 @@ describe('the long-term goal', () => {
     remote.doc = setSettings(remote.doc!, wallCtx(), { goal: undefined });
     expect((await call('what_now')).body.long_term_goal).toBeUndefined();
   });
+
+  it('what_now gives the AI the folders the owner works in, and the instructions point to them', async () => {
+    const remote = new MemoryRemote();
+    remote.doc = setSettings(seed(), wallCtx(), {
+      folders: [{ path: 'E:\\research', about: '论文和数据' }, { path: 'E:\\notes' }],
+    });
+    const { client, call } = await connect(remote);
+    expect((await call('what_now')).body.local_folders).toEqual([
+      { path: 'E:\\research', holds: '论文和数据' },
+      { path: 'E:\\notes' },
+    ]);
+    expect(client.getInstructions()).toMatch(/local_folders/);
+    expect(client.getInstructions()).not.toMatch(/D:\\/);
+    remote.doc = setSettings(remote.doc!, wallCtx(), { folders: undefined });
+    expect((await call('what_now')).body.local_folders).toBeUndefined();
+  });
 });
 
 describe('the capture link', () => {

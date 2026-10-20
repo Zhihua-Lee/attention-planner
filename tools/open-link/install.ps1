@@ -1,13 +1,13 @@
 <#
   Lets Attention Planner open local paths on this Windows account: registers the ap-open: link scheme for the current
-  user (no administrator needed) and copies the helper into -Dir. Only folders and .md, .txt, .pdf and image files
-  inside -Roots (several separated by semicolons) are opened. Run it again to change -Roots; uninstall.ps1 removes it
-  all.
+  user (no administrator needed), running the helper from this folder or from a copy in -Dir. Only folders and .md,
+  .txt, .pdf and image files inside -Roots (several separated by semicolons; the folders listed in Settings > Local
+  paths, whose install command fills them in) are opened. Run it again to change -Roots; uninstall.ps1 removes it all.
 
-  powershell -ExecutionPolicy Bypass -File tools\open-link\install.ps1 -Dir D:\Tools\ap-open -Roots D:\
+  powershell -ExecutionPolicy Bypass -File .\install.ps1 -Roots "D:\research;D:\notes"
 #>
 param(
-  [Parameter(Mandatory = $true)] [string] $Dir,
+  [string] $Dir = $PSScriptRoot,
   [Parameter(Mandatory = $true)] [string[]] $Roots
 )
 $ErrorActionPreference = 'Stop'
@@ -22,7 +22,8 @@ $roots = foreach ($r in ($Roots -split ';' | Where-Object { $_.Trim() })) {
 
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 $script = Join-Path $Dir 'open-link.js'
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'open-link.js') -Destination $script -Force
+$source = Join-Path $PSScriptRoot 'open-link.js'
+if ([IO.Path]::GetFullPath($source) -ne $script) { Copy-Item -LiteralPath $source -Destination $script -Force }
 $roots | Set-Content -LiteralPath (Join-Path $Dir 'roots.txt') -Encoding Unicode
 
 $key = 'HKCU:\Software\Classes\ap-open'

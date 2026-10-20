@@ -18,3 +18,7 @@ export function onNoteClick(e: MouseEvent, t: T) {
     () => toast(path),
   ) ?? toast(path);
 }
+
+/** The command that installs the open-link helper for these folders, run in the helper's own folder. */
+export const installCommand = (folders: { path: string }[]) =>
+  `powershell -ExecutionPolicy Bypass -File .\\install.ps1 -Roots "${folders.map((f) => f.path).join(';')}"`;

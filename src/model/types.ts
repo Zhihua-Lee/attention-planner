@@ -183,6 +183,9 @@ export type Settings = {
   goal?: string;
   /** Show the goal's first line at the top of NOW (off unless turned on). */
   showGoal?: boolean;
+  /** The owner's working folders on their computers, each with what it holds: the AI writes paths under them, and the
+   * open-link helper is installed to open what is inside them. */
+  folders?: { path: string; about?: string }[];
   /** Opening a task scrolls past its checked steps to the first one not yet checked. */
   skipDoneSteps?: boolean;
   /** Checking a task's last open step completes it (or finishes its round); otherwise (the default) only "done" does. */

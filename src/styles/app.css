@@ -1856,6 +1856,13 @@ mark {
 }
 .sub-row .sub-name {
   font-weight: 600;
+  overflow-wrap: anywhere;
+}
+/* the open-link install command, with the folders filled in */
+.install-cmd {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 .sub-row .muted {
   flex: 1;

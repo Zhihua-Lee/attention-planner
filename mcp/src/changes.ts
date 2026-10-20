@@ -66,7 +66,7 @@ export const newTaskFields = {
     .max(20000)
     .optional()
     .describe(
-      'Markdown: where the task came from (a link) and the local folders or files to work in (full paths in backticks, `D:\\notes\\plan.md`).',
+      'Markdown: where the task came from (a link) and the local folders or files to work in (full paths in backticks, inside the local_folders what_now returns).',
     ),
   due: daySchema.optional(),
   due_time: timeSchema.optional(),
