@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.52 — 2026-10-20
+
+- **Fix: installing in place**: without `-Dir`, the open-link installer stopped with "The path is not of a legal
+  form", because Windows PowerShell 5.1 leaves the script's own folder empty in a parameter's default. It now installs
+  in its own folder as intended.
+
 ## 0.2.51 — 2026-10-20
 
 - **Fix: installing for a whole drive**: the copied install command wrote a drive as `"D:\"`, which Windows reads as

@@ -7,10 +7,11 @@
   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Roots "D:\research;D:\notes"
 #>
 param(
-  [string] $Dir = $PSScriptRoot,
+  [string] $Dir,
   [Parameter(Mandatory = $true)] [string[]] $Roots
 )
 $ErrorActionPreference = 'Stop'
+if (-not $Dir) { $Dir = $PSScriptRoot } # empty in a parameter default under Windows PowerShell 5.1
 
 $Dir = [IO.Path]::GetFullPath($Dir)
 $roots = foreach ($r in ($Roots -split ';' | Where-Object { $_.Trim() })) {
