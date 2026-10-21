@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.54 — 2026-10-21
+
+- **Security updates for the build tools**: vite 8.3.5 (launch-editor fixes on Windows) and wrangler 4.151.3 (its
+  miniflare, undici and sharp advisories); `npm audit` is clean. CI now takes the latest Node 24 each run (the October
+  2026 Node security release is 24.22.1). Nothing changes in the app; the deployed site and Workers never ran on Node.
+
 ## 0.2.53 — 2026-10-20
 
 - **Where to run the install command**: under the copied install command, 设置 → 本地路径 now says to run it inside the

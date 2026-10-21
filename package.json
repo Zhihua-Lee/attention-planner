@@ -1,6 +1,6 @@
 {
   "name": "attention-planner",
-  "version": "0.2.53",
+  "version": "0.2.54",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -33,7 +33,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20261004.1",
+    "@cloudflare/workers-types": "5.20261021.1",
     "@playwright/test": "1.58.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -42,10 +42,10 @@
     "fake-indexeddb": "6.2.5",
     "prettier": "3.9.9",
     "typescript": "5.9.3",
-    "vite": "8.3.2",
+    "vite": "8.3.5",
     "vite-plugin-pwa": "2.0.0",
     "vitest": "5.0.3",
-    "wrangler": "^4.127.1"
+    "wrangler": "^4.151.3"
   },
   "engines": {
     "node": ">=22"
