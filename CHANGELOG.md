@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.55 — 2026-10-21
+
+- **No browser menu on right-click**: right-clicking the app no longer opens the browser's page menu (back, reload,
+  save as, inspect). It still opens in a text field, on a link or an image, and over selected text, so copy, paste and
+  "open in new tab" work; a long press on a phone is unchanged.
+
 ## 0.2.54 — 2026-10-21
 
 - **Security updates for the build tools**: vite 8.3.5 (launch-editor fixes on Windows) and wrangler 4.151.3 (its

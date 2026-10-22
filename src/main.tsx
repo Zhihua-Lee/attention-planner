@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { store } from './store/store';
 import { App } from './ui/App';
+import { quietContextMenu } from './ui/contextMenu';
 import './styles/app.css';
 
 void store.init();
+quietContextMenu();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

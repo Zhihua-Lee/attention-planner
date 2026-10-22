@@ -89,6 +89,35 @@ test('a local path in the note is a link: copied, or opened where this device ca
   expect(await page.evaluate(() => (window as unknown as { left: boolean }).left)).toBe(true);
 });
 
+test('a right-click shows no browser menu, except in a text field, on a link or over selected text', async ({
+  page,
+}) => {
+  await start(page);
+  await add(page, '整理书架');
+  // Whether the browser would show its own menu for a right-click on the first element matching the selector.
+  const menu = (selector: string) =>
+    page.evaluate((s) => {
+      const el = document.querySelector(s)!;
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 });
+      return el.dispatchEvent(e);
+    }, selector);
+  expect(await menu('.row .tt')).toBe(false);
+  expect(await menu('.filters')).toBe(false);
+  expect(await menu('#capture')).toBe(true);
+  // Over selected text the menu is there to copy it (rows themselves are not selectable on a phone, so a line of text).
+  await page.evaluate(() => {
+    const p = document.createElement('p');
+    p.id = 'some-text';
+    p.textContent = '一段文字';
+    document.querySelector('main')!.append(p);
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(r);
+  });
+  expect(await menu('#some-text')).toBe(true);
+});
+
 test('the folders you work in are listed in Settings, with the install command for them', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await start(page);
