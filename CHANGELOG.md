@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.60 — 2026-10-22
+
+- **Fix**: on a row whose step has a deadline, a long step no longer runs over the task's title; the label ends in "…".
+
 ## 0.2.59 — 2026-10-22
 
 - **A tidier NOW card**, in four parts from top to bottom: the time (free until when, and what comes then); the task,

@@ -444,3 +444,20 @@ test('“by area”: while a long section scrolls past, its name stays near the 
     expect(Math.abs(box.y + box.height / 2 - middle)).toBeLessThan(60);
   }
 });
+
+test('a long step deadline on a row ends in "…" and leaves the title readable', async ({ page }) => {
+  await start(page);
+  await add(page, '换电池');
+  const detail = await openRow(page, '换电池');
+  const box = detail.getByRole('textbox', { name: '添加步骤' });
+  await box.fill('明天 检查电池健康、部件与维修历史、拍照和刷视频时会不会自动关机，有问题就带手机回店');
+  await box.press('Enter');
+  await page.getByRole('button', { name: '收起' }).click();
+  const title = (await row(page, '换电池').locator('.tt').boundingBox())!;
+  const meta = (await row(page, '换电池').locator('.meta').boundingBox())!;
+  expect(title.width).toBeGreaterThan(30);
+  expect(meta.x).toBeGreaterThanOrEqual(title.x + title.width);
+  const label = row(page, '换电池').locator('.meta > span').last();
+  expect(await label.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  expect((await label.boundingBox())!.x).toBeGreaterThanOrEqual(meta.x - 1);
+});
