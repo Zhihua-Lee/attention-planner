@@ -708,6 +708,25 @@ main {
   color: var(--muted);
   font: 12px var(--font-mono);
 }
+/* right-click menu */
+.ctx-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+.ctx-menu .menu-item {
+  padding: 6px 10px;
+}
+.menu-item.danger {
+  color: var(--late);
+}
+.ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
 .menu-row {
   display: flex;
   gap: 4px;

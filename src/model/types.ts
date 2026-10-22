@@ -177,6 +177,10 @@ export type Settings = {
   remind?: { dueAt?: Time; slotLead?: number };
   /** Buttons shown after each step (dragging and deleting are always there). */
   stepTools?: StepTool[];
+  /** A step's actions: buttons after it (the default), or a menu on right-click or a long press instead. */
+  stepActions?: 'buttons' | 'menu';
+  /** A task row's actions: the ☀ button on it (the default), or a menu on right-click or a long press instead. */
+  rowActions?: 'buttons' | 'menu';
   /** Tapping a free time on the calendar suggests tasks for it (on unless turned off). */
   slotSuggestions?: boolean;
   /** The owner's long-term goal, in their own words (Markdown): the longest context, for the AI and, if shown, NOW. */

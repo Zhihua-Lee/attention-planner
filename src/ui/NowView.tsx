@@ -3,12 +3,13 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { addDays, dayOf, minutesOf, nowMinutes, timeOf, weekStart } from '../model/dates';
 import { agenda, capacity, currentEvent, eventsOn, freeUntilNext, nowCandidates, stepProgress } from '../model/derive';
 import { layoutBlocks, type Block } from '../model/layout';
-import { complete, remainingEffort } from '../model/doc';
+import { complete, remainingEffort, removePlan } from '../model/doc';
 import type { CalendarEvent, Day } from '../model/types';
 import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
 import { EventPeek, SlotPeek, TaskPeek } from './Peek';
 import { ReserveSheet } from './Reserve';
+import { ContextMenu, useMenu, type MenuItem } from './RightMenu';
 import { dueLabel, duration, monthDay, partName, reasonText, relDay, ruleLabel, useT, weekdayName } from './text';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -264,12 +265,14 @@ const GUTTER = 50; // room for the hour labels
 /**
  * One day: what has no set time on top (all-day events, deadlines, plans for the day), then all 24 hours in a
  * scrolling column that opens at the current time. Overlapping items share the width side by side. Tap an item for
- * details; tap an empty time to reserve it.
+ * details; tap an empty time to reserve it. A right-click on a reserved time offers to finish, move or remove it, on
+ * an event to reserve the time after it, and on an empty time reserves it.
  */
 function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) => void }) {
   const { doc } = useStore();
   const { t, lang } = useT();
   const peek = usePopover<string>();
+  const menu = useMenu();
   const [reserve, setReserve] = useState<number | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const items = agenda(doc, day, now);
@@ -319,6 +322,39 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
 
   const events = new Map(eventsOn(doc, day, true).map((e) => [e.id, e]));
   const togglePeek = (key: string) => (ev: React.MouseEvent<HTMLElement>) => peek.toggle(key, ev.currentTarget);
+  const blockMenu = (b: (typeof placed)[number]) => (ev: React.MouseEvent<HTMLElement>) => {
+    ev.preventDefault();
+    const el = ev.currentTarget;
+    const task = b.taskId ? doc.tasks[b.taskId] : undefined;
+    const items: MenuItem[] = task
+      ? [
+          {
+            label:
+              task.repeat?.mode === 'reopen' ? t('完成本轮', 'Finish this round') : t('完成任务', 'Finish the task'),
+            run: () => {
+              try {
+                store.commit((d, c) => complete(d, c, task.id));
+                toast(t(`完成了“${task.title}”`, `Done: “${task.title}”`), () => store.undo());
+              } catch (e) {
+                toast(e instanceof Error ? e.message : String(e));
+              }
+            },
+          },
+          { label: t('改时间…', 'Change time…'), run: () => peek.toggle(`e:${b.key}`, el) },
+          { label: t('打开任务', 'Open task'), run: () => open(task.id) },
+          'sep',
+          {
+            label: t('取消这次预留', 'Remove this time'),
+            danger: true,
+            run: () => {
+              store.commit((d, c) => removePlan(d, c, task.id, b.key));
+              toast(t('已删除这次安排', 'Arrangement removed'), () => store.undo());
+            },
+          },
+        ]
+      : [{ label: t(`从 ${timeOf(b.e)} 起预留…`, `Reserve from ${timeOf(b.e)}…`), run: () => setReserve(b.e) }];
+    menu.openAt(ev, el, b.title, items);
+  };
   return (
     <>
       {(allDay.length > 0 || loose.length > 0) && (
@@ -363,6 +399,11 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
               if (e.target !== e.currentTarget) return;
               setReserve(Math.min(23 * 60 + 30, Math.floor(e.nativeEvent.offsetY / MIN / 30) * 30));
             }}
+            onContextMenu={(e) => {
+              if (e.target !== e.currentTarget) return;
+              e.preventDefault();
+              setReserve(Math.min(23 * 60 + 30, Math.floor(e.nativeEvent.offsetY / MIN / 30) * 30));
+            }}
           >
             {placed.map((b) => {
               const height = Math.max(18, (b.e - b.s) * MIN - 2);
@@ -381,6 +422,7 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
                   }}
                   aria-expanded={peek.is(b.key)}
                   onClick={togglePeek(b.key)}
+                  onContextMenu={blockMenu(b)}
                   title={b.sub ? `${b.title} · ${b.sub}` : b.title}
                 >
                   <span className="bt" style={short ? undefined : { WebkitLineClamp: lines }}>
@@ -411,13 +453,18 @@ function DayView({ day, now, open }: { day: Day; now: Date; open: (id: string) =
             }
             const ev = events.get(key);
             if (ev) return <EventPeek event={ev} />;
-            const b = placed.find((x) => x.key === key);
+            // "e:" opens a reserved time at changing it (from its right-click menu).
+            const slot = key.startsWith('e:') ? key.slice(2) : key;
+            const b = placed.find((x) => x.key === slot);
             const task = b?.taskId ? doc.tasks[b.taskId] : undefined;
-            const entry = task?.plan.find((x) => x.id === key);
-            return task && entry ? <SlotPeek task={task} entry={entry} open={open} close={peek.close} /> : null;
+            const entry = task?.plan.find((x) => x.id === slot);
+            return task && entry ? (
+              <SlotPeek task={task} entry={entry} open={open} close={peek.close} editing={slot !== key} />
+            ) : null;
           })()}
         </Popover>
       )}
+      {menu.menu && <ContextMenu menu={menu.menu} onClose={menu.close} />}
       {reserve !== null && <ReserveSheet day={day} start={reserve} onClose={() => setReserve(null)} />}
     </>
   );

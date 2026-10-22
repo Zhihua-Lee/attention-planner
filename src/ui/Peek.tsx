@@ -39,15 +39,18 @@ export function SlotPeek({
   entry,
   open,
   close,
+  editing: startEditing = false,
 }: {
   task: Task;
   entry: PlanEntry;
   open: (id: string) => void;
   close: () => void;
+  /** Open straight at changing the time. */
+  editing?: boolean;
 }) {
   const { doc } = useStore();
   const { t, lang } = useT();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const today = dayOf(new Date());
   if (editing)
     return (

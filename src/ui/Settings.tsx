@@ -446,8 +446,32 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </section>
               <section>
                 <div className="sec-title">
-                  <h3>{t('步骤后面的按钮', 'Buttons after each step')}</h3>
-                  <Info label={t('步骤后面的按钮是什么', 'What the step buttons are')}>
+                  <h3>{t('任务行的操作', 'Actions on a task row')}</h3>
+                  <Info label={t('任务行的操作是什么', 'What the row actions are')}>
+                    <p>
+                      {t(
+                        '“按钮”：电脑上鼠标移到一行，右边出现 ☀（加到今天）。“右键菜单”：不显示这个按钮，在一行上点右键（手机上长按）弹出菜单：完成、加到今天、截止、安排、找时间、重要、暂缓、区域、上级任务、打开、删除。',
+                        '“Buttons”: on a computer, ☀ (add to today) shows at the right of a row under the pointer. “Right-click menu”: no button; right-click a row (long-press on a phone) for a menu: done, add to today, deadline, plan, find time, important, snooze, area, parent task, open, delete.',
+                      )}
+                    </p>
+                    <p>
+                      {t(
+                        '两种都可以按 T 加到今天，手机上也都可以左滑。',
+                        'Either way, T adds a selected row to today, and a phone can swipe left.',
+                      )}
+                    </p>
+                  </Info>
+                </div>
+                <ActionsChoice
+                  value={s.rowActions}
+                  label={t('任务行的操作', 'Actions on a task row')}
+                  set={(v) => set({ rowActions: v })}
+                />
+              </section>
+              <section>
+                <div className="sec-title">
+                  <h3>{t('步骤的操作', 'Actions on a step')}</h3>
+                  <Info label={t('步骤的操作是什么', 'What the step actions are')}>
                     <p>
                       {t(
                         '任务里每个步骤后面的小按钮：今天做这一步（整个任务也进入今天，NOW 先给这一步）、给步骤设截止、用时（里面可以给这一步找时间预留）、重复，或者把步骤变成单独的任务。',
@@ -460,33 +484,46 @@ export function Settings({ onClose }: { onClose: () => void }) {
                         'Only the ticked ones show, and on a computer only while the pointer is over the step. Dragging and deleting are always there, and today, a deadline, estimate or repeat already set shows as a small tag even when its button is off.',
                       )}
                     </p>
+                    <p>
+                      {t(
+                        '选“右键菜单”的话，步骤后面不放按钮，在步骤上点右键（手机上长按）弹出全部这些操作和删除。',
+                        'With “Right-click menu”, no buttons sit after the steps; right-click a step (long-press on a phone) for all of these and delete.',
+                      )}
+                    </p>
                   </Info>
                 </div>
-                <div className="checks">
-                  {(
-                    [
-                      ['today', t('今日', 'Today')],
-                      ['due', t('截止', 'Deadline')],
-                      ['effort', t('用时与找时间', 'Effort and Find time')],
-                      ['repeat', t('重复', 'Repeat')],
-                      ['promote', t('独立成任务', 'Make it a task')],
-                    ] as const
-                  ).map(([k, n]) => {
-                    const tools = s.stepTools ?? DEFAULT_STEP_TOOLS;
-                    return (
-                      <label key={k} className="check-row">
-                        <input
-                          type="checkbox"
-                          checked={tools.includes(k)}
-                          onChange={(e) =>
-                            set({ stepTools: e.target.checked ? [...tools, k] : tools.filter((x) => x !== k) })
-                          }
-                        />
-                        {n}
-                      </label>
-                    );
-                  })}
-                </div>
+                <ActionsChoice
+                  value={s.stepActions}
+                  label={t('步骤的操作', 'Actions on a step')}
+                  set={(v) => set({ stepActions: v })}
+                />
+                {s.stepActions !== 'menu' && (
+                  <div className="checks">
+                    {(
+                      [
+                        ['today', t('今日', 'Today')],
+                        ['due', t('截止', 'Deadline')],
+                        ['effort', t('用时与找时间', 'Effort and Find time')],
+                        ['repeat', t('重复', 'Repeat')],
+                        ['promote', t('独立成任务', 'Make it a task')],
+                      ] as const
+                    ).map(([k, n]) => {
+                      const tools = s.stepTools ?? DEFAULT_STEP_TOOLS;
+                      return (
+                        <label key={k} className="check-row">
+                          <input
+                            type="checkbox"
+                            checked={tools.includes(k)}
+                            onChange={(e) =>
+                              set({ stepTools: e.target.checked ? [...tools, k] : tools.filter((x) => x !== k) })
+                            }
+                          />
+                          {n}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
               <section>
                 <div className="sec-title">
@@ -1366,5 +1403,29 @@ export function Settings({ onClose }: { onClose: () => void }) {
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** Buttons on the row (or step), or a menu on right-click and long press instead. */
+function ActionsChoice({
+  value,
+  label,
+  set,
+}: {
+  value?: 'buttons' | 'menu';
+  label: string;
+  set: (v: 'buttons' | 'menu') => void;
+}) {
+  const { t } = useT();
+  const on = value ?? 'buttons';
+  return (
+    <div className="seg" role="radiogroup" aria-label={label}>
+      <button role="radio" aria-checked={on === 'buttons'} onClick={() => set('buttons')}>
+        {t('按钮', 'Buttons')}
+      </button>
+      <button role="radio" aria-checked={on === 'menu'} onClick={() => set('menu')}>
+        {t('右键菜单', 'Right-click menu')}
+      </button>
+    </div>
   );
 }

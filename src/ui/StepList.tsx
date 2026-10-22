@@ -18,6 +18,7 @@ import {
 import type { Step, StepTool, Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { AutoText, Popover, toast, usePopover } from './common';
+import { ContextMenu, leaveToBrowser, useLongPress, useMenu, type MenuItem } from './RightMenu';
 import { DayOptions, EffortPicker, StepRepeatEditor } from './pickers';
 import { dueLabel, duration, planLabel, ruleLabel, useT } from './text';
 
@@ -33,13 +34,16 @@ export const DEFAULT_STEP_TOOLS: StepTool[] = ['today', 'due', 'repeat'];
 
 /**
  * The steps of a task. Drag the handle (or use ↑/↓ on it) to reorder. A step's own deadline, estimate and repeat show
- * as small tags; the buttons after each step are chosen in Settings so the list stays quiet.
+ * as small tags; the buttons after each step are chosen in Settings so the list stays quiet, or (if so chosen) a
+ * right-click or a long press on a step opens a menu of them instead.
  */
 export function StepList({ task, now }: { task: Task; now: Date }) {
   const { doc } = useStore();
   const { t, lang } = useT();
   const tools = doc.settings.stepTools ?? DEFAULT_STEP_TOOLS;
+  const menuMode = doc.settings.stepActions === 'menu';
   const pop = usePopover<string>();
+  const menu = useMenu();
   const steps = stepsOf(task);
   const [dragging, setDragging] = useState<string[] | null>(null);
   // The dragged order until it is saved. Motion reports the drop a frame after the handle is let go, while the list
@@ -93,6 +97,7 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
               step={s}
               now={now}
               tools={tools}
+              onMenu={menuMode ? (at, el, items) => menu.openAt(at, el, t('步骤', 'Step'), items) : undefined}
               first={i === 0}
               active={active === sid}
               onActive={() => setActive(sid)}
@@ -104,6 +109,7 @@ export function StepList({ task, now }: { task: Task; now: Date }) {
           ) : null;
         })}
       </Reorder.Group>
+      {menu.menu && <ContextMenu menu={menu.menu} onClose={menu.close} />}
       {pop.open && open && (
         <Popover anchor={pop.open.el} onClose={pop.close} label={t('步骤', 'Step')}>
           {kind === 'due' && (
@@ -191,6 +197,7 @@ function StepRow({
   step,
   now,
   tools,
+  onMenu,
   first,
   last,
   active,
@@ -203,6 +210,8 @@ function StepRow({
   step: Step;
   now: Date;
   tools: StepTool[];
+  /** Set when the step's actions are in a menu instead of buttons. */
+  onMenu?: (at: { clientX: number; clientY: number }, el: HTMLElement, items: MenuItem[]) => void;
   first: boolean;
   last: boolean;
   active: boolean;
@@ -226,6 +235,26 @@ function StepRow({
       () => store.undo(),
     );
   };
+  const promote = () => {
+    commit((d, c) => promoteStep(d, c, task.id, step.id)[0]);
+    toast(
+      t(`“${step.text}”成了独立的任务，是这里的子任务`, `“${step.text}” is now its own task, a subtask of this one`),
+      () => store.undo(),
+    );
+  };
+  const remove = () => commit((d, c) => removeStep(d, c, task.id, step.id));
+  const items = (el: HTMLElement): MenuItem[] => [
+    ...(!checked
+      ? [{ label: inToday ? t('☀ 移出今天', '☀ Off today') : t('☀ 今天做这一步', '☀ Do it today'), run: toggleToday }]
+      : []),
+    { label: t('截止…', 'Deadline…'), run: () => onOpen('due', el) },
+    { label: t('用时与找时间…', 'Effort and Find time…'), run: () => onOpen('effort', el) },
+    { label: t('重复…', 'Repeat…'), run: () => onOpen('repeat', el) },
+    { label: t('独立成任务', 'Make it a task'), run: promote },
+    'sep',
+    { label: t('删除', 'Delete'), run: remove, danger: true },
+  ];
+  const press = useLongPress((at, el) => onMenu?.(at, el, items(el)));
   const tag = (kind: string, text: string, cls = '') => (
     <button
       className={`step-tag ${cls}`}
@@ -242,7 +271,20 @@ function StepRow({
       as="div"
       className={`step${checked ? ' done' : ''}${active ? ' active' : ''}`}
       data-step={step.id}
-      onClick={onActive}
+      onClick={() => !press.fired() && onActive()}
+      onContextMenu={(e) => {
+        if (!onMenu || leaveToBrowser(e)) return;
+        e.preventDefault();
+        onMenu(e, e.currentTarget, items(e.currentTarget));
+      }}
+      {...(onMenu
+        ? {
+            onPointerDown: press.onPointerDown,
+            onPointerMove: press.onPointerMove,
+            onPointerUp: press.onPointerUp,
+            onPointerCancel: press.onPointerCancel,
+          }
+        : {})}
       dragListener={false}
       dragControls={controls}
       onDragEnd={onDrop}
@@ -293,96 +335,85 @@ function StepRow({
           </span>
         )}
       </span>
-      <span className="step-tools">
-        {tools.includes('today') && !checked && (
-          <button
-            className={`mini${inToday ? ' on' : ''}`}
-            aria-pressed={inToday}
-            aria-label={`${inToday ? t('移出今天', 'Off today') : t('今天做这一步', 'Do this step today')}: ${step.text}`}
-            title={inToday ? t('移出今天', 'Off today') : t('今天做这一步', 'Do this step today')}
-            onClick={toggleToday}
-          >
-            ☀
-          </button>
-        )}
-        {tools.includes('due') && (
-          <button
-            className={`mini${step.due ? ' on' : ''}`}
-            aria-label={`${t('截止', 'Due')}: ${step.text}`}
-            aria-expanded={isOpen('due')}
-            onClick={(e) => onOpen('due', e.currentTarget)}
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
+      {!onMenu && (
+        <span className="step-tools">
+          {tools.includes('today') && !checked && (
+            <button
+              className={`mini${inToday ? ' on' : ''}`}
+              aria-pressed={inToday}
+              aria-label={`${inToday ? t('移出今天', 'Off today') : t('今天做这一步', 'Do this step today')}: ${step.text}`}
+              title={inToday ? t('移出今天', 'Off today') : t('今天做这一步', 'Do this step today')}
+              onClick={toggleToday}
             >
-              <rect x="3" y="5" width="18" height="16" rx="2" />
-              <path d="M3 10h18M8 3v4M16 3v4" />
-            </svg>
-          </button>
-        )}
-        {tools.includes('effort') && (
-          <button
-            className={`mini${step.effort ? ' on' : ''}`}
-            aria-label={`${t('用时', 'Effort')}: ${step.text}`}
-            aria-expanded={isOpen('effort')}
-            onClick={(e) => onOpen('effort', e.currentTarget)}
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
+              ☀
+            </button>
+          )}
+          {tools.includes('due') && (
+            <button
+              className={`mini${step.due ? ' on' : ''}`}
+              aria-label={`${t('截止', 'Due')}: ${step.text}`}
+              aria-expanded={isOpen('due')}
+              onClick={(e) => onOpen('due', e.currentTarget)}
             >
-              <circle cx="12" cy="13" r="8" />
-              <path d="M12 9v4l2 2M9 2h6" />
-            </svg>
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 10h18M8 3v4M16 3v4" />
+              </svg>
+            </button>
+          )}
+          {tools.includes('effort') && (
+            <button
+              className={`mini${step.effort ? ' on' : ''}`}
+              aria-label={`${t('用时', 'Effort')}: ${step.text}`}
+              aria-expanded={isOpen('effort')}
+              onClick={(e) => onOpen('effort', e.currentTarget)}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="13" r="8" />
+                <path d="M12 9v4l2 2M9 2h6" />
+              </svg>
+            </button>
+          )}
+          {tools.includes('repeat') && (
+            <button
+              className={`mini${step.repeat ? ' on' : ''}`}
+              aria-label={`${t('重复', 'Repeat')}: ${step.text}`}
+              aria-expanded={isOpen('repeat')}
+              onClick={(e) => onOpen('repeat', e.currentTarget)}
+            >
+              ↻
+            </button>
+          )}
+          {tools.includes('promote') && (
+            <button
+              className="mini"
+              aria-label={`${t('独立成任务', 'Make it a task')}: ${step.text}`}
+              onClick={promote}
+            >
+              ↗
+            </button>
+          )}
+          <button className="mini" aria-label={`${t('删除', 'Delete')}: ${step.text}`} onClick={remove}>
+            ×
           </button>
-        )}
-        {tools.includes('repeat') && (
-          <button
-            className={`mini${step.repeat ? ' on' : ''}`}
-            aria-label={`${t('重复', 'Repeat')}: ${step.text}`}
-            aria-expanded={isOpen('repeat')}
-            onClick={(e) => onOpen('repeat', e.currentTarget)}
-          >
-            ↻
-          </button>
-        )}
-        {tools.includes('promote') && (
-          <button
-            className="mini"
-            aria-label={`${t('独立成任务', 'Make it a task')}: ${step.text}`}
-            onClick={() => {
-              commit((d, c) => promoteStep(d, c, task.id, step.id)[0]);
-              toast(
-                t(
-                  `“${step.text}”成了独立的任务，是这里的子任务`,
-                  `“${step.text}” is now its own task, a subtask of this one`,
-                ),
-                () => store.undo(),
-              );
-            }}
-          >
-            ↗
-          </button>
-        )}
-        <button
-          className="mini"
-          aria-label={`${t('删除', 'Delete')}: ${step.text}`}
-          onClick={() => commit((d, c) => removeStep(d, c, task.id, step.id))}
-        >
-          ×
-        </button>
-      </span>
+        </span>
+      )}
     </Reorder.Item>
   );
 }

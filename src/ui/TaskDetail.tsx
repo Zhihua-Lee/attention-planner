@@ -407,7 +407,7 @@ function plannedDone(task: Task) {
 }
 
 /** Free times for a task; one tap reserves one. Without an estimate it looks for an hour and offers to keep that. */
-function FindTime({
+export function FindTime({
   task,
   now,
   onPick,

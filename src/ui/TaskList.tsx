@@ -2,7 +2,18 @@ import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, t
 import { forwardRef, useRef, useState, type CSSProperties } from 'react';
 import { addDays, dayOf } from '../model/dates';
 import { byArea, finishedTasks, listTasks, matches, nextOnly, openTasks, type Filter } from '../model/derive';
-import { inRound, plannedOn, reorderTasks, setSettings, toggleDay } from '../model/doc';
+import {
+  addArea,
+  addPlan,
+  inRound,
+  plannedOn,
+  remainingEffort,
+  removeTask,
+  reorderTasks,
+  setSettings,
+  toggleDay,
+} from '../model/doc';
+import { stillToReserve } from '../model/derive';
 import {
   complete,
   isFinished,
@@ -21,7 +32,9 @@ import { Popover, toast, usePopover } from './common';
 import { Capture } from './Capture';
 import { proposalsFor } from '../model/proposals';
 import { ProposalsBar } from './Proposals';
-import { TaskDetail } from './TaskDetail';
+import { FindTime, TaskDetail } from './TaskDetail';
+import { AreaPicker, DayOptions, LinkPicker, PlanPicker } from './pickers';
+import { ContextMenu, leaveToBrowser, useLongPress, useMenu, type MenuItem } from './RightMenu';
 import { dueLabel, planLabel, useT } from './text';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -414,6 +427,55 @@ function Row({
       );
   };
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  // The row's actions as a menu on right-click or a long press, if so chosen in Settings (instead of the ☀ button).
+  const menuMode = store.get().doc.settings.rowActions === 'menu';
+  const menu = useMenu();
+  const pop = usePopover<RowPick>();
+  const set = <K extends Parameters<typeof setField>[3]>(field: K, value: Task[K]) =>
+    commit((d, c) => setField(d, c, task.id, field, value));
+  const reopens = task.repeat?.mode === 'reopen';
+  const items = (el: HTMLElement): MenuItem[] => [
+    {
+      label: finished
+        ? reopens
+          ? t('重新打开本轮', 'Reopen this round')
+          : t('标为未完成', 'Mark not done')
+        : reopens
+          ? t('完成本轮', 'Finish this round')
+          : t('完成', 'Done'),
+      run: onCheck,
+    },
+    ...(!finished
+      ? [{ label: inToday ? t('☀ 移出今天', '☀ Off today') : t('☀ 加到今天', '☀ Add to today'), run: toggleToday }]
+      : []),
+    'sep',
+    { label: t('截止…', 'Deadline…'), run: () => pop.toggle('due', el) },
+    { label: t('安排…', 'Plan…'), run: () => pop.toggle('plan', el) },
+    ...(!finished && stillToReserve(task) > 0
+      ? [{ label: t('找时间…', 'Find time…'), run: () => pop.toggle('find', el) }]
+      : []),
+    {
+      label: task.star ? t('★ 取消重要', '★ Not important') : t('★ 标为重要', '★ Important'),
+      run: () => set('star', task.star ? undefined : true),
+    },
+    {
+      label: snoozed ? t('取消暂缓', 'Unsnooze') : t('暂缓', 'Snooze'),
+      run: () => set('snooze', snoozed ? undefined : { until: undefined }),
+    },
+    { label: t('区域…', 'Area…'), run: () => pop.toggle('area', el) },
+    { label: t('上级任务…', 'Parent task…'), run: () => pop.toggle('link', el) },
+    'sep',
+    { label: expanded ? t('收起', 'Close') : t('打开', 'Open'), run: toggle },
+    {
+      label: t('删除', 'Delete'),
+      danger: true,
+      run: () => {
+        commit((d, c) => removeTask(d, c, task.id));
+        toast(t(`已删除“${task.title}”`, `Deleted “${task.title}”`), () => store.undo());
+      },
+    },
+  ];
+  const press = useLongPress((at, el) => menu.openAt(at, el, task.title, items(el)));
   // The tap that ends a swipe must not also open or complete the task underneath.
   const swiped = useRef(0);
   const onSwipe = (_: unknown, info: PanInfo) => {
@@ -458,8 +520,21 @@ function Row({
         dragSnapToOrigin
         onDragStart={() => (swiped.current = Date.now())}
         onDragEnd={onSwipe}
+        onContextMenu={(e) => {
+          if (!menuMode || leaveToBrowser(e)) return;
+          e.preventDefault();
+          menu.openAt(e, e.currentTarget, task.title, items(e.currentTarget));
+        }}
+        {...(menuMode
+          ? {
+              onPointerDown: press.onPointerDown,
+              onPointerMove: press.onPointerMove,
+              onPointerUp: press.onPointerUp,
+              onPointerCancel: press.onPointerCancel,
+            }
+          : {})}
         onClickCapture={(e) => {
-          if (Date.now() - swiped.current < 400) {
+          if (Date.now() - swiped.current < 400 || press.fired()) {
             e.stopPropagation();
             e.preventDefault();
           }
@@ -570,7 +645,7 @@ function Row({
             )}
           </span>
         )}
-        {!expanded && !finished && (
+        {!expanded && !finished && !menuMode && (
           <button
             className={`myday-btn${inToday ? ' on' : ''}`}
             aria-pressed={inToday}
@@ -582,6 +657,8 @@ function Row({
           </button>
         )}
       </motion.div>
+      {menu.menu && <ContextMenu menu={menu.menu} onClose={menu.close} />}
+      {pop.open && <RowPicker task={task} now={now} which={pop.open.key} anchor={pop.open.el} close={pop.close} />}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -597,6 +674,118 @@ function Row({
         )}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+const commit = (fn: Parameters<typeof store.commit>[0]) => {
+  try {
+    store.commit(fn);
+  } catch (e) {
+    toast(e instanceof Error ? e.message : String(e));
+  }
+};
+
+type RowPick = 'due' | 'plan' | 'find' | 'area' | 'link';
+
+/** What a choice in a row's menu opens: the deadline, a plan, free times, the area or the parent task. */
+function RowPicker({
+  task,
+  now,
+  which,
+  anchor,
+  close,
+}: {
+  task: Task;
+  now: Date;
+  which: RowPick;
+  anchor: HTMLElement;
+  close: () => void;
+}) {
+  const { doc } = useStore();
+  const { t, lang } = useT();
+  const today = dayOf(now);
+  const id = task.id;
+  return (
+    <Popover anchor={anchor} onClose={close} label={task.title}>
+      {which === 'due' && (
+        <div className="menu">
+          <DayOptions
+            today={today}
+            title={`${t('截止', 'Due')} · ${task.title}`}
+            onPick={(day) => {
+              commit((d, c) => setField(d, c, id, 'due', day));
+              close();
+            }}
+          />
+          {task.due && (
+            <button
+              className="link-btn danger"
+              onClick={() => {
+                commit((d, c) => setField(d, c, id, 'due', undefined));
+                close();
+              }}
+            >
+              {t('清除截止', 'Clear the deadline')}
+            </button>
+          )}
+        </div>
+      )}
+      {which === 'plan' && (
+        <PlanPicker
+          doc={doc}
+          today={today}
+          effortLeft={remainingEffort(task)}
+          onPick={(p) => {
+            commit((d, c) => addPlan(d, c, id, p));
+            close();
+          }}
+        />
+      )}
+      {which === 'find' && (
+        <FindTime
+          task={task}
+          now={now}
+          onPick={(slot, keepEstimate) => {
+            commit((d, c) => {
+              const next = addPlan(d, c, id, slot);
+              return keepEstimate ? setField(next, c, id, 'effort', 60) : next;
+            });
+            toast(t(`已预留 ${planLabel(slot, today, lang)}`, `Reserved ${planLabel(slot, today, lang)}`), () =>
+              store.undo(),
+            );
+            close();
+          }}
+        />
+      )}
+      {which === 'area' && (
+        <AreaPicker
+          doc={doc}
+          value={task.areaId}
+          onPick={(areaId) => {
+            commit((d, c) => setField(d, c, id, 'areaId', areaId));
+            close();
+          }}
+          onCreate={(name) => {
+            commit((d, c) => {
+              const [n, gid] = addArea(d, c, name);
+              return setField(n, c, id, 'areaId', gid);
+            });
+            close();
+          }}
+        />
+      )}
+      {which === 'link' && (
+        <LinkPicker
+          doc={doc}
+          self={id}
+          value={task.linkTo}
+          onPick={(v) => {
+            commit((d, c) => setField(d, c, id, 'linkTo', v));
+            close();
+          }}
+        />
+      )}
+    </Popover>
   );
 }
 

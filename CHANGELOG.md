@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.56 — 2026-10-21
+
+- **Right-click menus**: Settings → 记录与清单 now has 任务行的操作 and 步骤的操作, each either 按钮 (as before) or
+  右键菜单. With the menu, a row has no ☀ button and a right-click (a long press on a phone) opens done, add to today,
+  deadline, plan, find time, important, snooze, area, parent task, open and delete; a step has no buttons after it and
+  its menu holds today, deadline, effort and find time, repeat, make it a task and delete. Choices that need more open
+  their picker beside the row or step. Arrows move in the menu, Enter chooses, Escape closes.
+- **Right-click on the NOW timeline**: a reserved time offers finish the task, change time, open the task and remove
+  this time; an event offers to reserve from its end; an empty time reserves it, like a tap.
+
 ## 0.2.55 — 2026-10-21
 
 - **No browser menu on right-click**: right-clicking the app no longer opens the browser's page menu (back, reload,
