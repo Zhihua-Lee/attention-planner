@@ -722,6 +722,21 @@ main {
 .menu-item.danger {
   color: var(--late);
 }
+.ctx-head {
+  padding: 4px 10px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  max-width: 260px;
+}
+.ctx-title {
+  font-weight: 600;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.ctx-note {
+  font-size: 12px;
+  color: var(--muted);
+}
 .ctx-sep {
   height: 1px;
   margin: 4px 6px;

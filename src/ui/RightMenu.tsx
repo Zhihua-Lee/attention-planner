@@ -3,8 +3,11 @@ import { createPortal } from 'react-dom';
 
 export type MenuItem = { label: string; run: () => void; danger?: boolean } | 'sep';
 
+/** A line on top of a menu saying what it is about (a calendar event: what, when, and where it comes from). */
+export type MenuHead = { title: string; note?: string };
+
 /** Where a menu opens and what is in it; `from` gets the focus back when it closes. */
-export type MenuState = { x: number; y: number; items: MenuItem[]; label: string; from: HTMLElement };
+export type MenuState = { x: number; y: number; items: MenuItem[]; label: string; from: HTMLElement; head?: MenuHead };
 
 /**
  * The state of one right-click menu. `openAt` takes the right-click (or a long press) and the element it belongs to;
@@ -15,11 +18,17 @@ export function useMenu() {
   return {
     menu,
     close: () => setMenu(null),
-    openAt: (at: { clientX: number; clientY: number }, from: HTMLElement, label: string, items: MenuItem[]) => {
+    openAt: (
+      at: { clientX: number; clientY: number },
+      from: HTMLElement,
+      label: string,
+      items: MenuItem[],
+      head?: MenuHead,
+    ) => {
       // The context-menu key gives no position: open below the element instead.
       const r = from.getBoundingClientRect();
       const keyed = !at.clientX && !at.clientY;
-      setMenu({ x: keyed ? r.left + 8 : at.clientX, y: keyed ? r.bottom : at.clientY, items, label, from });
+      setMenu({ x: keyed ? r.left + 8 : at.clientX, y: keyed ? r.bottom : at.clientY, items, label, from, head });
     },
   };
 }
@@ -129,6 +138,12 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
         }
       }}
     >
+      {menu.head && (
+        <div className="ctx-head">
+          <div className="ctx-title">{menu.head.title}</div>
+          {menu.head.note && <div className="ctx-note">{menu.head.note}</div>}
+        </div>
+      )}
       {menu.items.map((it, i) =>
         it === 'sep' ? (
           <div key={i} className="ctx-sep" role="separator" />

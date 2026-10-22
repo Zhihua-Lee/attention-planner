@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.57 — 2026-10-21
+
+- **Right-click in the week view**: every item has the same menu as in the day view, and a right-click on a day offers
+  to show that day or reserve time on it.
+- **Clearer event menus**: the menu of a calendar event now starts with its time and where it comes from (Outlook, a
+  subscribed calendar or an imported file, changed there), like its details. "Reserve after it" reads 结束后预留时段
+  (from its end) and is offered only while the event has not ended and some of the day is left; all-day events,
+  deadlines and plans for a day get a menu too.
+
 ## 0.2.56 — 2026-10-21
 
 - **Right-click menus**: Settings → 记录与清单 now has 任务行的操作 and 步骤的操作, each either 按钮 (as before) or

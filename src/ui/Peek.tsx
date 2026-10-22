@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { dayOf, minutesOf, timeOf } from '../model/dates';
 import { stepProgress } from '../model/derive';
 import { complete, remainingEffort, removePlan, updatePlan } from '../model/doc';
-import type { CalendarEvent, PlanEntry, Task } from '../model/types';
+import type { CalendarEvent, Doc, PlanEntry, Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { toast } from './common';
 import { WhenPicker } from './pickers';
-import { dueLabel, duration, monthDay, planLabel, useT, weekdayName } from './text';
+import { dueLabel, duration, monthDay, planLabel, useT, weekdayName, type Lang } from './text';
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
   try {
@@ -16,19 +16,35 @@ const commit = (fn: Parameters<typeof store.commit>[0]) => {
   }
 };
 
-/** A calendar event: what, when, where. Events come from Outlook or a file and are not edited here. */
-export function EventPeek({ event }: { event: CalendarEvent }) {
-  const { t, lang } = useT();
+/** Where a calendar event comes from, and that it is changed there, not here. */
+export function eventFrom(doc: Doc, event: CalendarEvent, t: (zh: string, en: string) => string): string {
+  if (event.source === 'file')
+    return t('来自导入的日历文件，这里不能修改', 'From an imported calendar file; not edited here');
+  if (event.source?.startsWith('sub:')) {
+    const name = doc.settings.calendars?.find((c) => `sub:${c.id}` === event.source)?.name ?? '';
+    return t(`来自订阅的日历“${name}”，在那边修改`, `From the subscribed calendar “${name}”; change it there`);
+  }
+  return t('来自 Outlook 日历，在 Outlook 里修改', 'From your Outlook calendar; change it in Outlook');
+}
+
+/** When an event is, in a few words: its day and time (or "all day") and length. */
+export function eventWhen(event: CalendarEvent, lang: Lang, t: (zh: string, en: string) => string): string {
   const length = minutesOf(event.end) - minutesOf(event.start);
+  return `${weekdayName(event.day, lang)} ${monthDay(event.day)} · ${
+    event.allDay ? t('全天', 'All day') : `${event.start}–${event.end}（${duration(length, lang)}）`
+  }`;
+}
+
+/** A calendar event: what, when, where. Events come from Outlook, a subscription or a file and are not edited here. */
+export function EventPeek({ event }: { event: CalendarEvent }) {
+  const { doc } = useStore();
+  const { t, lang } = useT();
   return (
     <div className="peek">
       <div className="peek-title">{event.title}</div>
-      <div className="peek-line">
-        {weekdayName(event.day, lang)} {monthDay(event.day)} ·{' '}
-        {event.allDay ? t('全天', 'All day') : `${event.start}–${event.end}（${duration(length, lang)}）`}
-      </div>
+      <div className="peek-line">{eventWhen(event, lang, t)}</div>
       {event.location && <div className="peek-line">📍 {event.location}</div>}
-      <div className="peek-note">{t('来自日历，在 Outlook 里修改。', 'From your calendar; change it in Outlook.')}</div>
+      <div className="peek-note">{eventFrom(doc, event, t)}</div>
     </div>
   );
 }
