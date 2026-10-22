@@ -35,7 +35,7 @@ too: write `每天 看邮件` or `every mon and thu gym` and it simply comes rou
 
 **One thing now, and why.** NOW shows a single suggestion with its reason — a reserved time that is happening, a part
 of the day that has begun, something overdue or due today, something marked important — with today's agenda under
-it. "Another" cycles to the next. Only the present is computed; the future stays light.
+it. "Another" cycles to the next; the next step can be checked right on the card. Only the present is computed; the future stays light.
 
 **Only deadlines put on pressure.** Plans and reserved times are intentions, not promises. With an estimate, the app
 checks whether the work due by each deadline still fits the free working time before it, and says so if it does not.

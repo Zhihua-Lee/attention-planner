@@ -10,7 +10,7 @@ test('NOW shows one task with its reason, and "another" cycles', async ({ page }
   await expect(card).toContainText('今天截止');
   await card.getByRole('button', { name: '换一件' }).click();
   await expect(card.getByRole('heading')).toContainText('写论文');
-  await expect(card).toContainText('标了重要');
+  await expect(card.getByLabel('重要')).toBeVisible();
   await card.getByRole('button', { name: '完成' }).click();
   await expect(card.getByRole('heading')).not.toContainText('写论文');
 });
@@ -28,7 +28,43 @@ test('a reserved time happening now comes first', async ({ page }) => {
   await page.getByRole('tab', { name: 'NOW' }).click();
   const card = page.getByTestId('now-card');
   await expect(card.getByRole('heading')).toHaveText('写报告');
-  await expect(card).toContainText('现在是预留的时段 · 到 17:00');
+  await expect(card.getByRole('button', { name: '预留到 17:00' })).toBeVisible();
+  // Its chip changes that time.
+  await card.getByRole('button', { name: '预留到 17:00' }).click();
+  await expect(page.getByRole('dialog', { name: '写报告' }).getByRole('button', { name: '16:00' })).toBeVisible();
+});
+
+test('the NOW card: properties after the title, the next step checked in place, another step, another task', async ({
+  page,
+}) => {
+  await start(page);
+  await add(page, '写论文 截止周五 2小时 !', '整理书桌');
+  const detail = await openRow(page, '写论文');
+  for (const s of ['列提纲', '找文献']) {
+    await detail.getByRole('textbox', { name: '添加步骤' }).fill(s);
+    await detail.getByRole('textbox', { name: '添加步骤' }).press('Enter');
+  }
+  await page.getByRole('button', { name: '收起' }).click();
+  await page.getByRole('tab', { name: 'NOW' }).click();
+  const card = page.getByTestId('now-card');
+  await expect(card.getByRole('heading')).toContainText('写论文');
+  await expect(card.getByRole('group', { name: '属性' }).getByRole('button')).toHaveText(['周五截止', '用时 2 小时']);
+  // A property opens what changes it.
+  await card.getByRole('button', { name: '用时 2 小时' }).click();
+  await page.getByRole('dialog', { name: '写论文' }).getByRole('button', { name: '1 小时', exact: true }).click();
+  await expect(card.getByRole('button', { name: '用时 1 小时' })).toBeVisible();
+  // The next step: another one, then checked right here.
+  const step = card.locator('.focus-step');
+  await expect(step).toContainText('列提纲0/2');
+  await step.getByRole('button', { name: '换一步' }).click();
+  await expect(step).toContainText('找文献');
+  await step.getByRole('checkbox').click();
+  await expect(step).toContainText('列提纲1/2');
+  // Another task, named on the button; the title opens the task.
+  await card.getByRole('button', { name: '换一件：整理书桌' }).click();
+  await expect(card.getByRole('heading')).toHaveText('整理书桌');
+  await card.getByRole('heading').getByRole('button').click();
+  await expect(page.getByRole('textbox', { name: '任务名称' })).toHaveValue('整理书桌');
 });
 
 test('the agenda moves by day and week, and opens a task', async ({ page }) => {

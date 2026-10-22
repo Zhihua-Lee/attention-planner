@@ -530,6 +530,23 @@ describe('calendar events by source', () => {
     const gone = { ...doc, settings: { ...doc.settings, calendars: subs.slice(1) } };
     expect(eventsOn(gone, '2026-09-28').map((e) => e.title)).toEqual(['Imported', 'Research', 'TA Meeting']);
   });
+
+  it('names the next event today that has not begun', async () => {
+    const { nextEvent } = await import('./derive');
+    const ev = (id: string, title: string, start: string, end: string) => ({
+      id,
+      title,
+      day: '2026-09-29',
+      start,
+      end,
+    });
+    const doc = {
+      ...emptyDoc(ctx()),
+      events: [ev('a', '组会', '14:00', '15:00'), ev('b', '早读', '08:00', '11:00'), ev('c', '答疑', '16:00', '17:00')],
+    };
+    expect(nextEvent(doc, T0)?.title).toBe('组会'); // 10:00, during 早读
+    expect(nextEvent(doc, new Date('2026-09-29T16:30:00-05:00'))).toBeUndefined();
+  });
 });
 
 describe('how the parts of a task work together', () => {
@@ -763,6 +780,8 @@ describe('a step for today, and time for a step', () => {
     expect(listTasks(d, T0, 'today').map((t) => t.id)).toContain(id);
     expect(stepProgress(d.tasks[id], T0).next?.text).toBe('画图');
     expect(stepProgress(d.tasks[id], at('2026-09-30')).next?.text).toBe('列提纲'); // the next day it is plain again
+    // The open steps, today's first, then in order (what "another step" on the NOW card goes through).
+    expect(stepProgress(d.tasks[id], T0).open.map((x) => x.text)).toEqual(['画图', '列提纲', '写引言']);
     expect(agenda(d, '2026-09-29', T0).find((x) => x.kind === 'loose')).toMatchObject({ step: '画图' });
     d = toggleStepDay(d, ctx(), id, figure, '2026-09-29');
     expect(stepPlannedOn(d.tasks[id], figure, '2026-09-29', T0)).toBe(false);

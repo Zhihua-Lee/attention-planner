@@ -33,7 +33,7 @@ import { Capture } from './Capture';
 import { proposalsFor } from '../model/proposals';
 import { ProposalsBar } from './Proposals';
 import { FindTime, TaskDetail } from './TaskDetail';
-import { AreaPicker, DayOptions, LinkPicker, PlanPicker } from './pickers';
+import { AreaPicker, DayOptions, EffortPicker, LinkPicker, PlanPicker, RepeatEditor } from './pickers';
 import { ContextMenu, leaveToBrowser, useLongPress, useMenu, type MenuItem } from './RightMenu';
 import { dueLabel, planLabel, useT } from './text';
 
@@ -685,10 +685,13 @@ const commit = (fn: Parameters<typeof store.commit>[0]) => {
   }
 };
 
-type RowPick = 'due' | 'plan' | 'find' | 'area' | 'link';
+export type RowPick = 'due' | 'plan' | 'find' | 'area' | 'link' | 'effort' | 'repeat';
 
-/** What a choice in a row's menu opens: the deadline, a plan, free times, the area or the parent task. */
-function RowPicker({
+/**
+ * What a choice in a row's menu (or a property on the NOW card) opens: the deadline, a plan, free times, the area, the
+ * parent task, the estimate or the repeat.
+ */
+export function RowPicker({
   task,
   now,
   which,
@@ -773,6 +776,18 @@ function RowPicker({
             close();
           }}
         />
+      )}
+      {which === 'effort' && (
+        <EffortPicker
+          value={task.effort}
+          onPick={(m) => {
+            commit((d, c) => setField(d, c, id, 'effort', m));
+            close();
+          }}
+        />
+      )}
+      {which === 'repeat' && (
+        <RepeatEditor task={task} today={today} onChange={(r) => commit((d, c) => setField(d, c, id, 'repeat', r))} />
       )}
       {which === 'link' && (
         <LinkPicker

@@ -1,27 +1,17 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { addDays, dayOf, minutesOf, nowMinutes, timeOf, weekStart } from '../model/dates';
-import { agenda, capacity, currentEvent, eventsOn, freeUntilNext, nowCandidates, stepProgress } from '../model/derive';
+import { agenda, capacity, currentEvent, eventsOn, nextEvent, nowCandidates } from '../model/derive';
 import { layoutBlocks, type Block } from '../model/layout';
-import { complete, remainingEffort, removePlan } from '../model/doc';
+import { complete, removePlan } from '../model/doc';
 import type { CalendarEvent, Day, Task } from '../model/types';
 import { store, useStore } from '../store/store';
 import { Popover, toast, usePopover } from './common';
+import { FocusCard } from './FocusCard';
 import { EventPeek, eventFrom, eventWhen, SlotPeek, TaskPeek } from './Peek';
 import { ReserveSheet } from './Reserve';
 import { ContextMenu, useMenu, type MenuItem } from './RightMenu';
-import {
-  dueLabel,
-  duration,
-  monthDay,
-  partName,
-  planLabel,
-  reasonText,
-  relDay,
-  ruleLabel,
-  useT,
-  weekdayName,
-} from './text';
+import { duration, monthDay, partName, planLabel, relDay, useT, weekdayName } from './text';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -36,7 +26,7 @@ export function NowView({ now, open }: { now: Date; open: (id: string) => void }
   const i = all.length ? skip % all.length : 0;
   const pick = all[i];
   const next = all.length > 1 ? all[(i + 1) % all.length] : undefined;
-  const free = freeUntilNext(doc, now);
+  const upcoming = nextEvent(doc, now);
   const short = capacity(doc, now);
 
   let card;
@@ -60,85 +50,15 @@ export function NowView({ now, open }: { now: Date; open: (id: string) => void }
       </>
     );
   } else if (pick) {
-    const task = pick.task;
-    const steps = stepProgress(task, now);
-    const facts: string[] = [];
-    if (task.due && pick.reason.kind !== 'overdue' && pick.reason.kind !== 'dueToday')
-      facts.push(dueLabel(task.due, today, lang));
-    if (task.effort)
-      facts.push(
-        `${t('用时', 'Effort')} ${duration(task.effort, lang)}${remainingEffort(task)! < task.effort ? ` · ${t('还剩', 'left')} ${duration(remainingEffort(task)!, lang)}` : ''}`,
-      );
-    if (steps.total) facts.push(`${t('步骤', 'Steps')} ${steps.done}/${steps.total}`);
-    if (task.repeat) facts.push(`↻ ${ruleLabel(task.repeat.rule, lang)}`);
-    const snippet = steps.next
-      ? `${t('下一步：', 'Next step: ')}${steps.next.text}`
-      : task.note
-          ?.split('\n')
-          .find((l) => l.trim())
-          ?.replace(/[#>*_`[\]]/g, '')
-          .trim();
     card = (
-      <>
-        <div className="focus-head">
-          <span className="kicker">{t('现在做', 'Now')}</span>
-          <span>
-            {free !== null
-              ? t(`接下来 ${duration(free, lang)}空闲`, `${duration(free, lang)} free`)
-              : t('今天后面没有日程', 'Nothing else on the calendar today')}
-          </span>
-        </div>
-        <h1>
-          {task.star && (
-            <span className="star" aria-label={t('重要', 'Important')}>
-              ★{' '}
-            </span>
-          )}
-          {task.title}
-        </h1>
-        <div className="why">{reasonText(pick.reason, lang)}</div>
-        {facts.length > 0 && (
-          <div className="facts">
-            {facts.map((f) => (
-              <span key={f} className="fact">
-                {f}
-              </span>
-            ))}
-          </div>
-        )}
-        {snippet && <div className="snippet">{snippet}</div>}
-        <div className="focus-foot">
-          <div className="actions">
-            <button
-              className="btn primary"
-              onClick={() => {
-                try {
-                  store.commit((d, c) => complete(d, c, task.id));
-                  toast(t(`完成了“${task.title}”`, `Done: “${task.title}”`), () => store.undo());
-                } catch (e) {
-                  toast(e instanceof Error ? e.message : String(e));
-                }
-              }}
-            >
-              {task.repeat?.mode === 'reopen' ? t('完成本轮', 'Finish round') : t('完成', 'Done')}
-            </button>
-            {all.length > 1 && (
-              <button className="btn" onClick={() => setSkip((s) => s + 1)}>
-                {t('换一件', 'Another')}
-              </button>
-            )}
-            <button className="btn" onClick={() => open(task.id)}>
-              {t('打开', 'Open')}
-            </button>
-          </div>
-          {next && (
-            <span className="up-next">
-              {t('下一件：', 'Next: ')}
-              {next.task.title}
-            </span>
-          )}
-        </div>
-      </>
+      <FocusCard
+        pick={pick}
+        next={next}
+        another={() => setSkip((s) => s + 1)}
+        now={now}
+        freeUntil={upcoming}
+        open={open}
+      />
     );
   } else {
     card = (

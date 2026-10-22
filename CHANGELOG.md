@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.59 — 2026-10-22
+
+- **A tidier NOW card**, in four parts from top to bottom: the time (free until when, and what comes then); the task,
+  whose title opens it, with its properties after it in a fixed order (why now, deadline, estimate, repeat, area), each
+  opening what changes it; the next step, checked right on the card, with 换一步 to look at another; and 完成 beside
+  one wide 换一件 button that names the task it brings. "标了重要" is gone (the ★ says it), and so are 打开 and the
+  separate 下一件.
+
 ## 0.2.58 — 2026-10-22
 
 - The event menu's choice to plan time after an event is now called 接着安排一件事 (from its end).

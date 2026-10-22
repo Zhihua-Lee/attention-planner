@@ -31,7 +31,8 @@ test('a step can have its own deadline; NOW and the list name the step', async (
   await page.getByRole('button', { name: '收起' }).click();
   await expect(row(page, '交报告')).toContainText('画图 · 今天截止');
   await page.getByRole('tab', { name: 'NOW' }).click();
-  await expect(page.getByTestId('now-card')).toContainText('步骤“画图”今天截止');
+  await expect(page.getByTestId('now-card').getByRole('button', { name: '步骤今天截止' })).toBeVisible();
+  await expect(page.getByTestId('now-card').locator('.focus-step')).toContainText('画图');
 });
 
 test('settings choose the buttons after each step; a step becomes its own linked task', async ({ page }) => {
@@ -175,7 +176,7 @@ test('a step for today brings its task into today and comes first in NOW; its ti
   await page.getByRole('button', { name: /^今天/ }).first().click();
   await expect(row(page, '写论文')).toBeVisible();
   await page.getByRole('tab', { name: 'NOW' }).click();
-  await expect(page.getByTestId('now-card')).toContainText('下一步：画图');
+  await expect(page.getByTestId('now-card').locator('.focus-step')).toContainText('画图');
 });
 
 test('on a phone, the buttons of a tapped step come out under it and leave its text as wide as it was', async ({

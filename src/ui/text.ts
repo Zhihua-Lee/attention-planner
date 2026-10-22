@@ -58,31 +58,30 @@ export function dueLabel(due: Day, today: Day, lang: Lang): string {
   return lang === 'zh' ? `${relDay(due, today, lang)}截止` : `Due ${relDay(due, today, lang).toLowerCase()}`;
 }
 
-export function reasonText(r: Reason, lang: Lang): string {
+/**
+ * Why a task is the one to do now, as the first of its properties on the NOW card: a reserved time, a part of today,
+ * a deadline (its own or a step's), or today. Important (shown by the ★) and oldest say nothing.
+ */
+export function reasonChip(r: Reason, lang: Lang): { label: string; late?: boolean } | undefined {
   const zh = lang === 'zh';
   switch (r.kind) {
     case 'slot':
-      return zh ? `现在是预留的时段 · 到 ${r.until}` : `Reserved time now · until ${r.until}`;
+      return { label: zh ? `预留到 ${r.until}` : `Reserved until ${r.until}` };
     case 'part':
-      return zh ? `你打算今天${partName(r.part, lang)}做` : `Planned for this ${partName(r.part, lang).toLowerCase()}`;
-    case 'overdue': {
-      const what = r.step ? (zh ? `步骤“${r.step}”` : `Step “${r.step}”: `) : '';
-      return zh ? `${what}截止已过 ${r.days} 天` : `${what}${r.days} day${r.days > 1 ? 's' : ''} past due`;
-    }
+      return { label: zh ? `今天${partName(r.part, lang)}` : `This ${partName(r.part, lang).toLowerCase()}` };
+    case 'overdue':
+      return {
+        label: zh
+          ? `${r.step ? '步骤' : ''}截止已过 ${r.days} 天`
+          : `${r.step ? 'Step ' : ''}${r.days} day${r.days > 1 ? 's' : ''} past due`,
+        late: true,
+      };
     case 'dueToday':
-      return r.step
-        ? zh
-          ? `步骤“${r.step}”今天截止`
-          : `Step “${r.step}” is due today`
-        : zh
-          ? '今天截止'
-          : 'Due today';
+      return { label: r.step ? (zh ? '步骤今天截止' : 'Step due today') : zh ? '今天截止' : 'Due today', late: true };
     case 'today':
-      return zh ? '今天想做的' : 'Planned for today';
-    case 'star':
-      return zh ? '标了重要' : 'Marked important';
-    case 'oldest':
-      return zh ? '最早记下的一件' : 'The oldest open task';
+      return { label: zh ? '☀ 今天' : '☀ Today' };
+    default:
+      return undefined;
   }
 }
 

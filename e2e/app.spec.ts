@@ -93,7 +93,7 @@ test('importing a calendar file shows its events in the agenda', async ({ page }
   await expect(page.locator('.toast')).toContainText('导入了 1 个日程');
   await page.getByRole('dialog', { name: '设置' }).getByRole('button', { name: '完成' }).click();
   await expect(page.locator('.blk.event', { hasText: '组会' })).toContainText('14:00–15:00');
-  await expect(page.getByTestId('now-card')).toContainText('接下来 4 小时空闲');
+  await expect(page.getByTestId('now-card')).toContainText('空闲到 14:00之后：组会');
 });
 
 test('no horizontal scroll and nothing overlaps the top bar', async ({ page }) => {

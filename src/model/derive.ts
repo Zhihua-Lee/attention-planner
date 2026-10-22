@@ -108,15 +108,9 @@ export function currentEvent(doc: Doc, now: Date): CalendarEvent | undefined {
   return eventsOn(doc, dayOf(now)).find((e) => minutesOf(e.start) <= m && m < minutesOf(e.end));
 }
 
-/** Minutes until the next calendar event today, or null when nothing else is scheduled. */
-export function freeUntilNext(doc: Doc, now: Date): number | null {
-  const m = nowMinutes(now);
-  const next = eventsOn(doc, dayOf(now))
-    .map((e) => minutesOf(e.start))
-    .filter((s) => s > m)
-    .sort((a, b) => a - b)[0];
-  return next === undefined ? null : next - m;
-}
+/** The next calendar event today that has not begun. */
+export const nextEvent = (doc: Doc, now: Date): CalendarEvent | undefined =>
+  eventsOn(doc, dayOf(now)).find((e) => minutesOf(e.start) > nowMinutes(now));
 
 /** Free minutes inside the working hours of `day`, after `fromMinute`, minus events and other reserved time. */
 /**
@@ -388,11 +382,9 @@ export function stepProgress(t: Task, now: Date) {
   const today = dayOf(now);
   const forToday = new Set(planOf(t).flatMap((p) => (p.day === today && p.stepId ? [p.stepId] : [])));
   const open = steps.filter((s) => !stepDone(t, s, now));
-  return {
-    done: steps.length - open.length,
-    total: steps.length,
-    next: open.find((s) => forToday.has(s.id)) ?? open[0],
-  };
+  // The steps planned for today come first.
+  const order = [...open.filter((s) => forToday.has(s.id)), ...open.filter((s) => !forToday.has(s.id))];
+  return { done: steps.length - open.length, total: steps.length, next: order[0], open: order };
 }
 
 /** The words of the step an arrangement is for, when it is for one that is still there. */
