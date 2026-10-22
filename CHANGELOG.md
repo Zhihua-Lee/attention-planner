@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.58 — 2026-10-22
+
+- The event menu's choice to plan time after an event is now called 接着安排一件事 (from its end).
+
 ## 0.2.57 — 2026-10-21
 
 - **Right-click in the week view**: every item has the same menu as in the day view, and a right-click on a day offers

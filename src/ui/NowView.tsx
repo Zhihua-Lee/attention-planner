@@ -319,7 +319,7 @@ function useAgendaMenu(handlers: {
             ? []
             : [
                 {
-                  label: t(`结束后预留时段（${e.end} 起）…`, `Reserve time after it (from ${e.end})…`),
+                  label: t(`接着安排一件事（${e.end} 起）…`, `Plan something right after (from ${e.end})…`),
                   run: () => handlers.reserve(e.day, minutesOf(e.end)),
                 },
               ]),

@@ -145,8 +145,8 @@ test('calendar events: the menu says where they come from; the week view has men
   await expect(menu.locator('.ctx-note')).toHaveText(
     '周二 9/29 · 13:00–14:00（1 小时） · 来自导入的日历文件，这里不能修改',
   );
-  await expect(menu.getByRole('menuitem')).toHaveText(['详情', '结束后预留时段（14:00 起）…']);
-  await menu.getByRole('menuitem', { name: /结束后预留时段/ }).click();
+  await expect(menu.getByRole('menuitem')).toHaveText(['详情', '接着安排一件事（14:00 起）…']);
+  await menu.getByRole('menuitem', { name: /接着安排一件事/ }).click();
   await expect(page.getByRole('dialog', { name: '预留时段' }).getByLabel('开始')).toHaveValue('14:00');
   await page.keyboard.press('Escape');
   // Over already, or all day: nothing to reserve after it.
