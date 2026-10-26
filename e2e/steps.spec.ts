@@ -160,6 +160,21 @@ test('the step box reads a deadline, an estimate and a repeat, and a tag gives t
   await expect(detail.locator('.step', { hasText: '喝水' })).toContainText('↻');
 });
 
+test('leaving the step box saves the step, as the phone keyboard’s Done does', async ({ page }) => {
+  await start(page);
+  await add(page, '写引言');
+  const detail = await openRow(page, '写引言');
+  const box = detail.getByRole('textbox', { name: '添加步骤' });
+  await box.fill('周五 交初稿');
+  // Tapping a tag keeps the box focused and saves nothing yet.
+  await detail.locator('.step-new-tags').getByRole('button', { name: /截止/ }).click();
+  await expect(box).toBeFocused();
+  await expect(detail.locator('.step')).toHaveCount(0);
+  await box.blur();
+  await expect(detail.locator('.step', { hasText: '周五 交初稿' })).toBeVisible();
+  await expect(box).toHaveValue('');
+});
+
 test('a step for today brings its task into today and comes first in NOW; its time is found from its estimate', async ({
   page,
 }) => {

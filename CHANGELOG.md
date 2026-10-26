@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.61 — 2026-10-26
+
+- **Fix**: the step box saves when you leave it, so the phone keyboard's Done or ↑/↓ adds the step; tapping a
+  recognised tag keeps the box open.
+
 ## 0.2.60 — 2026-10-22
 
 - **Fix**: on a row whose step has a deadline, a long step no longer runs over the task's title; the label ends in "…".

@@ -76,6 +76,8 @@ export function NewStep({ task, now }: { task: Task; now: Date }) {
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.nativeEvent.isComposing && text.trim()) save();
         }}
+        // Leaving the box saves too: on a phone the keyboard's Done or ↑/↓ never sends Enter.
+        onBlur={() => text.trim() && save()}
       />
       {tags.length > 0 && (
         <div className="step-new-tags" aria-live="polite">
@@ -84,6 +86,9 @@ export function NewStep({ task, now }: { task: Task; now: Date }) {
               key={f}
               type="button"
               className="chip set"
+              // Keep the box focused, so a tap here does not save the step half typed.
+              onPointerDown={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.preventDefault()}
               aria-label={`${label}，${t('再点一下撤掉', 'tap to undo')}`}
               onClick={() => setKept((k) => new Set(k).add(f))}
             >
