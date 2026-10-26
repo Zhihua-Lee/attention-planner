@@ -489,6 +489,8 @@ function Row({
     setTimeout(() => {
       try {
         store.commit((d, c) => complete(d, c, task.id));
+        // A task that reopens stays in the list: from here its box shows the finished round, and unchecks it.
+        setCompleting(false);
         toast(t(`完成了“${task.title}”`, `Done: “${task.title}”`), () => store.undo());
       } catch (e) {
         setCompleting(false);

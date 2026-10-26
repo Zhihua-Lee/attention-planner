@@ -203,6 +203,19 @@ describe('tasks', () => {
     expect(copies[0].steps[0].done).toBeUndefined();
     expect(copies[0].repeat?.rule.count).toBe(2);
   });
+  it('unchecking a "new copy" task takes back its copy, unless the copy was changed', () => {
+    const rule: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, start: '2026-09-29' };
+    let [d, id] = make('Laundry', { repeat: { mode: 'copy', rule }, due: '2026-09-29' });
+    d = complete(d, ctx(), id);
+    d = uncomplete(d, ctx(at('2026-09-29', '10:05')), id);
+    expect(d.tasks[id].done).toBeUndefined();
+    expect(liveTasks(d).map((t) => t.id)).toEqual([id]);
+    d = complete(d, ctx(at('2026-09-29', '11:00')), id);
+    const copy = liveTasks(d).find((t) => t.id !== id)!;
+    d = setField(d, ctx(at('2026-09-29', '11:01')), copy.id, 'star', true);
+    d = uncomplete(d, ctx(at('2026-09-29', '11:02')), id);
+    expect(liveTasks(d)).toHaveLength(2);
+  });
   it('uncomplete reopens a done task', () => {
     let [d, id] = make();
     d = complete(d, ctx(), id);

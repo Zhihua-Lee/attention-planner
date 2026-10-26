@@ -268,6 +268,24 @@ test('a task that reopens finishes its round and comes back next time', async ({
   await expect(again.getByTestId('history').locator('summary')).toHaveText('历史 · 2');
 });
 
+test('a repeating task can be unchecked in the list; a new copy takes its copy back', async ({ page }) => {
+  await start(page);
+  await add(page, '每天 看邮件', '每周五交周报');
+  const mail = row(page, '看邮件').getByRole('checkbox');
+  await mail.click();
+  await expect(row(page, '看邮件')).toContainText('下一轮');
+  await expect(mail).toHaveAttribute('aria-checked', 'true');
+  await mail.click();
+  await expect(mail).toHaveAttribute('aria-checked', 'false');
+  await expect(row(page, '看邮件')).not.toHaveClass(/done/);
+  await row(page, '交周报').getByRole('checkbox').click();
+  await expect(row(page, '交周报')).toContainText('10/9');
+  await page.getByRole('button', { name: /已完成 1/ }).click();
+  await page.locator('.row.done', { hasText: '交周报' }).getByRole('checkbox').click();
+  await expect(page.locator('.row', { hasText: '交周报' })).toHaveCount(1);
+  await expect(row(page, '交周报')).toContainText('周五截止');
+});
+
 test('a "new copy" task creates the next one when completed', async ({ page }) => {
   await start(page);
   await add(page, '今天 洗床单');

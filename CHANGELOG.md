@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.62 — 2026-10-26
+
+- **Fix**: a repeating task can be unchecked again. A task that reopens showed its box still checked after the round
+  was reopened, so a second tap finished it again; a "new copy" task unchecked in Done now takes back the copy it
+  made, unless that copy was changed.
+
 ## 0.2.61 — 2026-10-26
 
 - **Fix**: the step box saves when you leave it, so the phone keyboard's Done or ↑/↓ adds the step; tapping a

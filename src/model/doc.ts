@@ -600,11 +600,28 @@ export const openConflict = (t: Task, field: TextField) => {
   return c && t.fs[field] && cmpStamp(c.against, t.fs[field]) === 0 ? c : undefined;
 };
 
-/** Undo completion: reopen a done task, or reopen a finished round. */
+/**
+ * Undo completion: reopen a done task, or reopen a finished round. A "new copy" task also takes back the copy its
+ * completion made, unless that copy has been changed since.
+ */
 export function uncomplete(doc: Doc, ctx: Ctx, id: string): Doc {
   return edit(doc, ctx, (e) => {
     const t = e.task(id);
-    if (t.done) return e.set(id, 'done', undefined);
+    if (t.done) {
+      if (t.repeat?.mode === 'copy') {
+        const copy = liveTasks(e.doc).find(
+          (c) =>
+            c.id !== id &&
+            c.created === t.done &&
+            c.title === t.title &&
+            c.repeat?.mode === 'copy' &&
+            !c.done &&
+            cmpStamp(c.s, c.fs.title) === 0,
+        );
+        if (copy) e.put({ ...copy, deleted: true, fs: { ...copy.fs, deleted: e.s } });
+      }
+      return e.set(id, 'done', undefined);
+    }
     const round = taskRound(t, ctx.now);
     if (round?.done) {
       reopenRound(e, id, round.key);
