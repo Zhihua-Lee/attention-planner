@@ -217,8 +217,8 @@ export function App() {
         {saveError && (
           <p className="banner" role="alert">
             {t(
-              '这个浏览器不让保存数据，关掉页面前请先导出备份。',
-              'This browser will not store data; export a backup before closing the page.',
+              '没能存到这台设备，回到页面时会再试。关掉页面前请先导出备份。',
+              'Could not save on this device; it tries again when you come back. Export a backup before closing the page.',
             )}
           </p>
         )}

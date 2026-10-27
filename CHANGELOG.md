@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.63 — 2026-10-27
+
+- **Fix**: "this browser will not store data" no longer shows after a passing storage hiccup. A lost IndexedDB
+  connection (Safari drops it for a page left in the background) or a failed open was kept for the whole session, so
+  every later save failed; now a failed save reopens the database and tries again at once, and again when the page
+  comes back. The warning reads 没能存到这台设备 and disappears after the next save that lands.
+
 ## 0.2.62 — 2026-10-26
 
 - **Fix**: a repeating task can be unchecked again. A task that reopens showed its box still checked after the round

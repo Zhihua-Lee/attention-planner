@@ -119,7 +119,9 @@ export class Store {
     window.addEventListener('focus', () => {
       this.scheduleSync(500);
       void this.refreshSubscriptions();
+      this.retrySave();
     });
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && this.retrySave());
     void this.refreshSubscriptions(true);
     setInterval(() => void this.refreshSubscriptions(), 30 * 60e3);
     window.addEventListener('beforeunload', () => void this.flush());
@@ -194,6 +196,12 @@ export class Store {
     clearTimeout(this.saveTimer);
     // Write at once: a page closed right after a change must not lose it. Commits are discrete actions, not keystrokes.
     this.saveTimer = setTimeout(() => void this.flush(), 0);
+  }
+  /** After a failed save, write again when the page comes back: the browser may have let go of its storage meanwhile. */
+  private retrySave() {
+    if (this.state.saveError === undefined) return;
+    this.dirty = true;
+    void this.flush();
   }
   /** Write pending changes. Nothing is written when nothing changed, so another tab's save is never overwritten. */
   async flush() {

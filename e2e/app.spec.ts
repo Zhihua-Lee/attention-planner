@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { add, row, start } from './helpers';
+import { add, reloadSaved, row, start, toList } from './helpers';
 
 test('search finds titles and notes; Enter opens the task', async ({ page }) => {
   await start(page);
@@ -216,4 +216,28 @@ test('Settings are grouped: the navigation jumps to a group and follows the scro
   expect(await dialog.locator('.settings-pane').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(
     1,
   );
+});
+
+test('a save the browser refuses shows a warning, and is written again when the page comes back', async ({ page }) => {
+  await page.addInitScript(() => {
+    const real = IDBDatabase.prototype.transaction;
+    IDBDatabase.prototype.transaction = function (this: IDBDatabase, ...args: Parameters<typeof real>) {
+      if (args[1] === 'readwrite' && (window as { refuse?: boolean }).refuse)
+        throw new DOMException('Connection lost', 'InvalidStateError');
+      return real.apply(this, args);
+    };
+  });
+  await start(page);
+  await page.evaluate(() => ((window as { refuse?: boolean }).refuse = true));
+  await add(page, '存不下的任务');
+  const banner = page.getByRole('alert').filter({ hasText: '没能存到这台设备' });
+  await expect(banner).toBeVisible();
+  await page.evaluate(() => {
+    (window as { refuse?: boolean }).refuse = false;
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(banner).toHaveCount(0);
+  await reloadSaved(page);
+  await toList(page);
+  await expect(row(page, '存不下的任务')).toBeVisible();
 });
