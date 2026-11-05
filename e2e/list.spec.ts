@@ -484,6 +484,9 @@ test('an open task taller than the screen has arrows to its top and its end', as
   expect((await toEnd.boundingBox())!.x).toBeGreaterThanOrEqual(list.x + list.width);
   await page.setViewportSize({ width: 400, height: 1000 });
   await expect(toEnd).toBeInViewport({ ratio: 1 });
+  // Big enough for a finger on a touch screen.
+  const touch = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+  expect((await toEnd.boundingBox())!.width).toBeGreaterThanOrEqual(touch ? 48 : 32);
   await page.setViewportSize({ width: 1200, height: 1000 });
   await toEnd.click();
   await expect(detail.locator('.note-view p').last()).toBeInViewport();

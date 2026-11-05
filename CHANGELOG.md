@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.66 — 2026-11-04
+
+- **Fix**: on a touch screen the ↑ ↓ of a long open task are bigger, easier to hit with a finger.
+
 ## 0.2.65 — 2026-11-04
 
 - **Fix**: the ↑ ↓ of a long open task float beside the list (at the screen's right edge on a phone) and stay put while

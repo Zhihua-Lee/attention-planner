@@ -730,7 +730,8 @@ function useEnds(ref: RefObject<HTMLDivElement | null>, on: boolean) {
       const up = fills && r.top < top - 1;
       const down = fills && r.bottom > innerHeight + 1;
       const list = el.closest('.list')?.getBoundingClientRect() ?? r;
-      const x = Math.round(Math.min(list.right + 16, document.documentElement.clientWidth - 56));
+      const size = matchMedia('(pointer: coarse)').matches ? 52 : 36; // as in app.css
+      const x = Math.round(Math.min(list.right + 16, document.documentElement.clientWidth - 12 - size));
       setEnds((e) => (e.up === up && e.down === down && e.x === x ? e : { up, down, x }));
     };
     const soon = () => {

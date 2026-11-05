@@ -1100,6 +1100,17 @@ main {
   box-shadow: 0 2px 8px #0000001f;
   color: var(--muted);
 }
+/* a finger needs a bigger target (the size is also in TaskList.tsx useEnds) */
+@media (pointer: coarse) {
+  .end-nav {
+    gap: 12px;
+  }
+  .end-nav button {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+  }
+}
 .end-nav button:hover:not(:disabled) {
   color: var(--accent);
   border-color: var(--accent);
