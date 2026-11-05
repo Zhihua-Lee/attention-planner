@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.68 — 2026-11-04
+
+- **Fix**: on a phone, ↑ ↓ jump on the first tap even while the page is still gliding from a swipe. 0.2.67 acted on
+  touching down, which was not enough: the phone may drop a scroll asked for while it brakes, and an arrow at its end
+  was disabled and took no touch at all. Now the jump is asked for again when the finger lifts and a moment later.
+
 ## 0.2.67 — 2026-11-04
 
 - **Fix**: on a phone, ↑ ↓ jump on the first tap even while the page is still gliding from a swipe (the phone used to

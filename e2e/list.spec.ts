@@ -477,8 +477,8 @@ test('an open task taller than the screen has arrows to its top and its end', as
   await page.evaluate(() => scrollTo(0, 0));
   const toEnd = page.getByRole('button', { name: '到任务末尾' });
   const toTop = page.getByRole('button', { name: '到任务开头' });
-  await expect(toEnd).toBeEnabled();
-  await expect(toTop).toBeDisabled();
+  await expect(toEnd).toHaveAttribute('aria-disabled', 'false');
+  await expect(toTop).toHaveAttribute('aria-disabled', 'true');
   // Floating beside the list where there is room; at the screen's right edge where there is not.
   const list = (await page.locator('.list').boundingBox())!;
   expect((await toEnd.boundingBox())!.x).toBeGreaterThanOrEqual(list.x + list.width);
@@ -490,10 +490,10 @@ test('an open task taller than the screen has arrows to its top and its end', as
   await page.setViewportSize({ width: 1200, height: 1000 });
   await toEnd.click();
   await expect(detail.locator('.note-view p').last()).toBeInViewport();
-  await expect(toEnd).toBeDisabled();
+  await expect(toEnd).toHaveAttribute('aria-disabled', 'true');
   await toTop.click();
   await expect(page.getByRole('textbox', { name: '任务名称' })).toBeInViewport();
-  await expect(toTop).toBeDisabled();
+  await expect(toTop).toHaveAttribute('aria-disabled', 'true');
   // A finger touching down is enough: a phone that is still gliding sends no click for that tap.
   await toEnd.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
   await expect(detail.locator('.note-view p').last()).toBeInViewport();

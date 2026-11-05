@@ -695,7 +695,7 @@ function Row({
             <button
               aria-label={t('到任务开头', 'To the top of the task')}
               title={t('到任务开头', 'To the top of the task')}
-              disabled={!ends.up}
+              aria-disabled={!ends.up}
               {...ends.press('up')}
             >
               ↑
@@ -703,7 +703,7 @@ function Row({
             <button
               aria-label={t('到任务末尾', 'To the end of the task')}
               title={t('到任务末尾', 'To the end of the task')}
-              disabled={!ends.down}
+              aria-disabled={!ends.down}
               {...ends.press('down')}
             >
               ↓
@@ -757,21 +757,35 @@ function useEnds(ref: RefObject<HTMLDivElement | null>, on: boolean) {
       removeEventListener('resize', soon);
     };
   }, [ref, on]);
+  /** Scroll to that end; computed from where the task is now, so asking again on the way lands in the same place. */
   const go = (to: 'up' | 'down') => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
+    const by = to === 'up' ? r.top - bar() - 8 : r.bottom - innerHeight + 16;
+    if (Math.abs(by) < 2) return;
     const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    scrollBy({ top: to === 'up' ? r.top - bar() - 8 : r.bottom - innerHeight + 16, behavior });
+    scrollBy({ top: by, behavior });
   };
-  // A finger acts on touching down: while the page still glides, a phone spends the first tap on stopping it and sends
-  // no click. The click that follows an ordinary tap is then ignored.
+  // A finger acts on touching down, and again when it lifts and a moment later: while the page still glides, a phone
+  // spends the tap on stopping it, sends no click, and may drop a scroll asked for while it brakes. The click that
+  // follows an ordinary tap is then ignored. (The buttons are never truly disabled: a disabled one takes no touch.)
   const touched = useRef(0);
+  const touch = (to: 'up' | 'down') => {
+    if (Date.now() - touched.current < 50) return;
+    touched.current = Date.now();
+    const again = () => go(to);
+    requestAnimationFrame(again);
+    addEventListener('pointerup', again, { once: true });
+    addEventListener('touchend', again, { once: true });
+    setTimeout(again, 150);
+    setTimeout(() => {
+      removeEventListener('pointerup', again);
+      removeEventListener('touchend', again);
+    }, 1500);
+  };
   const press = (to: 'up' | 'down') => ({
-    onPointerDown: (e: ReactPointerEvent) => {
-      if (e.pointerType === 'mouse') return;
-      touched.current = Date.now();
-      requestAnimationFrame(() => go(to));
-    },
+    onPointerDown: (e: ReactPointerEvent) => e.pointerType !== 'mouse' && touch(to),
+    onTouchStart: () => touch(to),
     onClick: () => {
       if (Date.now() - touched.current > 800) go(to);
     },

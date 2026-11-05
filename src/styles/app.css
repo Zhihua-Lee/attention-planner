@@ -1111,7 +1111,10 @@ main {
     font-size: 22px;
   }
 }
-.end-nav button:hover:not(:disabled) {
+.end-nav button[aria-disabled='true'] {
+  opacity: 0.4;
+}
+.end-nav button:hover:not([aria-disabled='true']) {
   color: var(--accent);
   border-color: var(--accent);
 }
