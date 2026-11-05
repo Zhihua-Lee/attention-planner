@@ -494,6 +494,9 @@ test('an open task taller than the screen has arrows to its top and its end', as
   await toTop.click();
   await expect(page.getByRole('textbox', { name: '任务名称' })).toBeInViewport();
   await expect(toTop).toBeDisabled();
+  // A finger touching down is enough: a phone that is still gliding sends no click for that tap.
+  await toEnd.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true });
+  await expect(detail.locator('.note-view p').last()).toBeInViewport();
   await page.getByRole('button', { name: '收起' }).click();
   await expect(nav).toHaveCount(0);
 });

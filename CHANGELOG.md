@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.67 — 2026-11-04
+
+- **Fix**: on a phone, ↑ ↓ jump on the first tap even while the page is still gliding from a swipe (the phone used to
+  spend that tap on stopping the scroll).
+
 ## 0.2.66 — 2026-11-04
 
 - **Fix**: on a touch screen the ↑ ↓ of a long open task are bigger, easier to hit with a finger.

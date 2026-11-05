@@ -1,5 +1,13 @@
 import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, type PanInfo } from 'motion/react';
-import { forwardRef, useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, dayOf } from '../model/dates';
 import { byArea, finishedTasks, listTasks, matches, nextOnly, openTasks, type Filter } from '../model/derive';
@@ -688,7 +696,7 @@ function Row({
               aria-label={t('到任务开头', 'To the top of the task')}
               title={t('到任务开头', 'To the top of the task')}
               disabled={!ends.up}
-              onClick={() => ends.go('up')}
+              {...ends.press('up')}
             >
               ↑
             </button>
@@ -696,7 +704,7 @@ function Row({
               aria-label={t('到任务末尾', 'To the end of the task')}
               title={t('到任务末尾', 'To the end of the task')}
               disabled={!ends.down}
-              onClick={() => ends.go('down')}
+              {...ends.press('down')}
             >
               ↓
             </button>
@@ -755,7 +763,20 @@ function useEnds(ref: RefObject<HTMLDivElement | null>, on: boolean) {
     const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     scrollBy({ top: to === 'up' ? r.top - bar() - 8 : r.bottom - innerHeight + 16, behavior });
   };
-  return { ...ends, go };
+  // A finger acts on touching down: while the page still glides, a phone spends the first tap on stopping it and sends
+  // no click. The click that follows an ordinary tap is then ignored.
+  const touched = useRef(0);
+  const press = (to: 'up' | 'down') => ({
+    onPointerDown: (e: ReactPointerEvent) => {
+      if (e.pointerType === 'mouse') return;
+      touched.current = Date.now();
+      requestAnimationFrame(() => go(to));
+    },
+    onClick: () => {
+      if (Date.now() - touched.current > 800) go(to);
+    },
+  });
+  return { ...ends, press };
 }
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
