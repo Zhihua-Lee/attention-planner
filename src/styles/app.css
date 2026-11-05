@@ -1082,6 +1082,34 @@ main {
   outline: 0;
   border-bottom-color: var(--accent);
 }
+/* ↑ ↓ beside an open task taller than the screen: held at the bottom of the screen, never past the task's end */
+.row-nav {
+  position: sticky;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  height: 0;
+  z-index: 4;
+}
+.row-nav > div {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.row-nav button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px #0000001f;
+  color: var(--muted);
+}
+.row-nav button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 .collapse {
   color: var(--muted);
   font-size: 13px;

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.64 — 2026-11-04
+
+- **New**: an open task taller than the screen shows ↑ and ↓ at the bottom right, to jump to the task's top or its end.
+
 ## 0.2.63 — 2026-10-27
 
 - **Fix**: "this browser will not store data" no longer shows after a passing storage hiccup. A lost IndexedDB

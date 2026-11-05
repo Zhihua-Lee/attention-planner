@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, type PanInfo } from 'motion/react';
-import { forwardRef, useRef, useState, type CSSProperties } from 'react';
+import { forwardRef, useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { addDays, dayOf } from '../model/dates';
 import { byArea, finishedTasks, listTasks, matches, nextOnly, openTasks, type Filter } from '../model/derive';
 import {
@@ -499,8 +499,12 @@ function Row({
     }, 380);
   };
 
+  const rowRef = useRef<HTMLDivElement>(null);
+  const ends = useEnds(rowRef, expanded);
+
   return (
     <motion.div
+      ref={rowRef}
       layout="position"
       className={`row${snoozed ? ' snoozed' : ''}${finished ? ' done' : ''}${completing ? ' completing' : ''}${indent ? ' linked' : ''}`}
       style={indent ? ({ '--depth': indent } as CSSProperties) : undefined}
@@ -675,8 +679,78 @@ function Row({
           </motion.div>
         )}
       </AnimatePresence>
+      {expanded && (ends.up || ends.down) && (
+        <div className="row-nav">
+          <div>
+            <button
+              aria-label={t('到任务开头', 'To the top of the task')}
+              title={t('到任务开头', 'To the top of the task')}
+              disabled={!ends.up}
+              onClick={() => ends.go('up')}
+            >
+              ↑
+            </button>
+            <button
+              aria-label={t('到任务末尾', 'To the end of the task')}
+              title={t('到任务末尾', 'To the end of the task')}
+              disabled={!ends.down}
+              onClick={() => ends.go('down')}
+            >
+              ↓
+            </button>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
+}
+
+/**
+ * For an open task taller than the screen: whether its top (under the sticky bar) or its end is out of sight, and a
+ * scroll to either.
+ */
+function useEnds(ref: RefObject<HTMLDivElement | null>, on: boolean) {
+  const [ends, setEnds] = useState({ up: false, down: false });
+  const bar = () => document.querySelector('.top')?.getBoundingClientRect().bottom ?? 0;
+  useEffect(() => {
+    const el = ref.current;
+    if (!on || !el) {
+      setEnds({ up: false, down: false });
+      return;
+    }
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const r = el.getBoundingClientRect();
+      const top = bar();
+      // Only while the task fills the screen; a task just coming into view needs no arrows yet.
+      const fills = r.top < innerHeight - 160 && r.bottom > top + 160;
+      const up = fills && r.top < top - 1;
+      const down = fills && r.bottom > innerHeight + 1;
+      setEnds((e) => (e.up === up && e.down === down ? e : { up, down }));
+    };
+    const soon = () => {
+      frame ||= requestAnimationFrame(measure);
+    };
+    measure();
+    const size = new ResizeObserver(soon);
+    size.observe(el);
+    addEventListener('scroll', soon, { passive: true });
+    addEventListener('resize', soon);
+    return () => {
+      cancelAnimationFrame(frame);
+      size.disconnect();
+      removeEventListener('scroll', soon);
+      removeEventListener('resize', soon);
+    };
+  }, [ref, on]);
+  const go = (to: 'up' | 'down') => {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    scrollBy({ top: to === 'up' ? r.top - bar() - 8 : r.bottom - innerHeight + 16, behavior });
+  };
+  return { ...ends, go };
 }
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
