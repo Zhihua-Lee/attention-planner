@@ -1,5 +1,6 @@
 import { AnimatePresence, motion, Reorder, useDragControls, type DragControls, type PanInfo } from 'motion/react';
 import { forwardRef, useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { addDays, dayOf } from '../model/dates';
 import { byArea, finishedTasks, listTasks, matches, nextOnly, openTasks, type Filter } from '../model/derive';
 import {
@@ -679,9 +680,10 @@ function Row({
           </motion.div>
         )}
       </AnimatePresence>
-      {expanded && (ends.up || ends.down) && (
-        <div className="row-nav">
-          <div>
+      {expanded &&
+        (ends.up || ends.down) &&
+        createPortal(
+          <div className="end-nav" style={{ left: ends.x }}>
             <button
               aria-label={t('到任务开头', 'To the top of the task')}
               title={t('到任务开头', 'To the top of the task')}
@@ -698,24 +700,24 @@ function Row({
             >
               ↓
             </button>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </motion.div>
   );
 }
 
 /**
- * For an open task taller than the screen: whether its top (under the sticky bar) or its end is out of sight, and a
- * scroll to either.
+ * For an open task taller than the screen: whether its top (under the sticky bar) or its end is out of sight, where the
+ * floating arrows go (beside the list where there is room, else at the screen's right edge), and a scroll to either.
  */
 function useEnds(ref: RefObject<HTMLDivElement | null>, on: boolean) {
-  const [ends, setEnds] = useState({ up: false, down: false });
+  const [ends, setEnds] = useState({ up: false, down: false, x: 0 });
   const bar = () => document.querySelector('.top')?.getBoundingClientRect().bottom ?? 0;
   useEffect(() => {
     const el = ref.current;
     if (!on || !el) {
-      setEnds({ up: false, down: false });
+      setEnds((e) => (e.up || e.down ? { ...e, up: false, down: false } : e));
       return;
     }
     let frame = 0;
@@ -727,7 +729,9 @@ function useEnds(ref: RefObject<HTMLDivElement | null>, on: boolean) {
       const fills = r.top < innerHeight - 160 && r.bottom > top + 160;
       const up = fills && r.top < top - 1;
       const down = fills && r.bottom > innerHeight + 1;
-      setEnds((e) => (e.up === up && e.down === down ? e : { up, down }));
+      const list = el.closest('.list')?.getBoundingClientRect() ?? r;
+      const x = Math.round(Math.min(list.right + 16, document.documentElement.clientWidth - 56));
+      setEnds((e) => (e.up === up && e.down === down && e.x === x ? e : { up, down, x }));
     };
     const soon = () => {
       frame ||= requestAnimationFrame(measure);

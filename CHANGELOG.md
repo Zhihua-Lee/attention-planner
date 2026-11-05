@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.65 — 2026-11-04
+
+- **Fix**: the ↑ ↓ of a long open task float beside the list (at the screen's right edge on a phone) and stay put while
+  you scroll, instead of sitting inside the task; tapping them no longer closes the task.
+
 ## 0.2.64 — 2026-11-04
 
 - **New**: an open task taller than the screen shows ↑ and ↓ at the bottom right, to jump to the task's top or its end.

@@ -1082,22 +1082,16 @@ main {
   outline: 0;
   border-bottom-color: var(--accent);
 }
-/* ↑ ↓ beside an open task taller than the screen: held at the bottom of the screen, never past the task's end */
-.row-nav {
-  position: sticky;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  height: 0;
-  z-index: 4;
-}
-.row-nav > div {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
+/* ↑ ↓ for an open task taller than the screen: floating beside the list (left is set from the list's right edge) */
+.end-nav {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
-.row-nav button {
+.end-nav button {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -1106,7 +1100,7 @@ main {
   box-shadow: 0 2px 8px #0000001f;
   color: var(--muted);
 }
-.row-nav button:hover:not(:disabled) {
+.end-nav button:hover:not(:disabled) {
   color: var(--accent);
   border-color: var(--accent);
 }

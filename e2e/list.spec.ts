@@ -464,10 +464,10 @@ test('a long step deadline on a row ends in "…" and leaves the title readable'
 
 test('an open task taller than the screen has arrows to its top and its end', async ({ page }) => {
   await start(page);
-  await page.setViewportSize({ width: 400, height: 1000 });
+  await page.setViewportSize({ width: 1200, height: 1000 });
   await add(page, '长任务');
   const detail = await openRow(page, '长任务');
-  const nav = page.locator('.row-nav');
+  const nav = page.locator('.end-nav');
   await page.waitForTimeout(400); // the detail has finished opening
   await expect(nav).toHaveCount(0);
   await detail.getByRole('button', { name: '编辑正文' }).click();
@@ -479,6 +479,12 @@ test('an open task taller than the screen has arrows to its top and its end', as
   const toTop = page.getByRole('button', { name: '到任务开头' });
   await expect(toEnd).toBeEnabled();
   await expect(toTop).toBeDisabled();
+  // Floating beside the list where there is room; at the screen's right edge where there is not.
+  const list = (await page.locator('.list').boundingBox())!;
+  expect((await toEnd.boundingBox())!.x).toBeGreaterThanOrEqual(list.x + list.width);
+  await page.setViewportSize({ width: 400, height: 1000 });
+  await expect(toEnd).toBeInViewport({ ratio: 1 });
+  await page.setViewportSize({ width: 1200, height: 1000 });
   await toEnd.click();
   await expect(detail.locator('.note-view p').last()).toBeInViewport();
   await expect(toEnd).toBeDisabled();
