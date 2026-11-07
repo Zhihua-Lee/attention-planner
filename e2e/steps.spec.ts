@@ -96,6 +96,8 @@ test('a step in a plain task can repeat on its own rule', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(detail.locator('.step-tag', { hasText: '每天' })).toBeVisible();
   await detail.getByRole('checkbox', { name: '看邮件' }).check();
+  // Checked, it says when it comes round instead of the rule.
+  await expect(detail.locator('.step-tag', { hasText: '↻' })).toHaveText('↻ 明天再开');
   await detail.getByRole('checkbox', { name: '一次性的事' }).check();
   await page.clock.setFixedTime(new Date(T0.getTime() + 864e5));
   await reloadSaved(page);

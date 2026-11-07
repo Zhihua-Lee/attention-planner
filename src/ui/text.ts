@@ -1,5 +1,5 @@
 import { useStore } from '../store/store';
-import { diffDays, isoWeekday } from '../model/dates';
+import { dayOf, diffDays, isoWeekday } from '../model/dates';
 import type { Reason } from '../model/derive';
 import type { Day, Part, PlanEntry, RepeatRule } from '../model/types';
 
@@ -30,6 +30,21 @@ export function relDay(day: Day, today: Day, lang: Lang): string {
   if (n === 2 && zh) return '后天';
   if (n > 0 && n < 7) return weekdayName(day, lang);
   return monthDay(day);
+}
+
+/** When a repeat comes round: 15:30 (later today) / 明天 / 周五 / 10/12. */
+export function atLabel(at: Date, now: Date, lang: Lang): string {
+  const day = dayOf(at);
+  if (day !== dayOf(now)) return relDay(day, dayOf(now), lang);
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+}
+
+/** A repeat that comes round at `at`: 周一再开 / again Mon; 10/12 开始 / starts 10/12 for one that has not begun. */
+export function againLabel(at: Date, now: Date, lang: Lang, first = false): string {
+  const when = atLabel(at, now, lang);
+  if (lang === 'zh') return first ? `${when}开始` : `${when}再开`;
+  const w = when === 'Today' || when === 'Tomorrow' ? when.toLowerCase() : when;
+  return first ? `starts ${w}` : `again ${w}`;
 }
 
 export function duration(min: number, lang: Lang): string {

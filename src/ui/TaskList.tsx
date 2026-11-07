@@ -30,6 +30,7 @@ import {
   liveTasks,
   planOf,
   setField,
+  taskNextOpen,
   taskRound,
   uncomplete,
   effectiveDue,
@@ -44,7 +45,7 @@ import { ProposalsBar } from './Proposals';
 import { FindTime, TaskDetail } from './TaskDetail';
 import { AreaPicker, DayOptions, EffortPicker, LinkPicker, PlanPicker, RepeatEditor } from './pickers';
 import { ContextMenu, leaveToBrowser, useLongPress, useMenu, type MenuItem } from './RightMenu';
-import { dueLabel, planLabel, useT } from './text';
+import { atLabel, dueLabel, planLabel, useT } from './text';
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
 
@@ -414,9 +415,11 @@ function Row({
   const { t, lang } = useT();
   const today = dayOf(now);
   const [completing, setCompleting] = useState(false);
-  const round = taskRound(task, now);
   const due = effectiveDue(task, now);
   const finished = isFinished(task, now);
+  // When a task that reopens next opens a round: beside its ↻ while it is to do, as "next round" once it is done.
+  const nextRound = taskNextOpen(task, now);
+  const opens = finished ? undefined : nextRound;
   const snoozed = isSnoozed(task, today);
   const proposed = proposalsFor(store.get().doc, task.id, now).length > 0;
   const next = planOf(task).filter((p) => p.day >= today);
@@ -614,8 +617,12 @@ function Row({
               </span>
             )}
             {task.repeat && (
-              <span className="rp" aria-hidden="true">
-                ↻
+              <span
+                className="rp"
+                aria-hidden={!opens}
+                aria-label={opens ? `${t('重复，下次', 'Repeats, next')} ${atLabel(opens, now, lang)}` : undefined}
+              >
+                ↻{opens ? ` ${atLabel(opens, now, lang)}` : ''}
               </span>
             )}
             {!indent && linkTarget && !linkTarget.deleted && <span className="lk">→ {linkTarget.title}</span>}
@@ -647,9 +654,9 @@ function Row({
                 {next.length > 1 && <span className="plus"> +{next.length - 1}</span>}
               </span>
             ) : null}
-            {finished && round?.nextAt && (
+            {finished && nextRound && (
               <span>
-                {t('下一轮', 'Next round')} {planLabel({ day: dayOf(round.nextAt) }, today, lang)}
+                {t('下一轮', 'Next round')} {planLabel({ day: dayOf(nextRound) }, today, lang)}
               </span>
             )}
             {due && !finished && (

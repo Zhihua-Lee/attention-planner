@@ -26,7 +26,7 @@ import {
 } from './doc';
 import { capacity, freeMinutes, listTasks, nowCandidates } from './derive';
 import { mergeDocs, purgeTombstones, stable } from './merge';
-import { addInterval, nextCopyDay, nextOccurrence, occursOn, roundOf } from './repeat';
+import { addInterval, nextCopyDay, nextOccurrence, nextOpen, occursOn, roundOf } from './repeat';
 import type { Doc, RepeatRule } from './types';
 
 // Tuesday 2026-09-29, 10:00 local
@@ -755,6 +755,30 @@ describe('a rule counted from completion', () => {
     const en = (_zh: string, e: string) => e;
     expect(ruleWords({ freq: 'weekly', every: 1, from_done: true, weekdays: [2] }, en)).toBe('1 week(s) after done');
     expect(ruleWords({ freq: 'weekly', every: 1, weekdays: [2] }, en)).toBe('every week Tue');
+  });
+});
+
+describe('when a repeat comes round next', () => {
+  const weekly: RepeatRule = { freq: 'weekly', every: 1, fromDone: false, weekdays: [2, 4], start: '2026-09-29' };
+  it('a calendar rule knows its next round while this one is open, and once it is done', () => {
+    const tue = at('2026-09-29');
+    expect(nextOpen(weekly, roundOf(weekly, undefined, tue))).toEqual(at('2026-10-01', '00:00'));
+    const done = { key: '2026-09-29', doneAt: tue.toISOString() };
+    expect(nextOpen(weekly, roundOf(weekly, done, tue))).toEqual(at('2026-10-01', '00:00'));
+  });
+  it('a rule counted from completion knows only once it is done', () => {
+    const rule: RepeatRule = { freq: 'daily', every: 3, fromDone: true, start: '2026-09-29' };
+    const tue = at('2026-09-29');
+    expect(nextOpen(rule, roundOf(rule, undefined, tue))).toBeUndefined();
+    const done = { key: 'start', doneAt: tue.toISOString() };
+    expect(nextOpen(rule, roundOf(rule, done, tue))).toEqual(at('2026-10-02'));
+  });
+  it('a rule not begun yet opens on its first round; a paused one says nothing', () => {
+    const later: RepeatRule = { ...weekly, start: '2026-10-05', time: '08:00' };
+    const now = at('2026-09-29');
+    expect(nextOpen(later, roundOf(later, undefined, now))).toEqual(at('2026-10-06', '08:00'));
+    const done = { key: '2026-09-29', doneAt: now.toISOString() };
+    expect(nextOpen(weekly, roundOf(weekly, done, now, true), true)).toBeUndefined();
   });
 });
 

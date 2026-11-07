@@ -13,6 +13,7 @@ import {
   removeTask,
   setField,
   taskEffort,
+  taskNextOpen,
   taskRound,
   toggleDay,
   uncomplete,
@@ -28,7 +29,7 @@ import { History } from './History';
 import { NewStep } from './NewStep';
 import { ProposalNotice } from './Proposals';
 import { StepList } from './StepList';
-import { duration, monthDay, planLabel, ruleLabel, useT } from './text';
+import { againLabel, duration, monthDay, planLabel, ruleLabel, useT } from './text';
 import { onNoteClick } from './localPaths';
 import { noteHtml } from './markdown';
 
@@ -56,6 +57,8 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
     commit((d, c) => setField(d, c, id, field, value));
   const plan = planOf(task);
   const round = taskRound(task, now);
+  const finished = isFinished(task, now);
+  const next = taskNextOpen(task, now);
   const done = plannedDone(task);
   const still = stillToReserve(task);
   // A subtask without an area of its own is in its parent's.
@@ -164,14 +167,14 @@ export function TaskDetail({ task, now }: { task: Task; now: Date }) {
         <span className="val col">
           <button className="pill" aria-expanded={showRepeat} onClick={() => setShowRepeat((v) => !v)}>
             {task.repeat
-              ? `${ruleLabel(task.repeat.rule, lang)} · ${task.repeat.mode === 'reopen' ? t('原地重开', 'reopens') : t('新建一份', 'new copy')}${task.repeat.paused ? ` · ${t('已暂停', 'paused')}` : ''}`
+              ? `${finished && next ? againLabel(next, now, lang) : ruleLabel(task.repeat.rule, lang)} · ${task.repeat.mode === 'reopen' ? t('原地重开', 'reopens') : t('新建一份', 'new copy')}${task.repeat.paused ? ` · ${t('已暂停', 'paused')}` : ''}`
               : t('不重复', 'None')}
           </button>
           {round && (
             <span className="muted">
               {t('本轮', 'This round')} {round.key.length === 10 ? monthDay(round.key) : monthDay(dayOf(round.opensAt))}{' '}
-              · {isFinished(task, now) ? t('已完成', 'done') : t('进行中', 'open')}
-              {round.nextAt ? ` · ${t('下次', 'next')} ${monthDay(dayOf(round.nextAt))}` : ''}
+              · {finished ? t('已完成', 'done') : t('进行中', 'open')}
+              {next && !finished ? ` · ${t('下次', 'next')} ${monthDay(dayOf(next))}` : ''}
             </span>
           )}
           {showRepeat && <RepeatEditor task={task} today={today} onChange={(r) => set('repeat', r)} />}

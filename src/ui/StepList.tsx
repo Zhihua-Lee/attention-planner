@@ -9,7 +9,9 @@ import {
   removeStep,
   reorderSteps,
   stepDone,
+  stepNextOpen,
   stepPlannedOn,
+  stepRound,
   stepsOf,
   toggleStep,
   toggleStepDay,
@@ -20,7 +22,7 @@ import { store, useStore } from '../store/store';
 import { AutoText, Popover, toast, usePopover } from './common';
 import { ContextMenu, leaveToBrowser, useLongPress, useMenu, type MenuItem } from './RightMenu';
 import { DayOptions, EffortPicker, StepRepeatEditor } from './pickers';
-import { dueLabel, duration, planLabel, ruleLabel, useT } from './text';
+import { againLabel, dueLabel, duration, planLabel, ruleLabel, useT } from './text';
 
 const commit = (fn: Parameters<typeof store.commit>[0]) => {
   try {
@@ -225,6 +227,9 @@ function StepRow({
   const checked = stepDone(task, step, now);
   const today = dayOf(now);
   const own = typeof step.repeat === 'object' ? step.repeat : undefined;
+  // A step on its own rule shows the rule while it is to do, and when it comes round once checked or not yet begun.
+  const ownRound = own ? stepRound(step, now) : null;
+  const opens = own && (checked || !ownRound) ? stepNextOpen(step, now) : undefined;
   const inToday = stepPlannedOn(task, step.id, today, now);
   const toggleToday = () => {
     commit((d, c) => toggleStepDay(d, c, task.id, step.id, today));
@@ -330,7 +335,7 @@ function StepRow({
             )}
             {step.due && tag('due', dueLabel(step.due, today, lang), step.due < today && !checked ? 'late' : '')}
             {step.effort ? tag('effort', duration(step.effort, lang)) : null}
-            {own ? tag('repeat', `↻ ${ruleLabel(own, lang)}`) : null}
+            {own ? tag('repeat', `↻ ${opens ? againLabel(opens, now, lang, !ownRound) : ruleLabel(own, lang)}`) : null}
             {step.repeat === 'none' && task.repeat?.mode === 'reopen' ? tag('repeat', t('不重复', 'No repeat')) : null}
           </span>
         )}

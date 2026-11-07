@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.69 — 2026-11-06
+
+- **New**: a repeat says when it comes round, not only after it has. In the list, the ↻ of a task that reopens shows
+  when its next round opens (“↻ 周一”); a round counted from completion shows it once done. A step on its own rule,
+  once checked, says “↻ 周一再开” (a time for later today) instead of the rule, and “↻ 11/10开始” before it begins; a
+  finished round's “Repeat” in the task says the same. The rule is still one tap away.
+- **Fix**: a paused task no longer shows a next round.
+
 ## 0.2.68 — 2026-11-04
 
 - **Fix**: on a phone, ↑ ↓ jump on the first tap even while the page is still gliding from a swipe. 0.2.67 acted on

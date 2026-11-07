@@ -116,6 +116,20 @@ export function roundOf(
   return { key: `t:${nextAt.toISOString()}`, opensAt: nextAt, done: false };
 }
 
+/**
+ * When a rule next opens a round, given its current round from `roundOf`: the first round before the rule starts,
+ * else the round after this one. Undefined while a round counted from completion is still open (its next one counts
+ * from the check), and when paused or ended.
+ */
+export function nextOpen(rule: RepeatRule, round: RoundState | null, paused = false): Date | undefined {
+  if (paused) return undefined;
+  if (round) return round.nextAt;
+  const time = rule.time ?? '00:00';
+  if (rule.fromDone) return toDate(rule.start, time);
+  const day = nextOccurrence(rule, rule.start, true);
+  return day ? toDate(day, time) : undefined;
+}
+
 /** The day the next copy of a "new copy" task is anchored to, or undefined when the series ends. */
 export function nextCopyDay(rule: RepeatRule, anchor: Day, completedAt: Date): Day | undefined {
   if (rule.count !== undefined && rule.count <= 1) return undefined;

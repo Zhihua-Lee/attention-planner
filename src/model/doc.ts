@@ -1,5 +1,5 @@
 import { addDays, dayOf, diffDays } from './dates';
-import { nextCopyDay, nextOccurrence, roundOf, type RoundState } from './repeat';
+import { nextCopyDay, nextOccurrence, nextOpen, roundOf, type RoundState } from './repeat';
 import {
   TASK_FIELDS,
   type Area,
@@ -110,6 +110,18 @@ export function stepRound(step: Step, now: Date): RoundState | null {
   if (!step.repeat || step.repeat === 'none') return null;
   const last = step.doneIn && step.doneAt ? { key: step.doneIn, doneAt: step.doneAt } : undefined;
   return roundOf(step.repeat, last, now);
+}
+
+/** When a task that reopens in place next opens a round (see `nextOpen`). */
+export function taskNextOpen(t: Task, now: Date): Date | undefined {
+  if (t.repeat?.mode !== 'reopen') return undefined;
+  return nextOpen(t.repeat.rule, taskRound(t, now), t.repeat.paused);
+}
+
+/** When a step with a rhythm of its own next opens a round (see `nextOpen`). */
+export function stepNextOpen(step: Step, now: Date): Date | undefined {
+  if (!step.repeat || step.repeat === 'none') return undefined;
+  return nextOpen(step.repeat, stepRound(step, now));
 }
 
 export function stepDone(t: Task, step: Step, now: Date): boolean {

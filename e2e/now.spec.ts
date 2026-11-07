@@ -256,8 +256,11 @@ test('a task that reopens finishes its round and comes back next time', async ({
   // Checking every step finishes nothing by itself unless Settings say so; the round is finished by hand.
   await detail.getByRole('button', { name: '完成本轮' }).click();
   await expect(detail.getByRole('button', { name: '重新打开本轮' })).toBeVisible();
+  // Once the round is done, the repeat says when it comes round rather than the rule.
+  await expect(detail.getByRole('button', { name: /后天再开 · 原地重开/ })).toBeVisible();
   await page.getByRole('button', { name: '收起' }).click();
   await expect(row(page, '1560 备课')).toContainText('下一轮 后天');
+  await expect(row(page, '1560 备课').locator('.rp')).toHaveText('↻');
   await page.clock.setFixedTime(new Date(T0.getTime() + 2 * 864e5)); // Thursday
   await reloadSaved(page);
   await toList(page);
@@ -272,8 +275,11 @@ test('a repeating task can be unchecked in the list; a new copy takes its copy b
   await start(page);
   await add(page, '每天 看邮件', '每周五交周报');
   const mail = row(page, '看邮件').getByRole('checkbox');
+  // While it is to do, the ↻ says when the next round opens; once done, "next round" says it.
+  await expect(row(page, '看邮件').locator('.rp')).toHaveText('↻ 明天');
   await mail.click();
   await expect(row(page, '看邮件')).toContainText('下一轮');
+  await expect(row(page, '看邮件').locator('.rp')).toHaveText('↻');
   await expect(mail).toHaveAttribute('aria-checked', 'true');
   await mail.click();
   await expect(mail).toHaveAttribute('aria-checked', 'false');
